@@ -1,0 +1,4 @@
+SERVER_ERROR = "予期せぬエラーが発生しました。"
+STORE_NOT_FOUND_ERROR = "店舗が存在しません。"
+VERIFY_ERROR = "認証に失敗しました。"
+WALLET_CONFLICT_ERROR = "すでにウォレットは作成されています。"

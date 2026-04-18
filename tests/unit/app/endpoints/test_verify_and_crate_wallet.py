@@ -1,0 +1,172 @@
+from datetime import datetime
+from unittest.mock import patch
+
+from fastapi import HTTPException
+import pytest
+from sqlalchemy.orm import Session
+
+from app.models.mysql.store_wallet import StoreWallet
+from app.models.mysql.store_wallet_nonce import StoreWalletNonce
+from app.models.responses.wallet_nonce_verify_response import StoreWalletVerifyResponse
+
+
+class TestVerifyAndCreateWallet:
+    """verify_and_create_wallet endpoint の unit test。"""
+
+    @patch("app.endpoints.store.StoreController.verify_and_create_wallet_nonce")
+    def test_verify_and_create_wallet_returns_wrapped_success(
+        self,
+        mock_verify_and_create_wallet_nonce,
+        client,
+    ) -> None:
+        """controller の success レスポンスを wrapper 付きで返すことを検証する。"""
+        mock_verify_and_create_wallet_nonce.return_value = StoreWalletVerifyResponse(
+            wallet_address="0xabcdef1234567890abcdef1234567890abcdef12",
+            chain_type="ethereum",
+            network_name="sepolia",
+            is_primary=True,
+            is_active=True,
+            verified_at="2026-04-13 12:00",
+        )
+
+        response = client.post(
+            "/store/10/wallet",
+            json={
+                "wallet_address": "0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
+                "signature": "signed-message",
+                "chain_type": "ethereum",
+                "network_name": "sepolia",
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "status": "success",
+            "data": {
+                "wallet_address": "0xabcdef1234567890abcdef1234567890abcdef12",
+                "chain_type": "ethereum",
+                "network_name": "sepolia",
+                "is_primary": True,
+                "is_active": True,
+                "verified_at": "2026-04-13 12:00",
+            },
+        }
+        mock_verify_and_create_wallet_nonce.assert_called_once()
+        assert mock_verify_and_create_wallet_nonce.call_args.kwargs["store_id"] == 10
+        request = mock_verify_and_create_wallet_nonce.call_args.kwargs["request"]
+        assert request.wallet_address == "0xABCDEF1234567890ABCDEF1234567890ABCDEF12"
+        assert request.signature == "signed-message"
+        assert request.chain_type == "ethereum"
+        assert request.network_name == "sepolia"
+
+    @patch("app.endpoints.store.StoreController.verify_and_create_wallet_nonce")
+    @pytest.mark.parametrize(
+        ("status_code", "message"),
+        [
+            (404, "store not found"),
+            (401, "verification failed"),
+            (409, "wallet already exists"),
+        ],
+    )
+    def test_verify_and_create_wallet_returns_http_exception_from_controller(
+        self,
+        mock_verify_and_create_wallet_nonce,
+        status_code,
+        message,
+        client,
+    ) -> None:
+        """controller の HTTPException をそのまま返すことを検証する。"""
+        mock_verify_and_create_wallet_nonce.side_effect = HTTPException(
+            status_code=status_code,
+            detail={
+                "status": "error",
+                "message": message,
+            },
+        )
+
+        response = client.post(
+            "/store/10/wallet",
+            json={
+                "wallet_address": "0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
+                "signature": "signed-message",
+                "chain_type": "ethereum",
+                "network_name": "sepolia",
+            },
+        )
+
+        assert response.status_code == status_code
+        assert response.json() == {
+            "detail": {
+                "status": "error",
+                "message": message,
+            }
+        }
+
+    @pytest.mark.usefixtures("insert_stores", "insert_store_wallets", "insert_store_wallet_nonces")
+    @patch("app.services.store_service.datetime")
+    @patch(
+        "app.services.store_service.StoreService._recover_address",
+        return_value="0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    )
+    def test_with_db(
+        self,
+        mock_recover_address,
+        mock_datetime,
+        client_with_db,
+        session: Session,
+    ) -> None:
+        """DB 連携で nonce 検証から wallet 作成、nonce 使用済み化まで行うことを検証する。"""
+        fixed_now = datetime(2026, 4, 13, 12, 0, 0)
+        mock_datetime.now.return_value = fixed_now
+
+        response = client_with_db.post(
+            "/store/101/wallet",
+            json={
+                "wallet_address": "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                "signature": "signed-message",
+                "chain_type": "ethereum",
+                "network_name": "sepolia",
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "status": "success",
+            "data": {
+                "wallet_address": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "chain_type": "ethereum",
+                "network_name": "sepolia",
+                "is_primary": True,
+                "is_active": True,
+                "verified_at": "2026-04-13 12:00",
+            },
+        }
+        mock_recover_address.assert_called_once()
+
+        created_wallet = (
+            session.query(StoreWallet)
+            .filter(
+                StoreWallet.store_id == 101,
+                StoreWallet.wallet_address == "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                StoreWallet.chain_type == "ethereum",
+                StoreWallet.network_name == "sepolia",
+            )
+            .one()
+        )
+        assert created_wallet.is_primary is True
+        assert created_wallet.is_active is True
+        assert created_wallet.verified_at == fixed_now
+
+        updated_nonce = (
+            session.query(StoreWalletNonce)
+            .filter(StoreWalletNonce.store_wallet_nonce_id == 2)
+            .one()
+        )
+        assert updated_nonce.used_at == fixed_now
+
+        existing_primary_wallet = (
+            session.query(StoreWallet)
+            .filter(StoreWallet.store_wallet_id == 201)
+            .one()
+        )
+        assert existing_primary_wallet.is_primary is False

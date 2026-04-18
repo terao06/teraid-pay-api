@@ -1,0 +1,3 @@
+INSERT INTO stores (store_id, name, email, created_at, updated_at, deleted_at) VALUES (101, 'Sample Store 1', 'store1@example.com', NOW(), NOW(), NULL);
+INSERT INTO stores (store_id, name, email, created_at, updated_at, deleted_at) VALUES (102, 'Sample Store 2', 'store2@example.com', NOW(), NOW(), NULL);
+INSERT INTO stores (store_id, name, email, created_at, updated_at, deleted_at) VALUES (103, 'Deleted Store', 'deleted-store@example.com', NOW(), NOW(), '2023-01-01 00:00:00');

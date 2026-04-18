@@ -1,0 +1,91 @@
+services:
+
+  teraid-pay-api-app:
+    image: teraid-pay-api-app:local
+    container_name: teraid-pay-api-app
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: ./docker/local/Dockerfile
+    command: >
+      sh -c "
+        uvicorn app.main:app --host 0.0.0.0 --port 8005 --reload --reload-dir app
+      "
+    volumes:
+      - .:/app
+    ports:
+      - 8005:8005
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app
+      - AWS_REGION=ap-northeast-1
+      - AWS_ACCESS_KEY_ID=dummy
+      - AWS_SECRET_ACCESS_KEY=dummy123
+      - SECRETS_MANAGER_ENDPOINT=http://localstack:4566
+      - SSM_ENDPOINT=http://localstack:4566
+    networks:
+      - teraid-pay-api-network
+    restart: unless-stopped
+
+  teraid-pay-api-db:
+    image: teraid-pay-api-db:local
+    container_name: teraid-pay-api-db
+    build:
+      context: .
+      dockerfile: ./local_setting/local_mysql/Dockerfile
+    command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    ports:
+      - 3306:3306
+    volumes:
+      - ./local_data/mysql:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpassword
+      - MYSQL_DATABASE=db_local
+      - MYSQL_USER=teraid_pay_admin_user
+      - MYSQL_PASSWORD=password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - teraid-pay-api-network
+  
+  teraid-pay-api-phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: teraid-pay-api-phpmyadmin
+    ports:
+      - "8014:80"
+    environment:
+      PMA_HOST: teraid-pay-api-db
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: rootpassword
+    networks:
+      - teraid-pay-api-network
+    depends_on:
+      teraid-pay-api-db:
+        condition: service_healthy
+    restart: always
+
+  localstack:
+    image: localstack/localstack:latest
+    container_name: teraid-pay-api-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=ssm,secretsmanager
+      - DEFAULT_REGION=ap-northeast-1
+      - LOG_LEVEL=WARNING
+      - LS_LOG=warning
+    volumes:
+      - ./local_data/localstack:/var/lib/localstack
+    networks:
+      - teraid-pay-api-network
+
+networks:
+  teraid-pay-api-network:
+    driver: bridge
+
+volumes:
+  minio_data:
