@@ -15,20 +15,20 @@ class StoreController:
     """店舗ウォレット一覧取得 API のリクエストを処理するコントローラーです。"""
 
     @transaction
-    def get_store_wallet_list(self, session: Session, store_id: int) -> list[StoreWalletResponse]:
-        """リクエスト条件に一致する店舗ウォレット一覧を取得します。
+    def get_store_wallet(self, session: Session, store_id: int) -> StoreWalletResponse | None:
+        """リクエスト条件に一致する店舗ウォレットを取得します。
 
         Args:
             session: SQLAlchemy のセッションです。
             request: 取得対象の店舗 ID を含むリクエストです。
 
         Returns:
-            store_wallet_response_list: 店舗ウォレットレスポンスの一覧です。
+            store_wallet_response: 店舗ウォレットレスポンスです。
         """
 
         try:
-            face_image_processing_service = StoreService()
-            return face_image_processing_service.get_store_wallet_list(
+            store_service = StoreService()
+            return store_service.get_store_wallet(
                 session=session,
                 store_id=store_id
             )
@@ -36,7 +36,7 @@ class StoreController:
             raise CustomHttpException.get_http_exception(
                 status_code=500,
                 message=SERVER_ERROR)
-    
+
     @transaction
     def create_wallet_nonce(
         self,
@@ -55,8 +55,8 @@ class StoreController:
             署名メッセージと nonce を含むレスポンス。
         """
         try:
-            face_image_processing_service = StoreService()
-            return face_image_processing_service.create_wallet_nonce(
+            store_service = StoreService()
+            return store_service.create_wallet_nonce(
                 session=session,
                 store_id=store_id,
                 wallet_address=request.wallet_address,
@@ -87,8 +87,8 @@ class StoreController:
             検証済みとして登録された店舗ウォレット情報。
         """
         try:
-            service = StoreService()
-            nonce_entity = service.verify_wallet_nonce(
+            store_service = StoreService()
+            nonce_entity = store_service.verify_wallet_nonce(
                 session=session,
                 store_id=store_id,
                 wallet_address=request.wallet_address,
@@ -96,7 +96,7 @@ class StoreController:
                 chain_type=request.chain_type,
                 network_name=request.network_name
             )
-            return service.create_store_wallet(
+            return store_service.create_store_wallet(
                 session=session,
                 store_id=store_id,
                 wallet_address=request.wallet_address,

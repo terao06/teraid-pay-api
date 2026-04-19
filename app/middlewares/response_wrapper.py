@@ -44,10 +44,9 @@ def response_rapper(data_key: str = "data"):
 
                 # 成功した場合のレスポンス
                 response = {
-                    "status": "success"
+                    "status": "success",
+                    data_key: result,
                 }
-                if result is not None:
-                    response[data_key] = result
                 return response
 
             except HTTPException as e:

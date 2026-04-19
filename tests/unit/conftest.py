@@ -1,6 +1,7 @@
 from collections.abc import Generator
 
 import pytest
+from sqlalchemy import text
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -8,8 +9,10 @@ from app.models.mysql.base_model import Base
 from tests.unit.test_data.mysql.build_local_db import (
     build_database_url,
     import_mysql_models,
+    insert_nonces as load_nonces,
+    insert_store_nonces as load_store_nonces,
     insert_stores as load_stores,
-    insert_store_wallet_nonces as load_store_wallet_nonces,
+    insert_wallets as load_wallets,
     insert_store_wallets as load_store_wallets,
 )
 
@@ -17,6 +20,10 @@ from tests.unit.test_data.mysql.build_local_db import (
 def engine():
     import_mysql_models()
     engine = create_engine(build_database_url(), echo=False, future=True)
+    with engine.begin() as connection:
+        connection.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
+        connection.execute(text("DROP TABLE IF EXISTS store_wallet_nonces"))
+        connection.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield engine
@@ -44,5 +51,15 @@ def insert_store_wallets(engine) -> str:
 
 
 @pytest.fixture()
-def insert_store_wallet_nonces(engine) -> str:
-    return load_store_wallet_nonces(engine)
+def insert_wallets(engine) -> str:
+    return load_wallets(engine)
+
+
+@pytest.fixture()
+def insert_nonces(engine) -> str:
+    return load_nonces(engine)
+
+
+@pytest.fixture()
+def insert_store_nonces(engine) -> str:
+    return load_store_nonces(engine)

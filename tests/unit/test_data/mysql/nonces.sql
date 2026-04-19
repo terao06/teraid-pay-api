@@ -1,6 +1,5 @@
-INSERT INTO store_wallet_nonces (
-    store_wallet_nonce_id,
-    store_id,
+INSERT INTO nonces (
+    nonce_id,
     wallet_address,
     chain_type,
     network_name,
@@ -11,7 +10,6 @@ INSERT INTO store_wallet_nonces (
     updated_at
 ) VALUES (
     1,
-    101,
     '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     'ethereum',
     'sepolia',
@@ -22,9 +20,8 @@ INSERT INTO store_wallet_nonces (
     '2026-04-13 11:00:00'
 );
 
-INSERT INTO store_wallet_nonces (
-    store_wallet_nonce_id,
-    store_id,
+INSERT INTO nonces (
+    nonce_id,
     wallet_address,
     chain_type,
     network_name,
@@ -35,7 +32,6 @@ INSERT INTO store_wallet_nonces (
     updated_at
 ) VALUES (
     2,
-    101,
     '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     'ethereum',
     'sepolia',
@@ -46,9 +42,8 @@ INSERT INTO store_wallet_nonces (
     '2026-04-13 11:05:00'
 );
 
-INSERT INTO store_wallet_nonces (
-    store_wallet_nonce_id,
-    store_id,
+INSERT INTO nonces (
+    nonce_id,
     wallet_address,
     chain_type,
     network_name,
@@ -59,7 +54,6 @@ INSERT INTO store_wallet_nonces (
     updated_at
 ) VALUES (
     3,
-    101,
     '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     'ethereum',
     'sepolia',
@@ -70,9 +64,8 @@ INSERT INTO store_wallet_nonces (
     '2026-04-13 11:55:00'
 );
 
-INSERT INTO store_wallet_nonces (
-    store_wallet_nonce_id,
-    store_id,
+INSERT INTO nonces (
+    nonce_id,
     wallet_address,
     chain_type,
     network_name,
@@ -83,7 +76,6 @@ INSERT INTO store_wallet_nonces (
     updated_at
 ) VALUES (
     4,
-    101,
     '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     'ethereum',
     'sepolia',
@@ -94,9 +86,8 @@ INSERT INTO store_wallet_nonces (
     '2026-04-13 10:59:00'
 );
 
-INSERT INTO store_wallet_nonces (
-    store_wallet_nonce_id,
-    store_id,
+INSERT INTO nonces (
+    nonce_id,
     wallet_address,
     chain_type,
     network_name,
@@ -107,7 +98,6 @@ INSERT INTO store_wallet_nonces (
     updated_at
 ) VALUES (
     5,
-    101,
     '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
     'ethereum',
     'sepolia',

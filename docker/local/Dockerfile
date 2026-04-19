@@ -15,10 +15,7 @@ ENV PYTHONUNBUFFERED=1 \
     POETRY_VIRTUALENVS_CREATE=false
 
 # 日本ミラーに変更してシステムパッケージのインストール
-RUN echo "deb http://ftp.jp.debian.org/debian bookworm main" > /etc/apt/sources.list && \
-    echo "deb http://ftp.jp.debian.org/debian bookworm-updates main" >> /etc/apt/sources.list && \
-    echo "deb http://security.debian.org/debian-security bookworm-security main" >> /etc/apt/sources.list && \
-    apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y \
     curl \
     netcat-traditional \
     build-essential \

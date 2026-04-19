@@ -5,8 +5,9 @@ from fastapi import HTTPException
 import pytest
 from sqlalchemy.orm import Session
 
+from app.models.mysql.nonce import Nonce
 from app.models.mysql.store_wallet import StoreWallet
-from app.models.mysql.store_wallet_nonce import StoreWalletNonce
+from app.models.mysql.wallet import Wallet
 from app.models.responses.wallet_nonce_verify_response import StoreWalletVerifyResponse
 
 
@@ -24,7 +25,6 @@ class TestVerifyAndCreateWallet:
             wallet_address="0xabcdef1234567890abcdef1234567890abcdef12",
             chain_type="ethereum",
             network_name="sepolia",
-            is_primary=True,
             is_active=True,
             verified_at="2026-04-13 12:00",
         )
@@ -46,7 +46,6 @@ class TestVerifyAndCreateWallet:
                 "wallet_address": "0xabcdef1234567890abcdef1234567890abcdef12",
                 "chain_type": "ethereum",
                 "network_name": "sepolia",
-                "is_primary": True,
                 "is_active": True,
                 "verified_at": "2026-04-13 12:00",
             },
@@ -102,7 +101,7 @@ class TestVerifyAndCreateWallet:
             }
         }
 
-    @pytest.mark.usefixtures("insert_stores", "insert_store_wallets", "insert_store_wallet_nonces")
+    @pytest.mark.usefixtures("insert_stores", "insert_wallets", "insert_store_wallets", "insert_nonces", "insert_store_nonces")
     @patch("app.services.store_service.datetime")
     @patch(
         "app.services.store_service.StoreService._recover_address",
@@ -136,7 +135,6 @@ class TestVerifyAndCreateWallet:
                 "wallet_address": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "chain_type": "ethereum",
                 "network_name": "sepolia",
-                "is_primary": True,
                 "is_active": True,
                 "verified_at": "2026-04-13 12:00",
             },
@@ -144,29 +142,29 @@ class TestVerifyAndCreateWallet:
         mock_recover_address.assert_called_once()
 
         created_wallet = (
-            session.query(StoreWallet)
+            session.query(Wallet)
+            .join(StoreWallet, Wallet.wallet_id == StoreWallet.wallet_id)
             .filter(
                 StoreWallet.store_id == 101,
-                StoreWallet.wallet_address == "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                StoreWallet.chain_type == "ethereum",
-                StoreWallet.network_name == "sepolia",
+                Wallet.wallet_address == "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                Wallet.chain_type == "ethereum",
+                Wallet.network_name == "sepolia",
             )
             .one()
         )
-        assert created_wallet.is_primary is True
         assert created_wallet.is_active is True
         assert created_wallet.verified_at == fixed_now
 
         updated_nonce = (
-            session.query(StoreWalletNonce)
-            .filter(StoreWalletNonce.store_wallet_nonce_id == 2)
+            session.query(Nonce)
+            .filter(Nonce.nonce_id == 2)
             .one()
         )
         assert updated_nonce.used_at == fixed_now
 
-        existing_primary_wallet = (
+        existing_store_wallet = (
             session.query(StoreWallet)
             .filter(StoreWallet.store_wallet_id == 201)
             .one()
         )
-        assert existing_primary_wallet.is_primary is False
+        assert existing_store_wallet.store_id == 101

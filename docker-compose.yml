@@ -35,7 +35,7 @@ services:
       dockerfile: ./local_setting/local_mysql/Dockerfile
     command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     ports:
-      - 3306:3306
+      - 3307:3306
     volumes:
       - ./local_data/mysql:/var/lib/mysql
     environment:
@@ -69,7 +69,7 @@ services:
     restart: always
 
   localstack:
-    image: localstack/localstack:latest
+    image: localstack/localstack:4.14.0
     container_name: teraid-pay-api-localstack
     ports:
       - "4566:4566"

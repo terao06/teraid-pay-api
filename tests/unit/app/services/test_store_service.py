@@ -1,4 +1,4 @@
-﻿from datetime import datetime, timedelta
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -26,56 +26,30 @@ class TestGetStoreWalletList:
         ("repository_result", "expected"),
         [
             (
-                [
-                    SimpleNamespace(
-                        store_wallet_id=1,
-                        store_id=10,
-                        wallet_address="wallet-address-1",
-                        chain_type="ETH",
-                        network_name="mainnet",
-                        is_active=True,
-                        verified_at=NOW,
-                        created_at=NOW,
-                        updated_at=NOW,
-                    ),
-                    SimpleNamespace(
-                        store_wallet_id=2,
-                        store_id=10,
-                        wallet_address="wallet-address-2",
-                        chain_type="MATIC",
-                        network_name="polygon",
-                        is_active=False,
-                        verified_at=NOW,
-                        created_at=NOW,
-                        updated_at=NOW,
-                    ),
-                ],
-                [
-                    StoreWalletResponse(
-                        store_wallet_id=1,
-                        store_id=10,
-                        wallet_address="wallet-address-1",
-                        chain_type="ETH",
-                        network_name="mainnet",
-                        is_active=True,
-                        verified_at=NOW.strftime("%Y-%m-%d %H:%M"),
-                        created_at=NOW.strftime("%Y-%m-%d %H:%M"),
-                        updated_at=NOW.strftime("%Y-%m-%d %H:%M"),
-                    ),
-                    StoreWalletResponse(
-                        store_wallet_id=2,
-                        store_id=10,
-                        wallet_address="wallet-address-2",
-                        chain_type="MATIC",
-                        network_name="polygon",
-                        is_active=False,
-                        verified_at=NOW.strftime("%Y-%m-%d %H:%M"),
-                        created_at=NOW.strftime("%Y-%m-%d %H:%M"),
-                        updated_at=NOW.strftime("%Y-%m-%d %H:%M"),
-                    ),
-                ],
+                SimpleNamespace(
+                    store_wallet_id=1,
+                    store_id=10,
+                    wallet_address="wallet-address-1",
+                    chain_type="ETH",
+                    network_name="mainnet",
+                    is_active=True,
+                    verified_at=NOW,
+                    created_at=NOW,
+                    updated_at=NOW,
+                ),
+                StoreWalletResponse(
+                    store_wallet_id=1,
+                    store_id=10,
+                    wallet_address="wallet-address-1",
+                    chain_type="ETH",
+                    network_name="mainnet",
+                    is_active=True,
+                    verified_at=NOW.strftime("%Y-%m-%d %H:%M"),
+                    created_at=NOW.strftime("%Y-%m-%d %H:%M"),
+                    updated_at=NOW.strftime("%Y-%m-%d %H:%M"),
+                ),
             ),
-            ([], []),
+            (None, None),
         ],
     )
     @patch("app.services.store_service.StoreRepository")
@@ -84,11 +58,11 @@ class TestGetStoreWalletList:
         session = Mock()
         store_id = 10
         mock_repository = mock_repository_class.return_value
-        mock_repository.get_store_wallet_list.return_value = repository_result
+        mock_repository.get_store_wallet.return_value = repository_result
 
-        result = StoreService().get_store_wallet_list(session=session, store_id=store_id)
+        result = StoreService().get_store_wallet(session=session, store_id=store_id)
 
-        mock_repository.get_store_wallet_list.assert_called_once_with(
+        mock_repository.get_store_wallet.assert_called_once_with(
             session=session,
             store_id=store_id,
         )
@@ -111,6 +85,7 @@ class TestCreateWalletNonce:
 
         mock_repository = mock_repository_class.return_value
         mock_repository.get_store_by_id.return_value = SimpleNamespace(store_id=store_id)
+        mock_repository.create_nonce.side_effect = lambda session, nonce: SimpleNamespace(nonce_id=123, nonce=nonce.nonce)
 
         with patch("app.services.store_service.datetime") as mock_datetime:
             mock_datetime.now.return_value = fixed_now
@@ -128,18 +103,23 @@ class TestCreateWalletNonce:
             store_id=store_id,
         )
         mock_token_urlsafe.assert_called_once_with(32)
-        mock_repository.create_store_wallet_nonce.assert_called_once()
+        mock_repository.create_nonce.assert_called_once()
+        mock_repository.create_store_nonce.assert_called_once()
 
-        called_kwargs = mock_repository.create_store_wallet_nonce.call_args.kwargs
-        assert called_kwargs["session"] is session
-
-        created_nonce = called_kwargs["store_wallet_nonce"]
-        assert created_nonce.store_id == store_id
+        nonce_kwargs = mock_repository.create_nonce.call_args.kwargs
+        assert nonce_kwargs["session"] is session
+        created_nonce = nonce_kwargs["nonce"]
         assert created_nonce.wallet_address == wallet_address.lower()
         assert created_nonce.chain_type == chain_type
         assert created_nonce.network_name == network_name
         assert created_nonce.nonce == "generated-nonce"
         assert created_nonce.expires_at == fixed_now + timedelta(minutes=10)
+
+        store_nonce_kwargs = mock_repository.create_store_nonce.call_args.kwargs
+        assert store_nonce_kwargs["session"] is session
+        created_store_nonce = store_nonce_kwargs["store_nonce"]
+        assert created_store_nonce.store_id == store_id
+        assert created_store_nonce.nonce_id == 123
         assert result == WalletNonceCreateResponse(
             message=WalletUtil.build_sign_message(
                 store_id=store_id,
@@ -177,7 +157,8 @@ class TestCreateWalletNonce:
             session=session,
             store_id=store_id,
         )
-        mock_repository.create_store_wallet_nonce.assert_not_called()
+        mock_repository.create_nonce.assert_not_called()
+        mock_repository.create_store_nonce.assert_not_called()
 
 
 class TestVerifyWalletNonce:
@@ -218,7 +199,6 @@ class TestVerifyWalletNonce:
             session=session,
             store_id=store_id,
         )
-        mock_repository.get_store_wallet_by_address.assert_not_called()
         mock_repository.get_latest_available_nonce.assert_called_once()
         latest_nonce_kwargs = mock_repository.get_latest_available_nonce.call_args.kwargs
         assert latest_nonce_kwargs["session"] is session
@@ -228,18 +208,12 @@ class TestVerifyWalletNonce:
         assert latest_nonce_kwargs["network_name"] == network_name
         assert isinstance(latest_nonce_kwargs["expires_at"], datetime)
 
-        expected_message = WalletUtil.build_sign_message(
-            store_id=store_id,
-            wallet_address=normalized_wallet_address,
-            chain_type=chain_type,
-            network_name=network_name,
-            nonce=nonce_entity.nonce,
-        )
         mock_recover_address.assert_called_once_with(
-            message=expected_message,
+            message=nonce_entity.nonce,
             signature=signature,
         )
-    
+        assert result == nonce_entity
+
     @pytest.mark.parametrize(
         (
             "store",
@@ -288,7 +262,6 @@ class TestVerifyWalletNonce:
         session = Mock()
         store_id = 10
         wallet_address = "0xABCDEF1234567890ABCDEF1234567890ABCDEF12"
-        normalized_wallet_address = wallet_address.lower()
         signature = "signed-message"
         chain_type = "ethereum"
         network_name = "sepolia"
@@ -314,12 +287,9 @@ class TestVerifyWalletNonce:
         )
 
         if store is None:
-            mock_repository.get_store_wallet_by_address.assert_not_called()
             mock_repository.get_latest_available_nonce.assert_not_called()
             mock_recover_address.assert_not_called()
             return
-
-        mock_repository.get_store_wallet_by_address.assert_not_called()
 
         mock_repository.get_latest_available_nonce.assert_called_once()
 
@@ -327,15 +297,8 @@ class TestVerifyWalletNonce:
             mock_recover_address.assert_not_called()
             return
 
-        expected_message = WalletUtil.build_sign_message(
-            store_id=store_id,
-            wallet_address=normalized_wallet_address,
-            chain_type=chain_type,
-            network_name=network_name,
-            nonce=nonce_entity.nonce,
-        )
         mock_recover_address.assert_called_once_with(
-            message=expected_message,
+            message=nonce_entity.nonce,
             signature=signature,
         )
 
@@ -356,7 +319,8 @@ class TestCreateStoreWallet:
         nonce_entity = SimpleNamespace(used_at=None)
 
         mock_repository = mock_repository_class.return_value
-        mock_repository.get_store_wallet_by_address.return_value = None
+        mock_repository.get_wallet_by_store_id.return_value = None
+        mock_repository.create_wallet.return_value = SimpleNamespace(wallet_id=77)
 
         with patch("app.services.store_service.datetime") as mock_datetime:
             mock_datetime.now.return_value = fixed_now
@@ -370,40 +334,39 @@ class TestCreateStoreWallet:
                 nonce_entity=nonce_entity,
             )
 
-        mock_repository.get_store_wallet_by_address.assert_called_once_with(
+        mock_repository.get_wallet_by_store_id.assert_called_once_with(
             session=session,
-            wallet_address=normalized_wallet_address,
+            store_id=store_id,
             chain_type=chain_type,
             network_name=network_name,
         )
-        mock_repository.unset_primary_wallets.assert_called_once_with(
-            session=session,
-            store_id=store_id,
-        )
-        mock_repository.create_store_wallet.assert_called_once()
 
-        create_wallet_kwargs = mock_repository.create_store_wallet.call_args.kwargs
+        mock_repository.create_wallet.assert_called_once()
+        create_wallet_kwargs = mock_repository.create_wallet.call_args.kwargs
         assert create_wallet_kwargs["session"] is session
-
-        created_wallet = create_wallet_kwargs["store_wallet"]
-        assert created_wallet.store_id == store_id
+        created_wallet = create_wallet_kwargs["wallet"]
         assert created_wallet.wallet_address == normalized_wallet_address
         assert created_wallet.chain_type == chain_type
         assert created_wallet.network_name == network_name
         assert created_wallet.verified_at == fixed_now
-        assert created_wallet.is_primary is True
         assert created_wallet.is_active is True
+
+        mock_repository.create_store_wallet.assert_called_once()
+        create_store_wallet_kwargs = mock_repository.create_store_wallet.call_args.kwargs
+        assert create_store_wallet_kwargs["session"] is session
+        created_store_wallet = create_store_wallet_kwargs["store_wallet"]
+        assert created_store_wallet.store_id == store_id
+        assert created_store_wallet.wallet_id == 77
 
         mock_repository.update_store_wallet_nonce.assert_called_once_with(
             session=session,
-            store_wallet_nonce=nonce_entity,
+            nonce=nonce_entity,
         )
         assert nonce_entity.used_at == fixed_now
         assert result == StoreWalletVerifyResponse(
             wallet_address=normalized_wallet_address,
             chain_type=chain_type,
             network_name=network_name,
-            is_primary=True,
             is_active=True,
             verified_at="2026-04-12 12:34",
         )
@@ -414,13 +377,12 @@ class TestCreateStoreWallet:
         session = Mock()
         store_id = 10
         wallet_address = "0xABCDEF1234567890ABCDEF1234567890ABCDEF12"
-        normalized_wallet_address = wallet_address.lower()
         chain_type = "ethereum"
         network_name = "sepolia"
         nonce_entity = SimpleNamespace(used_at=None)
 
         mock_repository = mock_repository_class.return_value
-        mock_repository.get_store_wallet_by_address.return_value = SimpleNamespace(store_wallet_id=99)
+        mock_repository.get_wallet_by_store_id.return_value = SimpleNamespace(wallet_id=99)
 
         with pytest.raises(WalletConflictException):
             StoreService().create_store_wallet(
@@ -432,13 +394,13 @@ class TestCreateStoreWallet:
                 nonce_entity=nonce_entity,
             )
 
-        mock_repository.get_store_wallet_by_address.assert_called_once_with(
+        mock_repository.get_wallet_by_store_id.assert_called_once_with(
             session=session,
-            wallet_address=normalized_wallet_address,
+            store_id=store_id,
             chain_type=chain_type,
             network_name=network_name,
         )
-        mock_repository.unset_primary_wallets.assert_not_called()
+        mock_repository.create_wallet.assert_not_called()
         mock_repository.create_store_wallet.assert_not_called()
         mock_repository.update_store_wallet_nonce.assert_not_called()
         assert nonce_entity.used_at is None

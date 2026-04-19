@@ -22,45 +22,43 @@ from app.models.requests.wallet_nonce_verify_request import StoreWalletVerifyReq
 from app.models.responses.wallet_nonce_verify_response import StoreWalletVerifyResponse
 
 
-class TestGetStoreWalletList:
+class TestGetStoreWallet:
     """StoreController の unit test。"""
 
     @patch("app.controllers.store_controller.StoreService")
-    def test_get_store_wallet_list(self, mock_service_class) -> None:
+    def test_get_store_wallet(self, mock_service_class) -> None:
         """サービスの戻り値をそのまま返し、引数を正しく引き渡すことを確認する。"""
 
         session = Mock()
         store_id = 10
-        expected = [
-            StoreWalletResponse(
-                store_wallet_id=1,
-                store_id=10,
-                wallet_address="wallet-address-1",
-                chain_type="ETH",
-                network_name="mainnet",
-                is_active=True,
-                verified_at="2026-04-12 12:00",
-                created_at="2026-04-12 12:00",
-                updated_at="2026-04-12 12:00",
-            )
-        ]
+        expected = StoreWalletResponse(
+            store_wallet_id=1,
+            store_id=10,
+            wallet_address="wallet-address-1",
+            chain_type="ETH",
+            network_name="mainnet",
+            is_active=True,
+            verified_at="2026-04-12 12:00",
+            created_at="2026-04-12 12:00",
+            updated_at="2026-04-12 12:00",
+        )
         mock_service = mock_service_class.return_value
-        mock_service.get_store_wallet_list.return_value = expected
+        mock_service.get_store_wallet.return_value = expected
 
-        result = StoreController.get_store_wallet_list.__wrapped__(
+        result = StoreController.get_store_wallet.__wrapped__(
             StoreController(),
             session=session,
             store_id=store_id,
         )
 
-        mock_service.get_store_wallet_list.assert_called_once_with(
+        mock_service.get_store_wallet.assert_called_once_with(
             session=session,
             store_id=store_id,
         )
         assert result == expected
 
     @patch("app.controllers.store_controller.StoreService")
-    def test_get_store_wallet_list_raise_http_exception_when_service_fails(
+    def test_get_store_wallet_raise_http_exception_when_service_fails(
         self,
         mock_service_class,
     ) -> None:
@@ -69,10 +67,10 @@ class TestGetStoreWalletList:
         session = Mock()
         store_id = 10
         mock_service = mock_service_class.return_value
-        mock_service.get_store_wallet_list.side_effect = Exception("unexpected error")
+        mock_service.get_store_wallet.side_effect = Exception("unexpected error")
 
         with pytest.raises(HTTPException) as exc_info:
-            StoreController.get_store_wallet_list.__wrapped__(
+            StoreController.get_store_wallet.__wrapped__(
                 StoreController(),
                 session=session,
                 store_id=store_id,
@@ -206,7 +204,6 @@ class TestVerifyAndCreateWalletNonce:
             wallet_address=request.wallet_address,
             chain_type=request.chain_type,
             network_name=request.network_name,
-            is_primary=True,
             is_active=True,
             verified_at="2026-04-12 12:10",
         )
