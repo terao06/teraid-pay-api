@@ -107,16 +107,8 @@ class StoreService:
             session=session,
             store_nonce=store_nonce
         )
-        message = WalletUtil.build_sign_message(
-            store_id=store_id,
-            wallet_address=wallet_address,
-            chain_type=chain_type,
-            network_name=network_name,
-            nonce=nonce_str,
-        )
 
         return WalletNonceCreateResponse(
-            message=message,
             nonce=nonce_str,
             expires_at=DateTimeUtil.change_datetime_to_string(expires_at)
         )

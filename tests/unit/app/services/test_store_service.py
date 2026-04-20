@@ -121,13 +121,6 @@ class TestCreateWalletNonce:
         assert created_store_nonce.store_id == store_id
         assert created_store_nonce.nonce_id == 123
         assert result == WalletNonceCreateResponse(
-            message=WalletUtil.build_sign_message(
-                store_id=store_id,
-                wallet_address=wallet_address,
-                chain_type=chain_type,
-                network_name=network_name,
-                nonce="generated-nonce",
-            ),
             nonce="generated-nonce",
             expires_at="2026-04-12 12:10",
         )

@@ -40,7 +40,6 @@ class TestCreateWalletNonce:
         assert response.json() == {
             "status": "success",
             "data": {
-                "message": "sign this message",
                 "nonce": "generated-nonce",
                 "expires_at": "2026-04-12 12:10",
             },
@@ -111,16 +110,6 @@ class TestCreateWalletNonce:
         assert response.json() == {
             "status": "success",
             "data": {
-                "message": (
-                    "Store wallet registration\n\n"
-                    "store_id: 101\n"
-                    "wallet_address: 0xABCDEF1234567890ABCDEF1234567890ABCDEF12\n"
-                    "chain_type: ethereum\n"
-                    "network_name: sepolia\n"
-                    "nonce: generated-nonce\n\n"
-                    "この署名は店舗ウォレット登録確認のためのものであり、"
-                    "ガス代はかかりません。"
-                ),
                 "nonce": "generated-nonce",
                 "expires_at": "2026-04-12 12:10",
             },
