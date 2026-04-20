@@ -3,10 +3,11 @@ import os
 import pkgutil
 import re
 import sys
+import time
 from pathlib import Path
 
 from sqlalchemy import create_engine, text
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
 
 ROOT_DIR = next(
@@ -53,7 +54,7 @@ def build_database_url() -> str:
     user = os.getenv("DB_USER", "teraid_pay_admin_user")
     password = os.getenv("DB_PASSWORD", "password")
     host = os.getenv("DB_HOST", "127.0.0.1")
-    port = os.getenv("DB_PORT", "3306")
+    port = os.getenv("DB_PORT", "3307")
     database = os.getenv("DB_NAME", "db_local")
     driver = detect_driver()
     return f"mysql+{driver}://{user}:{password}@{host}:{port}/{database}?charset=utf8mb4"
@@ -110,20 +111,51 @@ def insert_stores(engine) -> str:
     return _execute_sql_file(engine, "stores.sql")
 
 
+def insert_wallets(engine) -> str:
+    return _execute_sql_file(engine, "wallets.sql")
+
+
 def insert_store_wallets(engine) -> str:
     return _execute_sql_file(engine, "store_wallets.sql")
 
 
-def insert_store_wallet_nonces(engine) -> str:
-    return _execute_sql_file(engine, "store_wallet_nonces.sql")
+def insert_nonces(engine) -> str:
+    return _execute_sql_file(engine, "nonces.sql")
+
+
+def insert_store_nonces(engine) -> str:
+    return _execute_sql_file(engine, "store_nonces.sql")
 
 
 def insert_sample_data(engine) -> list[str]:
     return [
         insert_stores(engine),
+        insert_wallets(engine),
         insert_store_wallets(engine),
-        insert_store_wallet_nonces(engine),
+        insert_nonces(engine),
+        insert_store_nonces(engine),
     ]
+
+
+def wait_for_database(engine, retries: int = 30, delay_seconds: int = 2) -> None:
+    last_error = None
+
+    for attempt in range(1, retries + 1):
+        try:
+            with engine.connect() as connection:
+                connection.execute(text("SELECT 1"))
+            return
+        except OperationalError as exc:
+            last_error = exc
+            if attempt == retries:
+                break
+            print(
+                f"MySQL is not ready yet ({attempt}/{retries}). "
+                f"Retrying in {delay_seconds} seconds..."
+            )
+            time.sleep(delay_seconds)
+
+    raise SystemExit(f"Failed to connect to MySQL after {retries} attempts: {last_error}")
 
 
 def main() -> None:
@@ -133,8 +165,7 @@ def main() -> None:
     engine = create_engine(database_url, echo=False, future=True)
 
     try:
-        with engine.connect() as connection:
-            connection.execute(text("SELECT 1"))
+        wait_for_database(engine)
         Base.metadata.create_all(bind=engine)
         executed_files = insert_sample_data(engine)
     except SQLAlchemyError as exc:

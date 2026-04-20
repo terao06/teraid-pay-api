@@ -1,0 +1,355 @@
+openapi: 3.0.3
+info:
+  title: Teraid Pay API
+  version: 1.0.0
+  description: 店舗ウォレット API の Swagger 定義。
+servers:
+  - url: http://localhost:8005
+    description: ローカル開発環境
+
+tags:
+  - name: Store
+    description: 店舗ウォレット操作
+
+paths:
+  /store/{store_id}/wallet:
+    get:
+      tags:
+        - Store
+      summary: 店舗ウォレット取得
+      operationId: getStoreWallet
+      parameters:
+        - name: store_id
+          in: path
+          required: true
+          description: 店舗ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功レスポンス
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetStoreWalletResponse'
+              examples:
+                found:
+                  summary: ウォレットが見つかりました
+                  value:
+                    status: success
+                    data:
+                      store_wallet_id: 201
+                      store_id: 101
+                      wallet_address: 0x1111111111111111111111111111111111111111
+                      chain_type: ethereum
+                      network_name: mainnet
+                      is_active: true
+                      verified_at: '2024-01-10 12:00'
+                      created_at: '2024-01-01 09:00'
+                      updated_at: '2024-01-11 10:30'
+                notFoundAsNull:
+                  summary: ウォレットが存在しない場合（業務レスポンス）
+                  value:
+                    status: success
+                    data: null
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags:
+        - Store
+      summary: nonce を検証してウォレットを作成
+      operationId: verifyAndCreateWallet
+      parameters:
+        - name: store_id
+          in: path
+          required: true
+          description: 店舗ID
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreWalletVerifyRequest'
+            examples:
+              default:
+                value:
+                  wallet_address: 0xABCDEF1234567890ABCDEF1234567890ABCDEF12
+                  signature: signed-message
+                  chain_type: ethereum
+                  network_name: sepolia
+      responses:
+        '200':
+          description: nonce 検証・ウォレット作成に成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreWalletVerifyWrappedResponse'
+        '401':
+          description: 認証失敗
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 店舗が存在しない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: ウォレットがすでに存在する
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /store/{store_id}/wallet/nonce:
+    post:
+      tags:
+        - Store
+      summary: ウォレット nonce を作成
+      operationId: createWalletNonce
+      parameters:
+        - name: store_id
+          in: path
+          required: true
+          description: 店舗ID
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WalletNonceCreateRequest'
+            examples:
+              default:
+                value:
+                  wallet_address: 0xABCDEF1234567890ABCDEF1234567890ABCDEF12
+                  chain_type: ethereum
+                  network_name: sepolia
+      responses:
+        '200':
+          description: nonce の生成に成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletNonceCreateWrappedResponse'
+        '404':
+          description: 店舗が存在しない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    WalletNonceCreateRequest:
+      type: object
+      required:
+        - wallet_address
+      properties:
+        wallet_address:
+          type: string
+          minLength: 42
+          maxLength: 42
+          description: ウォレットアドレス
+        chain_type:
+          type: string
+          maxLength: 50
+          default: ethereum
+          description: ブロックチェーンの種別
+        network_name:
+          type: string
+          maxLength: 50
+          default: sepolia
+          description: ブロックチェーンのネットワーク名
+
+    StoreWalletVerifyRequest:
+      type: object
+      required:
+        - wallet_address
+        - signature
+        - chain_type
+        - network_name
+      properties:
+        wallet_address:
+          type: string
+          minLength: 42
+          maxLength: 42
+          description: ウォレットアドレス
+        signature:
+          type: string
+          minLength: 1
+          description: 署名
+        chain_type:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: ブロックチェーンの種別
+        network_name:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: ブロックチェーンのネットワーク名
+
+    StoreWallet:
+      type: object
+      required:
+        - store_wallet_id
+        - store_id
+        - wallet_address
+        - chain_type
+        - network_name
+        - is_active
+        - created_at
+        - updated_at
+      properties:
+        store_wallet_id:
+          type: integer
+          description: 店舗ウォレットID
+        store_id:
+          type: integer
+          description: 店舗ID
+        wallet_address:
+          type: string
+          description: ウォレットアドレス
+        chain_type:
+          type: string
+          description: ブロックチェーンの種別
+        network_name:
+          type: string
+          description: ブロックチェーンのネットワーク名
+        is_active:
+          type: boolean
+          description: ウォレットが有効かどうか
+        verified_at:
+          type: string
+          nullable: true
+          description: ウォレットが検証された日時
+        created_at:
+          type: string
+          description: ウォレットが作成された日時
+        updated_at:
+          type: string
+          description: ウォレットが最後に更新された日時
+
+    WalletNonceCreate:
+      type: object
+      required:
+        - message
+        - nonce
+        - expires_at
+      properties:
+        message:
+          type: string
+          description: 署名用メッセージ
+        nonce:
+          type: string
+          description: ワンタイムトークン（nonce）
+        expires_at:
+          type: string
+          description: nonce の有効期限日時
+
+    StoreWalletVerify:
+      type: object
+      required:
+        - wallet_address
+        - chain_type
+        - network_name
+        - is_active
+        - verified_at
+      properties:
+        wallet_address:
+          type: string
+          description: ウォレットアドレス
+        chain_type:
+          type: string
+          description: ブロックチェーンの種別
+        network_name:
+          type: string
+          description: ブロックチェーンのネットワーク名
+        is_active:
+          type: boolean
+          description: ウォレットが有効かどうか
+        verified_at:
+          type: string
+          description: ウォレットが検証された日時
+
+    GetStoreWalletResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          allOf:
+            - $ref: '#/components/schemas/StoreWallet'
+          nullable: true
+
+    WalletNonceCreateWrappedResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/WalletNonceCreate'
+
+    StoreWalletVerifyWrappedResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/StoreWalletVerify'
+
+    ErrorDetail:
+      type: object
+      required:
+        - status
+        - message
+      properties:
+        status:
+          type: string
+          enum: [error]
+        message:
+          type: string
+          description: エラーメッセージ
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          $ref: '#/components/schemas/ErrorDetail'

@@ -8,7 +8,7 @@ from app.models.requests.wallet_nonce_verify_request import StoreWalletVerifyReq
 
 store_router = APIRouter()
 
-@store_router.get("/{store_id}/wallets")
+@store_router.get("/{store_id}/wallet")
 @response_rapper()
 @request_rapper()
 def store_root(store_id: int):
@@ -20,7 +20,7 @@ def store_root(store_id: int):
     Returns:
         共通レスポンス形式で整形されるウォレット一覧。
     """
-    return StoreController().get_store_wallet_list(store_id=store_id)
+    return StoreController().get_store_wallet(store_id=store_id)
 
 
 @store_router.post("/{store_id}/wallet/nonce")

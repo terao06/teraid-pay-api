@@ -5,3 +5,4 @@ PyMySQL
 cryptography
 boto3
 eth-account
+httpx

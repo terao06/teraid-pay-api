@@ -5,7 +5,8 @@ from fastapi import HTTPException
 import pytest
 from sqlalchemy.orm import Session
 
-from app.models.mysql.store_wallet_nonce import StoreWalletNonce
+from app.models.mysql.nonce import Nonce
+from app.models.mysql.store_nonce import StoreNonce
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.services.store_service import JST
 
@@ -39,7 +40,6 @@ class TestCreateWalletNonce:
         assert response.json() == {
             "status": "success",
             "data": {
-                "message": "sign this message",
                 "nonce": "generated-nonce",
                 "expires_at": "2026-04-12 12:10",
             },
@@ -110,25 +110,15 @@ class TestCreateWalletNonce:
         assert response.json() == {
             "status": "success",
             "data": {
-                "message": (
-                    "Store wallet registration\n\n"
-                    "store_id: 101\n"
-                    "wallet_address: 0xABCDEF1234567890ABCDEF1234567890ABCDEF12\n"
-                    "chain_type: ethereum\n"
-                    "network_name: sepolia\n"
-                    "nonce: generated-nonce\n\n"
-                    "この署名は店舗ウォレット登録確認のためのものであり、"
-                    "ガス代はかかりません。"
-                ),
                 "nonce": "generated-nonce",
                 "expires_at": "2026-04-12 12:10",
             },
         }
         mock_token_urlsafe.assert_called_once_with(32)
 
-        saved_nonce = session.query(StoreWalletNonce).one()
+        saved_nonce = session.query(Nonce).one()
+        saved_store_nonce = session.query(StoreNonce).one()
 
-        assert saved_nonce.store_id == 101
         assert saved_nonce.wallet_address == "0xabcdef1234567890abcdef1234567890abcdef12"
         assert saved_nonce.chain_type == "ethereum"
         assert saved_nonce.network_name == "sepolia"
@@ -136,3 +126,5 @@ class TestCreateWalletNonce:
         expected_expires_at = (fixed_now + timedelta(minutes=10)).replace(tzinfo=None)
         assert saved_nonce.expires_at == expected_expires_at
         assert saved_nonce.used_at is None
+        assert saved_store_nonce.store_id == 101
+        assert saved_store_nonce.nonce_id == saved_nonce.nonce_id

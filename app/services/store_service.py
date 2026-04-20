@@ -10,8 +10,10 @@ from app.core.exceptions.custom_exception import (
 )
 from app.core.utils.datetime import DateTimeUtil
 from app.core.utils.wallet import WalletUtil
+from app.models.mysql.nonce import Nonce
 from app.models.mysql.store_wallet import StoreWallet
-from app.models.mysql.store_wallet_nonce import StoreWalletNonce
+from app.models.mysql.store_nonce import StoreNonce
+from app.models.mysql.wallet import Wallet
 from app.models.responses.store_wallet_response import StoreWalletResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import StoreWalletVerifyResponse
@@ -26,37 +28,35 @@ JST = timezone(timedelta(hours=9))
 class StoreService:
     """店舗ウォレット関連処理を担当するサービス。"""
 
-    def get_store_wallet_list(self, session: Session, store_id: int) -> list[StoreWalletResponse]:
-        """店舗 ID に紐づくウォレット一覧を取得する。
+    def get_store_wallet(self, session: Session, store_id: int) -> StoreWalletResponse | None:
+        """店舗 ID に紐づくウォレット情報を取得する。
 
         Args:
             session: SQLAlchemy のセッション。
             store_id: 対象店舗の ID。
 
         Returns:
-            店舗ウォレットのレスポンス一覧。
+            店舗ウォレットのレスポンス。存在しない場合は None。
         """
-        store_wallets = StoreRepository().get_store_wallet_list(
+        store_wallet = StoreRepository().get_store_wallet(
             session=session,
             store_id=store_id
         )
 
-        store_wallet_response_list = []
-        for store_wallet in store_wallets:
-            store_wallet_response_list.append(
-                StoreWalletResponse(
-                    store_wallet_id=store_wallet.store_wallet_id,
-                    store_id=store_wallet.store_id,
-                    wallet_address=store_wallet.wallet_address,
-                    chain_type=store_wallet.chain_type,
-                    network_name=store_wallet.network_name,
-                    is_active=store_wallet.is_active,
-                    verified_at=DateTimeUtil.change_datetime_to_string(store_wallet.verified_at),
-                    created_at=DateTimeUtil.change_datetime_to_string(store_wallet.created_at),
-                    updated_at=DateTimeUtil.change_datetime_to_string(store_wallet.updated_at)
-                )
-            )
-        return store_wallet_response_list
+        if store_wallet is None:
+            return None
+
+        return StoreWalletResponse(
+            store_wallet_id=store_wallet.store_wallet_id,
+            store_id=store_wallet.store_id,
+            wallet_address=store_wallet.wallet_address,
+            chain_type=store_wallet.chain_type,
+            network_name=store_wallet.network_name,
+            is_active=store_wallet.is_active,
+            verified_at=DateTimeUtil.change_datetime_to_string(store_wallet.verified_at),
+            created_at=DateTimeUtil.change_datetime_to_string(store_wallet.created_at),
+            updated_at=DateTimeUtil.change_datetime_to_string(store_wallet.updated_at)
+        )
 
     def create_wallet_nonce(
         self,
@@ -88,33 +88,31 @@ class StoreService:
         normalized_wallet_address = WalletUtil.normalize_wallet_address(wallet_address)
         now = datetime.now(JST)
         expires_at = now + timedelta(minutes=10)
-        nonce = secrets.token_urlsafe(32)
-        store_wallet_nonce = StoreWalletNonce(
-            store_id=store_id,
+        nonce_str = secrets.token_urlsafe(32)
+        nonce = Nonce(
             wallet_address=normalized_wallet_address,
             chain_type=chain_type,
             network_name=network_name,
-            nonce=nonce,
+            nonce=nonce_str,
             expires_at=expires_at,
         )
-        StoreRepository().create_store_wallet_nonce(
-            session=session,
-            store_wallet_nonce=store_wallet_nonce
-        )
-        message = WalletUtil.build_sign_message(
+        store_repository = StoreRepository()
+        saved_nonce = store_repository.create_nonce(session=session, nonce=nonce)
+        
+        store_nonce = StoreNonce(
             store_id=store_id,
-            wallet_address=wallet_address,
-            chain_type=chain_type,
-            network_name=network_name,
-            nonce=nonce,
+            nonce_id=saved_nonce.nonce_id
+        )
+        StoreRepository().create_store_nonce(
+            session=session,
+            store_nonce=store_nonce
         )
 
         return WalletNonceCreateResponse(
-            message=message,
-            nonce=nonce,
+            nonce=nonce_str,
             expires_at=DateTimeUtil.change_datetime_to_string(expires_at)
         )
-    
+
     def verify_wallet_nonce(
         self,
         session: Session,
@@ -122,7 +120,7 @@ class StoreService:
         wallet_address: str,
         signature: str,
         chain_type: str,
-        network_name: str) -> StoreWalletNonce:
+        network_name: str) -> Nonce:
         """署名済み nonce を検証し、利用可能な nonce エンティティを返す。
         Args:
             session: SQLAlchemy のセッション。
@@ -132,7 +130,7 @@ class StoreService:
             chain_type: チェーン種別。
             network_name: ネットワーク名。
         Returns:
-            検証に成功した未使用の StoreWalletNonce。
+            検証に成功した未使用の Nonce。
         """
         normalized_wallet_address = WalletUtil.normalize_wallet_address(wallet_address)
         repository = StoreRepository()
@@ -154,16 +152,8 @@ class StoreService:
                 '有効なnonceが見つかりません。',
             )
 
-        sign_message = WalletUtil.build_sign_message(
-            store_id=store_id,
-            wallet_address=normalized_wallet_address,
-            chain_type=chain_type,
-            network_name=network_name,
-            nonce=nonce_entity.nonce,
-        )
-
         recovered_address = self._recover_address(
-            message=sign_message,
+            message=nonce_entity.nonce,
             signature=signature,
         )
 
@@ -178,7 +168,7 @@ class StoreService:
         wallet_address: str,
         chain_type: str,
         network_name: str,
-        nonce_entity: StoreWalletNonce) -> StoreWalletVerifyResponse:
+        nonce_entity: Nonce) -> StoreWalletVerifyResponse:
         """店舗ウォレットを登録する。
 
         Args:
@@ -196,40 +186,45 @@ class StoreService:
         repository = StoreRepository()
         normalized_wallet_address = WalletUtil.normalize_wallet_address(wallet_address)
 
-        existing_wallet = repository.get_store_wallet_by_address(
+        existing_wallet = repository.get_wallet_by_store_id(
             session=session,
-            wallet_address=normalized_wallet_address,
+            store_id=store_id,
             chain_type=chain_type,
             network_name=network_name,
         )
         if existing_wallet is not None:
             raise WalletConflictException(
-                f"このウォレットはすでに登録されています。wallet_id={existing_wallet.store_wallet_id}")
+                f"この店舗にはすでにウォレットが登録されています。wallet_id={existing_wallet.wallet_id}")
 
-        repository.unset_primary_wallets(session=session, store_id=store_id)
-        new_wallet = StoreWallet(
-            store_id=store_id,
+        new_wallet = Wallet(
             wallet_address=normalized_wallet_address,
             chain_type=chain_type,
             network_name=network_name,
             verified_at=datetime.now(),
-            is_primary=True,
             is_active=True,
+        )
+        saved_wallet = repository.create_wallet(
+            session=session,
+            wallet=new_wallet
+        )
+
+        new_store_wallet = StoreWallet(
+            store_id=store_id,
+            wallet_id=saved_wallet.wallet_id
         )
         repository.create_store_wallet(
             session=session,
-            store_wallet=new_wallet)
-        
+            store_wallet=new_store_wallet)
+
         nonce_entity.used_at = datetime.now()
         repository.update_store_wallet_nonce(
             session=session,
-            store_wallet_nonce=nonce_entity
+            nonce=nonce_entity
         )
         return StoreWalletVerifyResponse(
             wallet_address=new_wallet.wallet_address,
             chain_type=new_wallet.chain_type,
             network_name=new_wallet.network_name,
-            is_primary=bool(new_wallet.is_primary),
             is_active=bool(new_wallet.is_active),
             verified_at=DateTimeUtil.change_datetime_to_string(
                 new_wallet.verified_at
