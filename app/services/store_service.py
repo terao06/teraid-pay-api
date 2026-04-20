@@ -217,7 +217,7 @@ class StoreService:
             store_wallet=new_store_wallet)
 
         nonce_entity.used_at = datetime.now()
-        repository.update_store_wallet_nonce(
+        repository.update_nonce(
             session=session,
             nonce=nonce_entity
         )

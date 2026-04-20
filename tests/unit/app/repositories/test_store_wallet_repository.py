@@ -184,6 +184,9 @@ class TestCreateStoreNonce:
         assert saved_store_nonce.store_nonce_id is not None
         assert saved_store_nonce.store_id == 101
         assert saved_store_nonce.nonce_id == saved_nonce.nonce_id
+        assert saved_store_nonce.created_at is not None
+        assert saved_store_nonce.updated_at is not None
+        assert saved_store_nonce.deleted_at is None
 
 
 @pytest.mark.usefixtures("insert_stores", "insert_wallets", "insert_store_wallets")
@@ -294,7 +297,7 @@ class TestGetLatestAvailableNonce:
 
 @pytest.mark.usefixtures("insert_stores", "insert_nonces", "insert_store_nonces")
 class TestUpdateStoreWalletNonce:
-    def test_update_store_wallet_nonce(
+    def test_update_nonce(
         self,
         session: Session,
     ) -> None:
@@ -307,7 +310,7 @@ class TestUpdateStoreWalletNonce:
         used_at = datetime(2026, 4, 13, 11, 30, 0)
 
         nonce.used_at = used_at
-        repository.update_store_wallet_nonce(session, nonce)
+        repository.update_nonce(session, nonce)
         session.flush()
         session.expire_all()
 

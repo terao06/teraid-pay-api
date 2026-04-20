@@ -128,3 +128,6 @@ class TestCreateWalletNonce:
         assert saved_nonce.used_at is None
         assert saved_store_nonce.store_id == 101
         assert saved_store_nonce.nonce_id == saved_nonce.nonce_id
+        assert saved_store_nonce.created_at is not None
+        assert saved_store_nonce.updated_at is not None
+        assert saved_store_nonce.deleted_at is None

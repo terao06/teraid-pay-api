@@ -159,6 +159,7 @@ class StoreRepository:
             session.query(Nonce)
             .join(StoreNonce, StoreNonce.nonce_id == Nonce.nonce_id)
             .where(StoreNonce.store_id == store_id)
+            .where(StoreNonce.deleted_at.is_(None))
             .where(Nonce.wallet_address == wallet_address)
             .where(Nonce.chain_type == chain_type)
             .where(Nonce.network_name == network_name)
@@ -195,7 +196,7 @@ class StoreRepository:
         session.flush()
         return store_wallet
 
-    def update_store_wallet_nonce(self, session: Session, nonce: Nonce) -> None:
+    def update_nonce(self, session: Session, nonce: Nonce) -> None:
         """更新済み nonce を保存対象としてセッションへ追加する。
 
         Args:

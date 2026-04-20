@@ -9,8 +9,6 @@ from app.core.exceptions.custom_exception import (
     UnauthorizedException,
     WalletConflictException,
 )
-from app.core.utils.wallet import WalletUtil
-from app.models.responses.store_wallet_response import StoreWalletResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import StoreWalletVerifyResponse
 from app.services.store_service import JST, StoreService
@@ -301,7 +299,7 @@ class TestCreateStoreWallet:
         assert created_store_wallet.store_id == store_id
         assert created_store_wallet.wallet_id == 77
 
-        mock_repository.update_store_wallet_nonce.assert_called_once_with(
+        mock_repository.update_nonce.assert_called_once_with(
             session=session,
             nonce=nonce_entity,
         )
@@ -345,7 +343,7 @@ class TestCreateStoreWallet:
         )
         mock_repository.create_wallet.assert_not_called()
         mock_repository.create_store_wallet.assert_not_called()
-        mock_repository.update_store_wallet_nonce.assert_not_called()
+        mock_repository.update_nonce.assert_not_called()
         assert nonce_entity.used_at is None
 
 
