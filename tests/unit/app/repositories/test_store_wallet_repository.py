@@ -7,6 +7,7 @@ from app.models.mysql.nonce import Nonce
 from app.models.mysql.store_nonce import StoreNonce
 from app.models.mysql.store_wallet import StoreWallet
 from app.models.mysql.wallet import Wallet
+from app.repositories.nonce_repository import NonceRepository
 from app.repositories.store_repository import StoreRepository
 
 
@@ -129,32 +130,6 @@ class TestGetWalletByStoreId:
         assert result.network_name == network_name
 
 
-class TestCreateNonce:
-    def test_create_nonce(
-        self,
-        session: Session,
-    ) -> None:
-        repository = StoreRepository()
-        nonce = Nonce(
-            wallet_address="0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            chain_type="ethereum",
-            network_name="sepolia",
-            nonce="test-store-wallet-nonce",
-            expires_at=datetime(2026, 4, 13, 12, 0, 0),
-        )
-
-        saved_nonce = repository.create_nonce(session, nonce)
-        session.flush()
-
-        assert saved_nonce.nonce_id is not None
-        assert saved_nonce.wallet_address == "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-        assert saved_nonce.chain_type == "ethereum"
-        assert saved_nonce.network_name == "sepolia"
-        assert saved_nonce.nonce == "test-store-wallet-nonce"
-        assert saved_nonce.expires_at == datetime(2026, 4, 13, 12, 0, 0)
-        assert saved_nonce.used_at is None
-
-
 @pytest.mark.usefixtures("insert_stores")
 class TestCreateStoreNonce:
     def test_create_store_nonce(
@@ -169,7 +144,7 @@ class TestCreateStoreNonce:
             nonce="test-store-wallet-nonce",
             expires_at=datetime(2026, 4, 13, 12, 0, 0),
         )
-        saved_nonce = repository.create_nonce(session, nonce)
+        saved_nonce = NonceRepository().create_nonce(session, nonce)
 
         store_nonce = StoreNonce(store_id=101, nonce_id=saved_nonce.nonce_id)
         repository.create_store_nonce(session, store_nonce)
@@ -187,32 +162,6 @@ class TestCreateStoreNonce:
         assert saved_store_nonce.created_at is not None
         assert saved_store_nonce.updated_at is not None
         assert saved_store_nonce.deleted_at is None
-
-
-@pytest.mark.usefixtures("insert_stores", "insert_wallets", "insert_store_wallets")
-class TestCreateWallet:
-    def test_create_wallet(
-        self,
-        session: Session,
-    ) -> None:
-        repository = StoreRepository()
-        wallet = Wallet(
-            wallet_address="0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            chain_type="ethereum",
-            network_name="sepolia",
-            is_active=True,
-            verified_at=datetime(2026, 4, 13, 12, 0, 0),
-        )
-
-        saved_wallet = repository.create_wallet(session, wallet)
-        session.flush()
-
-        assert saved_wallet.wallet_id is not None
-        assert saved_wallet.wallet_address == "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-        assert saved_wallet.chain_type == "ethereum"
-        assert saved_wallet.network_name == "sepolia"
-        assert saved_wallet.is_active is True
-        assert saved_wallet.verified_at == datetime(2026, 4, 13, 12, 0, 0)
 
 
 @pytest.mark.usefixtures("insert_stores", "insert_wallets", "insert_store_wallets")
@@ -293,33 +242,3 @@ class TestGetLatestAvailableNonce:
         )
 
         assert result is None
-
-
-@pytest.mark.usefixtures("insert_stores", "insert_nonces", "insert_store_nonces")
-class TestUpdateStoreWalletNonce:
-    def test_update_nonce(
-        self,
-        session: Session,
-    ) -> None:
-        repository = StoreRepository()
-        nonce = (
-            session.query(Nonce)
-            .filter(Nonce.nonce_id == 2)
-            .one()
-        )
-        used_at = datetime(2026, 4, 13, 11, 30, 0)
-
-        nonce.used_at = used_at
-        repository.update_nonce(session, nonce)
-        session.flush()
-        session.expire_all()
-
-        saved_nonce = (
-            session.query(Nonce)
-            .filter(Nonce.nonce_id == 2)
-            .one()
-        )
-
-        assert saved_nonce.nonce_id == 2
-        assert saved_nonce.nonce == "available-latest"
-        assert saved_nonce.used_at == used_at

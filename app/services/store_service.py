@@ -1,7 +1,9 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import secrets
 
 from sqlalchemy.orm import Session
+from eth_account import Account
+from eth_account.messages import encode_defunct
 
 from app.core.exceptions.custom_exception import (
     StoreNotFoundException,
@@ -17,12 +19,10 @@ from app.models.mysql.wallet import Wallet
 from app.models.responses.store_wallet_response import StoreWalletResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import StoreWalletVerifyResponse
+from app.repositories.nonce_repository import NonceRepository
 from app.repositories.store_repository import StoreRepository
-from eth_account import Account
-from eth_account.messages import encode_defunct
-
-
-JST = timezone(timedelta(hours=9))
+from app.core.utils.datetime import JST
+from app.repositories.wallet_repository import WalletRepository
 
 
 class StoreService:
@@ -96,8 +96,7 @@ class StoreService:
             nonce=nonce_str,
             expires_at=expires_at,
         )
-        store_repository = StoreRepository()
-        saved_nonce = store_repository.create_nonce(session=session, nonce=nonce)
+        saved_nonce = NonceRepository().create_nonce(session=session, nonce=nonce)
         
         store_nonce = StoreNonce(
             store_id=store_id,
@@ -203,7 +202,7 @@ class StoreService:
             verified_at=datetime.now(),
             is_active=True,
         )
-        saved_wallet = repository.create_wallet(
+        saved_wallet = WalletRepository().create_wallet(
             session=session,
             wallet=new_wallet
         )
@@ -217,10 +216,15 @@ class StoreService:
             store_wallet=new_store_wallet)
 
         nonce_entity.used_at = datetime.now()
-        repository.update_nonce(
+        NonceRepository().update_nonce(
             session=session,
             nonce=nonce_entity
         )
+        repository.delete_store_nonce_by_nonce_id(
+            session=session,
+            nonce_id=nonce_entity.nonce_id
+        )
+
         return StoreWalletVerifyResponse(
             wallet_address=new_wallet.wallet_address,
             chain_type=new_wallet.chain_type,

@@ -1,5 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
+
+JST = timezone(timedelta(hours=9))
 
 class DateTimeUtil:
     @staticmethod

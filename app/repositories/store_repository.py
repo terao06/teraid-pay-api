@@ -8,6 +8,7 @@ from app.models.mysql.store_wallet import StoreWallet
 from app.models.mysql.store_nonce import StoreNonce
 from app.models.dtos.store_wallet_dto import StoreWalletDto
 from app.models.mysql.nonce import Nonce
+from app.core.utils.datetime import JST
 
 
 class StoreRepository:
@@ -79,21 +80,21 @@ class StoreRepository:
             Store.store_id == store_id,
             Store.deleted_at.is_(None)
         ).one_or_none()
-    
-    def create_nonce(self, session: Session, nonce: Nonce) -> Nonce:
-        """nonceを作成する。
 
-        Args:
-            session: SQLAlchemy のセッション。
-            store_id: 対象店舗の ID。
+    #def create_nonce(self, session: Session, nonce: Nonce) -> Nonce:
+    #    """nonceを作成する。
+#
+    #    Args:
+    #        session: SQLAlchemy のセッション。
+    #        store_id: 対象店舗の ID。
+#
+    #    Returns:
+    #        取得した店舗情報。存在しない場合は `None`。
+    #    """
+    #    session.add(nonce)
+    #    session.flush()
+    #    return nonce
 
-        Returns:
-            取得した店舗情報。存在しない場合は `None`。
-        """
-        session.add(nonce)
-        session.flush()
-        return nonce
-    
     def create_store_nonce(self, session: Session, store_nonce: StoreNonce) -> None:
         """店舗 nonce を保存対象としてセッションへ追加する。
 
@@ -132,7 +133,7 @@ class StoreRepository:
             .where(Wallet.network_name == network_name)
             .where(Wallet.deleted_at.is_(None))
         ).first()
-    
+
     def get_latest_available_nonce(
         self,
         session: Session,
@@ -168,20 +169,6 @@ class StoreRepository:
             .order_by(StoreNonce.store_nonce_id.desc())
         ).first()
 
-    def create_wallet(self, session: Session, wallet: Wallet) -> Wallet:
-        """ウォレットを登録する。
-
-        Args:
-            session: SQLAlchemy のセッション。
-            wallet: 登録対象ウォレット。
-
-        Returns:
-            wallet: 登録済みウォレット。
-        """
-        session.add(wallet)
-        session.flush()
-        return wallet
-
     def create_store_wallet(self, session: Session, store_wallet: StoreWallet) -> None:
         """店舗ウォレットを保存対象としてセッションへ追加する。
 
@@ -196,14 +183,10 @@ class StoreRepository:
         session.flush()
         return store_wallet
 
-    def update_nonce(self, session: Session, nonce: Nonce) -> None:
-        """更新済み nonce を保存対象としてセッションへ追加する。
-
-        Args:
-            session: SQLAlchemy のセッション。
-            store_wallet_nonce: 更新対象の nonce エンティティ。
-
-        Returns:
-            なし。
-        """
-        session.add(nonce)
+    def delete_store_nonce_by_nonce_id(self, session: Session, nonce_id: int) -> None:
+        now = datetime.now(JST)
+        (
+            session.query(StoreNonce)
+            .where(StoreNonce.nonce_id == nonce_id)
+            .update({StoreNonce.deleted_at: now})
+        )

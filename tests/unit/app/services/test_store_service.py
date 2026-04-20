@@ -22,7 +22,8 @@ class TestCreateWalletNonce:
 
     @patch("app.services.store_service.secrets.token_urlsafe", return_value="generated-nonce")
     @patch("app.services.store_service.StoreRepository")
-    def test_create_wallet_nonce(self, mock_repository_class, mock_token_urlsafe):
+    @patch("app.services.store_service.NonceRepository")
+    def test_create_wallet_nonce(self, mock_nonce_repository_class, mock_store_repository_class, mock_token_urlsafe):
         """nonce を生成して保存し、レスポンスへ整形することを検証する。"""
         session = Mock()
         store_id = 10
@@ -31,9 +32,11 @@ class TestCreateWalletNonce:
         network_name = "sepolia"
         fixed_now = datetime(2026, 4, 12, 12, 0, 0, tzinfo=JST)
 
-        mock_repository = mock_repository_class.return_value
-        mock_repository.get_store_by_id.return_value = SimpleNamespace(store_id=store_id)
-        mock_repository.create_nonce.side_effect = lambda session, nonce: SimpleNamespace(nonce_id=123, nonce=nonce.nonce)
+        mock_store_repository = mock_store_repository_class.return_value
+        mock_store_repository.get_store_by_id.return_value = SimpleNamespace(store_id=store_id)
+
+        mock_nonce_repository = mock_nonce_repository_class.return_value
+        mock_nonce_repository.create_nonce.side_effect = lambda session, nonce: SimpleNamespace(nonce_id=123, nonce=nonce.nonce)
 
         with patch("app.services.store_service.datetime") as mock_datetime:
             mock_datetime.now.return_value = fixed_now
@@ -46,15 +49,15 @@ class TestCreateWalletNonce:
                 network_name=network_name,
             )
 
-        mock_repository.get_store_by_id.assert_called_once_with(
+        mock_store_repository.get_store_by_id.assert_called_once_with(
             session=session,
             store_id=store_id,
         )
         mock_token_urlsafe.assert_called_once_with(32)
-        mock_repository.create_nonce.assert_called_once()
-        mock_repository.create_store_nonce.assert_called_once()
+        mock_nonce_repository.create_nonce.assert_called_once()
+        mock_store_repository.create_store_nonce.assert_called_once()
 
-        nonce_kwargs = mock_repository.create_nonce.call_args.kwargs
+        nonce_kwargs = mock_nonce_repository.create_nonce.call_args.kwargs
         assert nonce_kwargs["session"] is session
         created_nonce = nonce_kwargs["nonce"]
         assert created_nonce.wallet_address == wallet_address.lower()
@@ -63,7 +66,7 @@ class TestCreateWalletNonce:
         assert created_nonce.nonce == "generated-nonce"
         assert created_nonce.expires_at == fixed_now + timedelta(minutes=10)
 
-        store_nonce_kwargs = mock_repository.create_store_nonce.call_args.kwargs
+        store_nonce_kwargs = mock_store_repository.create_store_nonce.call_args.kwargs
         assert store_nonce_kwargs["session"] is session
         created_store_nonce = store_nonce_kwargs["store_nonce"]
         assert created_store_nonce.store_id == store_id
@@ -248,7 +251,9 @@ class TestCreateStoreWallet:
     """StoreService の create_store_wallet を検証するテスト。"""
 
     @patch("app.services.store_service.StoreRepository")
-    def test_create_store_wallet(self, mock_repository_class):
+    @patch("app.services.store_service.WalletRepository")
+    @patch("app.services.store_service.NonceRepository")
+    def test_create_store_wallet(self, mock_nonce_repository_class, mock_wallet_repository_class, mock_store_repository_class):
         """primary の切り替えと nonce の使用済み更新を行い、レスポンスを返すことを検証する。"""
         session = Mock()
         store_id = 10
@@ -257,11 +262,15 @@ class TestCreateStoreWallet:
         chain_type = "ethereum"
         network_name = "sepolia"
         fixed_now = datetime(2026, 4, 12, 12, 34, 56)
-        nonce_entity = SimpleNamespace(used_at=None)
+        nonce_entity = SimpleNamespace(nonce_id=1, used_at=None)
 
-        mock_repository = mock_repository_class.return_value
-        mock_repository.get_wallet_by_store_id.return_value = None
-        mock_repository.create_wallet.return_value = SimpleNamespace(wallet_id=77)
+        mock_store_repository = mock_store_repository_class.return_value
+        mock_store_repository.get_wallet_by_store_id.return_value = None
+        mock_wallet_repository = mock_wallet_repository_class.return_value
+        mock_wallet_repository.create_wallet.return_value = SimpleNamespace(wallet_id=77)
+
+        mock_nonce_repository = mock_nonce_repository_class.return_value
+
 
         with patch("app.services.store_service.datetime") as mock_datetime:
             mock_datetime.now.return_value = fixed_now
@@ -275,15 +284,15 @@ class TestCreateStoreWallet:
                 nonce_entity=nonce_entity,
             )
 
-        mock_repository.get_wallet_by_store_id.assert_called_once_with(
+        mock_store_repository.get_wallet_by_store_id.assert_called_once_with(
             session=session,
             store_id=store_id,
             chain_type=chain_type,
             network_name=network_name,
         )
 
-        mock_repository.create_wallet.assert_called_once()
-        create_wallet_kwargs = mock_repository.create_wallet.call_args.kwargs
+        mock_wallet_repository.create_wallet.assert_called_once()
+        create_wallet_kwargs = mock_wallet_repository.create_wallet.call_args.kwargs
         assert create_wallet_kwargs["session"] is session
         created_wallet = create_wallet_kwargs["wallet"]
         assert created_wallet.wallet_address == normalized_wallet_address
@@ -292,14 +301,14 @@ class TestCreateStoreWallet:
         assert created_wallet.verified_at == fixed_now
         assert created_wallet.is_active is True
 
-        mock_repository.create_store_wallet.assert_called_once()
-        create_store_wallet_kwargs = mock_repository.create_store_wallet.call_args.kwargs
+        mock_store_repository.create_store_wallet.assert_called_once()
+        create_store_wallet_kwargs = mock_store_repository.create_store_wallet.call_args.kwargs
         assert create_store_wallet_kwargs["session"] is session
         created_store_wallet = create_store_wallet_kwargs["store_wallet"]
         assert created_store_wallet.store_id == store_id
         assert created_store_wallet.wallet_id == 77
 
-        mock_repository.update_nonce.assert_called_once_with(
+        mock_nonce_repository.update_nonce.assert_called_once_with(
             session=session,
             nonce=nonce_entity,
         )
