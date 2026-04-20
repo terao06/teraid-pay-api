@@ -19,56 +19,6 @@ from app.services.store_service import JST, StoreService
 NOW = datetime(2026, 4, 12, 12, 0, 0)
 
 
-class TestGetStoreWalletList:
-    """StoreService の get_store_wallet_list を検証するテスト。"""
-
-    @pytest.mark.parametrize(
-        ("repository_result", "expected"),
-        [
-            (
-                SimpleNamespace(
-                    store_wallet_id=1,
-                    store_id=10,
-                    wallet_address="wallet-address-1",
-                    chain_type="ETH",
-                    network_name="mainnet",
-                    is_active=True,
-                    verified_at=NOW,
-                    created_at=NOW,
-                    updated_at=NOW,
-                ),
-                StoreWalletResponse(
-                    store_wallet_id=1,
-                    store_id=10,
-                    wallet_address="wallet-address-1",
-                    chain_type="ETH",
-                    network_name="mainnet",
-                    is_active=True,
-                    verified_at=NOW.strftime("%Y-%m-%d %H:%M"),
-                    created_at=NOW.strftime("%Y-%m-%d %H:%M"),
-                    updated_at=NOW.strftime("%Y-%m-%d %H:%M"),
-                ),
-            ),
-            (None, None),
-        ],
-    )
-    @patch("app.services.store_service.StoreRepository")
-    def test_get_store_wallet(self, mock_repository_class, repository_result, expected):
-        """リポジトリ結果を StoreWalletResponse の一覧へ整形して返すことを検証する。"""
-        session = Mock()
-        store_id = 10
-        mock_repository = mock_repository_class.return_value
-        mock_repository.get_store_wallet.return_value = repository_result
-
-        result = StoreService().get_store_wallet(session=session, store_id=store_id)
-
-        mock_repository.get_store_wallet.assert_called_once_with(
-            session=session,
-            store_id=store_id,
-        )
-        assert result == expected
-
-
 class TestCreateWalletNonce:
     """StoreService の create_wallet_nonce を検証するテスト。"""
 

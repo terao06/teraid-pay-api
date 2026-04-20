@@ -180,7 +180,7 @@ class StoreService:
             network_name: ネットワーク名。
 
         Returns:
-            なし。
+            StoreWalletVerifyResponse: ウォレット検証レスポンス
         """
 
         repository = StoreRepository()

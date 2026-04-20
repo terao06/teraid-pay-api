@@ -14,6 +14,14 @@ class StoreRepository:
     """店舗ウォレット情報を取得するリポジトリです。"""
 
     def get_store_wallet(self, session: Session, store_id: int) -> StoreWalletDto | None:
+        """条件に一致する店舗ウォレット一覧を取得します。
+        Args:
+            session: SQLAlchemy のセッションです。
+            store_id: 絞り込み対象の店舗 ID です。
+
+        Returns:
+            store_wallet_list: 店舗ウォレット DTO の一覧です。
+        """
         query = session.query(
             StoreWallet.store_wallet_id,
             StoreWallet.store_id,
@@ -57,59 +65,6 @@ class StoreRepository:
             updated_at=store_wallet.updated_at,
         )
 
-    def get_store_wallet_list(self, session: Session, store_id: int | None = None) -> list[StoreWalletDto]:
-        """条件に一致する店舗ウォレット一覧を取得します。
-        Args:
-            session: SQLAlchemy のセッションです。
-            store_id: 絞り込み対象の店舗 ID です。未指定時は全店舗を対象にします。
-
-        Returns:
-            store_wallet_list: 店舗ウォレット DTO の一覧です。
-        """
-        query = session.query(
-            StoreWallet.store_wallet_id,
-            StoreWallet.store_id,
-            Wallet.wallet_address,
-            Wallet.chain_type,
-            Wallet.network_name,
-            Wallet.is_active,
-            Wallet.verified_at,
-            StoreWallet.created_at,
-            StoreWallet.updated_at
-        ).join(
-            Store,
-            StoreWallet.store_id == Store.store_id
-        ).join(
-            Wallet, StoreWallet.wallet_id == Wallet.wallet_id
-        ).where(
-            Wallet.deleted_at.is_(None),
-            Store.deleted_at.is_(None),
-            StoreWallet.deleted_at.is_(None)
-        )
-        if store_id:
-            query = query.where(
-                Store.store_id == store_id
-            )
-
-        result_store_wallet = query.all()
-
-        store_wallet_list = []
-        for store_wallet in result_store_wallet:
-            store_wallet_list.append(
-                StoreWalletDto(
-                    store_wallet_id=store_wallet.store_wallet_id,
-                    store_id=store_wallet.store_id,
-                    wallet_address=store_wallet.wallet_address,
-                    chain_type=store_wallet.chain_type,
-                    network_name=store_wallet.network_name,
-                    is_active=store_wallet.is_active,
-                    verified_at=store_wallet.verified_at,
-                    created_at=store_wallet.created_at,
-                    updated_at=store_wallet.updated_at,
-                )
-            )
-        return store_wallet_list
-
     def get_store_by_id(self, session: Session, store_id: int) -> Store | None:
         """店舗 ID から店舗情報を取得する。
 
@@ -126,6 +81,15 @@ class StoreRepository:
         ).one_or_none()
     
     def create_nonce(self, session: Session, nonce: Nonce) -> Nonce:
+        """nonceを作成する。
+
+        Args:
+            session: SQLAlchemy のセッション。
+            store_id: 対象店舗の ID。
+
+        Returns:
+            取得した店舗情報。存在しない場合は `None`。
+        """
         session.add(nonce)
         session.flush()
         return nonce
@@ -204,6 +168,15 @@ class StoreRepository:
         ).first()
 
     def create_wallet(self, session: Session, wallet: Wallet) -> Wallet:
+        """ウォレットを登録する。
+
+        Args:
+            session: SQLAlchemy のセッション。
+            wallet: 登録対象ウォレット。
+
+        Returns:
+            wallet: 登録済みウォレット。
+        """
         session.add(wallet)
         session.flush()
         return wallet
