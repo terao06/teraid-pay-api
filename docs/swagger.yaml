@@ -38,8 +38,7 @@ paths:
                   value:
                     status: success
                     data:
-                      store_wallet_id: 201
-                      store_id: 101
+                      wallet_id: 201
                       wallet_address: 0x1111111111111111111111111111111111111111
                       chain_type: ethereum
                       network_name: mainnet
@@ -109,6 +108,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /store/{store_id}/wallet/{wallet_id}:
+    delete:
+      tags:
+        - Store
+      summary: 店舗ウォレット削除
+      operationId: deleteWallet
+      parameters:
+        - name: store_id
+          in: path
+          required: true
+          description: 店舗ID
+          schema:
+            type: integer
+        - name: wallet_id
+          in: path
+          required: true
+          description: ウォレットID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: ウォレット削除に成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteWalletWrappedResponse'
+              examples:
+                success:
+                  summary: 削除成功
+                  value:
+                    status: success
+                    data: null
         '500':
           description: サーバーエラー
           content:
@@ -332,6 +370,18 @@ components:
           enum: [success]
         data:
           $ref: '#/components/schemas/StoreWalletVerify'
+
+    DeleteWalletWrappedResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          nullable: true
 
     ErrorDetail:
       type: object

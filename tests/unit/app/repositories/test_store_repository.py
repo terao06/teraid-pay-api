@@ -17,10 +17,9 @@ class TestGetStoreWallet:
         ("store_id", "expected_wallet"),
         [
             (
-                None,
+                101,
                 {
-                    "store_wallet_id": 201,
-                    "store_id": 101,
+                    "wallet_id": 301,
                     "wallet_address": "0x1111111111111111111111111111111111111111",
                     "chain_type": "ETH",
                     "network_name": "mainnet",
@@ -29,10 +28,17 @@ class TestGetStoreWallet:
                 },
             ),
             (
+                999,
+                None,
+            ),
+            (
+                103,
+                None,
+            ),
+            (
                 101,
                 {
-                    "store_wallet_id": 201,
-                    "store_id": 101,
+                    "wallet_id": 301,
                     "wallet_address": "0x1111111111111111111111111111111111111111",
                     "chain_type": "ETH",
                     "network_name": "mainnet",
@@ -52,9 +58,12 @@ class TestGetStoreWallet:
 
         result = repository.get_store_wallet(session, store_id)
 
+        if expected_wallet is None:
+            assert result is None
+            return
+
         assert result is not None
-        assert result.store_wallet_id == expected_wallet["store_wallet_id"]
-        assert result.store_id == expected_wallet["store_id"]
+        assert result.wallet_id == expected_wallet["wallet_id"]
         assert result.wallet_address == expected_wallet["wallet_address"]
         assert result.chain_type == expected_wallet["chain_type"]
         assert result.network_name == expected_wallet["network_name"]
@@ -260,6 +269,7 @@ class TestDeleteStoreNonceByNonceId:
             .one()
         )
         assert before.deleted_at is None
+        before_updated_at = before.updated_at
 
         repository.delete_store_nonce_by_nonce_id(session, target_nonce_id)
         session.flush()
@@ -271,6 +281,8 @@ class TestDeleteStoreNonceByNonceId:
             .one()
         )
         assert after.deleted_at is not None
+        assert after.updated_at is not None
+        assert after.updated_at > before_updated_at
 
     def test_delete_store_nonce_by_nonce_id_not_found(
         self,
@@ -290,3 +302,60 @@ class TestDeleteStoreNonceByNonceId:
             .all()
         )
         assert len(updated) == 0
+
+
+@pytest.mark.usefixtures("insert_stores", "insert_wallets", "insert_store_wallets")
+class TestDeleteStoreWalletByWalletId:
+    def test_delete_store_wallet_by_wallet_id(
+        self,
+        session: Session,
+    ) -> None:
+        """存在する wallet_id を指定した場合、対象 StoreWallet の deleted_at と updated_at が設定されること。"""
+        repository = StoreRepository()
+        target_wallet_id = 301
+
+        before = (
+            session.query(StoreWallet)
+            .filter(StoreWallet.wallet_id == target_wallet_id)
+            .one()
+        )
+        assert before.deleted_at is None
+        before_updated_at = before.updated_at
+
+        repository.delete_store_wallet_by_wallet_id(session, target_wallet_id)
+        session.flush()
+        session.expire_all()
+
+        after = (
+            session.query(StoreWallet)
+            .filter(StoreWallet.wallet_id == target_wallet_id)
+            .one()
+        )
+        assert after.deleted_at is not None
+        assert after.updated_at is not None
+        assert after.updated_at > before_updated_at
+
+    def test_delete_store_wallet_by_wallet_id_not_found(
+        self,
+        session: Session,
+    ) -> None:
+        """存在しない wallet_id を指定した場合、いずれの StoreWallet も更新されないこと。"""
+        repository = StoreRepository()
+        non_existent_wallet_id = 99999
+
+        before_count = (
+            session.query(StoreWallet)
+            .filter(StoreWallet.deleted_at.isnot(None))
+            .count()
+        )
+
+        repository.delete_store_wallet_by_wallet_id(session, non_existent_wallet_id)
+        session.flush()
+        session.expire_all()
+
+        after_count = (
+            session.query(StoreWallet)
+            .filter(StoreWallet.deleted_at.isnot(None))
+            .count()
+        )
+        assert after_count == before_count

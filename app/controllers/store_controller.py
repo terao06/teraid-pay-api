@@ -25,7 +25,6 @@ class StoreController:
         Returns:
             store_wallet_response: 店舗ウォレットレスポンスです。
         """
-
         try:
             store_service = StoreService()
             return store_service.get_store_wallet(
@@ -122,6 +121,26 @@ class StoreController:
                 message=WALLET_CONFLICT_ERROR
             )
         
+        except Exception:
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR)
+
+    @transaction
+    def delete_wallet(self, session: Session, wallet_id: int) -> None:
+        """登録済みウォレットの削除を行う。
+        Args:
+            session: SQLAlchemy のセッション。
+            wallet_id: ウォレットID。
+        Returns:
+            なし。
+        """
+        try:
+            StoreService().delete_wallet(
+                session=session,
+                wallet_id=wallet_id
+            )
+
         except Exception:
             raise CustomHttpException.get_http_exception(
                 status_code=500,

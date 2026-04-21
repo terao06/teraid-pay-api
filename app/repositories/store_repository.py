@@ -6,7 +6,6 @@ from app.models.mysql.store import Store
 from app.models.mysql.wallet import Wallet
 from app.models.mysql.store_wallet import StoreWallet
 from app.models.mysql.store_nonce import StoreNonce
-from app.models.dtos.store_wallet_dto import StoreWalletDto
 from app.models.mysql.nonce import Nonce
 from app.core.utils.datetime import JST
 
@@ -14,57 +13,26 @@ from app.core.utils.datetime import JST
 class StoreRepository:
     """店舗ウォレット情報を取得するリポジトリです。"""
 
-    def get_store_wallet(self, session: Session, store_id: int) -> StoreWalletDto | None:
+    def get_store_wallet(self, session: Session, store_id: int) -> Wallet | None:
         """条件に一致する店舗ウォレット一覧を取得します。
         Args:
             session: SQLAlchemy のセッションです。
             store_id: 絞り込み対象の店舗 ID です。
 
         Returns:
-            store_wallet_list: 店舗ウォレット DTO の一覧です。
+            Wallet: ウォレット情報。
         """
-        query = session.query(
-            StoreWallet.store_wallet_id,
-            StoreWallet.store_id,
-            Wallet.wallet_address,
-            Wallet.chain_type,
-            Wallet.network_name,
-            Wallet.is_active,
-            Wallet.verified_at,
-            Wallet.created_at,
-            Wallet.updated_at
+        return session.query(Wallet
         ).join(
-            Wallet,
-            Wallet.wallet_id == StoreWallet.wallet_id
+            StoreWallet, Wallet.wallet_id == StoreWallet.wallet_id
         ).join(
-            Store,
-            StoreWallet.store_id == Store.store_id
+            Store, StoreWallet.store_id == Store.store_id
         ).where(
+            Store.store_id == store_id,
             Store.deleted_at.is_(None),
             StoreWallet.deleted_at.is_(None),
             Wallet.deleted_at.is_(None)
-        )
-        if store_id:
-            query = query.where(
-                Store.store_id == store_id
-            )
-
-        store_wallet = query.first()
-
-        if store_wallet is None:
-            return None
-
-        return StoreWalletDto(
-            store_wallet_id=store_wallet.store_wallet_id,
-            store_id=store_wallet.store_id,
-            wallet_address=store_wallet.wallet_address,
-            chain_type=store_wallet.chain_type,
-            network_name=store_wallet.network_name,
-            is_active=store_wallet.is_active,
-            verified_at=store_wallet.verified_at,
-            created_at=store_wallet.created_at,
-            updated_at=store_wallet.updated_at,
-        )
+        ).first()
 
     def get_store_by_id(self, session: Session, store_id: int) -> Store | None:
         """店舗 ID から店舗情報を取得する。
@@ -80,20 +48,6 @@ class StoreRepository:
             Store.store_id == store_id,
             Store.deleted_at.is_(None)
         ).one_or_none()
-
-    #def create_nonce(self, session: Session, nonce: Nonce) -> Nonce:
-    #    """nonceを作成する。
-#
-    #    Args:
-    #        session: SQLAlchemy のセッション。
-    #        store_id: 対象店舗の ID。
-#
-    #    Returns:
-    #        取得した店舗情報。存在しない場合は `None`。
-    #    """
-    #    session.add(nonce)
-    #    session.flush()
-    #    return nonce
 
     def create_store_nonce(self, session: Session, store_nonce: StoreNonce) -> None:
         """店舗 nonce を保存対象としてセッションへ追加する。
@@ -184,9 +138,37 @@ class StoreRepository:
         return store_wallet
 
     def delete_store_nonce_by_nonce_id(self, session: Session, nonce_id: int) -> None:
+        """対象のnonceを論理削除する。
+
+        Args:
+            session: SQLAlchemy のセッション。
+            nonce_id: nonce id
+
+        Returns:
+            なし。
+        
+        """
         now = datetime.now(JST)
         (
             session.query(StoreNonce)
             .where(StoreNonce.nonce_id == nonce_id)
-            .update({StoreNonce.deleted_at: now})
+            .update({StoreNonce.deleted_at: now, StoreNonce.updated_at: now})
+        )
+    
+    def delete_store_wallet_by_wallet_id(self, session: Session, wallet_id: int) -> None:
+        """wallet_idを指定し対象の店舗ウォレット紐づけを論理削除する。
+
+        Args:
+            session: SQLAlchemy のセッション。
+            wallet_id: wallet_id
+
+        Returns:
+            なし。
+        
+        """
+        now = datetime.now(JST)
+        (
+            session.query(StoreWallet)
+            .where(StoreWallet.wallet_id == wallet_id)
+            .update({StoreWallet.deleted_at: now, StoreWallet.updated_at: now})
         )

@@ -11,6 +11,7 @@ from app.core.exceptions.custom_exception import (
     UnauthorizedException
 )
 from app.core.utils.datetime import DateTimeUtil
+from app.core.utils.logging import TeraidPayApiLog
 from app.core.utils.wallet import WalletUtil
 from app.models.mysql.nonce import Nonce
 from app.models.mysql.store_wallet import StoreWallet
@@ -38,24 +39,24 @@ class StoreService:
         Returns:
             店舗ウォレットのレスポンス。存在しない場合は None。
         """
-        store_wallet = StoreRepository().get_store_wallet(
+        wallet_info = StoreRepository().get_store_wallet(
             session=session,
             store_id=store_id
         )
 
-        if store_wallet is None:
+        if wallet_info is None:
             return None
 
         return StoreWalletResponse(
-            store_wallet_id=store_wallet.store_wallet_id,
-            store_id=store_wallet.store_id,
-            wallet_address=store_wallet.wallet_address,
-            chain_type=store_wallet.chain_type,
-            network_name=store_wallet.network_name,
-            is_active=store_wallet.is_active,
-            verified_at=DateTimeUtil.change_datetime_to_string(store_wallet.verified_at),
-            created_at=DateTimeUtil.change_datetime_to_string(store_wallet.created_at),
-            updated_at=DateTimeUtil.change_datetime_to_string(store_wallet.updated_at)
+            wallet_id=wallet_info.wallet_id,
+            store_id=store_id,
+            wallet_address=wallet_info.wallet_address,
+            chain_type=wallet_info.chain_type,
+            network_name=wallet_info.network_name,
+            is_active=wallet_info.is_active,
+            verified_at=DateTimeUtil.change_datetime_to_string(wallet_info.verified_at),
+            created_at=DateTimeUtil.change_datetime_to_string(wallet_info.created_at),
+            updated_at=DateTimeUtil.change_datetime_to_string(wallet_info.updated_at)
         )
 
     def create_wallet_nonce(
@@ -192,6 +193,8 @@ class StoreService:
             network_name=network_name,
         )
         if existing_wallet is not None:
+            TeraidPayApiLog.warning(
+                f"この店舗にはすでにウォレットが登録されています。wallet_id={existing_wallet.wallet_id}")
             raise WalletConflictException(
                 f"この店舗にはすでにウォレットが登録されています。wallet_id={existing_wallet.wallet_id}")
 
@@ -257,3 +260,17 @@ class StoreService:
             )
         except Exception:
             raise UnauthorizedException("認証に失敗しました。")
+    
+    def delete_wallet(self, session: Session, wallet_id: int) -> None:
+        """ウォレットを登録から削除する。
+
+        Args:
+            session: SQLAlchemy のセッション。
+            wallet_id: 削除対象のウォレットID。
+            store_id: 店舗ID。
+
+        Returns:
+            なし。
+        """
+        WalletRepository().delete_wallet_by_wallet_id(session=session, wallet_id=wallet_id)
+        StoreRepository().delete_store_wallet_by_wallet_id(session=session, wallet_id=wallet_id)

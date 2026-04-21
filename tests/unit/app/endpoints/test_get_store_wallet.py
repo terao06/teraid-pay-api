@@ -15,8 +15,7 @@ class TestGetStoreWallet:
     ) -> None:
         """controller の成功結果を success ラップで返すことを確認する。"""
         mock_get_store_wallet.return_value = {
-            "store_wallet_id": 1,
-            "store_id": 10,
+            "wallet_id": 1,
             "wallet_address": "wallet-address-1",
             "chain_type": "ETH",
             "network_name": "mainnet",
@@ -32,8 +31,7 @@ class TestGetStoreWallet:
         assert response.json() == {
             "status": "success",
             "data": {
-                "store_wallet_id": 1,
-                "store_id": 10,
+                "wallet_id": 1,
                 "wallet_address": "wallet-address-1",
                 "chain_type": "ETH",
                 "network_name": "mainnet",
@@ -79,8 +77,7 @@ class TestGetStoreWallet:
         assert response.status_code == 200
         assert response.json()["status"] == "success"
         assert response.json()["data"] == {
-            "store_wallet_id": 201,
-            "store_id": 101,
+            "wallet_id": 301,
             "wallet_address": "0x1111111111111111111111111111111111111111",
             "chain_type": "ETH",
             "network_name": "mainnet",

@@ -413,3 +413,52 @@ class TestRecoverAddress:
             encoded_message,
             signature=signature,
         )
+
+
+class TestDeleteWallet:
+    """StoreService の delete_wallet を検証するテスト。"""
+
+    @patch("app.services.store_service.StoreRepository")
+    @patch("app.services.store_service.WalletRepository")
+    def test_delete_wallet(self, mock_wallet_repository_class, mock_store_repository_class):
+        """WalletRepository と StoreRepository の各削除メソッドが正しい引数で呼ばれることを検証する。"""
+        session = Mock()
+        wallet_id = 42
+
+        mock_wallet_repository = mock_wallet_repository_class.return_value
+        mock_store_repository = mock_store_repository_class.return_value
+
+        StoreService().delete_wallet(session=session, wallet_id=wallet_id)
+
+        mock_wallet_repository.delete_wallet_by_wallet_id.assert_called_once_with(
+            session=session,
+            wallet_id=wallet_id,
+        )
+        mock_store_repository.delete_store_wallet_by_wallet_id.assert_called_once_with(
+            session=session,
+            wallet_id=wallet_id,
+        )
+
+    @patch("app.services.store_service.StoreRepository")
+    @patch("app.services.store_service.WalletRepository")
+    def test_delete_wallet_store_repository_not_called_when_wallet_repository_raises(
+        self,
+        mock_wallet_repository_class,
+        mock_store_repository_class,
+    ):
+        """WalletRepository が例外を送出した場合、StoreRepository は呼ばれないことを検証する。"""
+        session = Mock()
+        wallet_id = 42
+
+        mock_wallet_repository = mock_wallet_repository_class.return_value
+        mock_store_repository = mock_store_repository_class.return_value
+        mock_wallet_repository.delete_wallet_by_wallet_id.side_effect = Exception("DB error")
+
+        with pytest.raises(Exception, match="DB error"):
+            StoreService().delete_wallet(session=session, wallet_id=wallet_id)
+
+        mock_wallet_repository.delete_wallet_by_wallet_id.assert_called_once_with(
+            session=session,
+            wallet_id=wallet_id,
+        )
+        mock_store_repository.delete_store_wallet_by_wallet_id.assert_not_called()

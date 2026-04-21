@@ -31,3 +31,26 @@ class TestCreateWallet:
         assert saved_wallet.network_name == "sepolia"
         assert saved_wallet.is_active is True
         assert saved_wallet.verified_at == datetime(2026, 4, 13, 12, 0, 0)
+
+
+@pytest.mark.usefixtures("insert_stores", "insert_wallets", "insert_store_wallets")
+class TestDeleteWallet:
+    def test_delete_wallet_by_wallet_id(
+        self,
+        session: Session,
+    ) -> None:
+        repository = WalletRepository()
+        wallet_id = 301
+
+        before = session.query(Wallet).where(Wallet.wallet_id == wallet_id).one()
+        assert before.deleted_at is None
+        before_updated_at = before.updated_at
+
+        repository.delete_wallet_by_wallet_id(session, wallet_id)
+        session.flush()
+        session.expire_all()
+
+        after = session.query(Wallet).where(Wallet.wallet_id == wallet_id).one()
+        assert after.deleted_at is not None
+        assert after.updated_at is not None
+        assert after.updated_at > before_updated_at
