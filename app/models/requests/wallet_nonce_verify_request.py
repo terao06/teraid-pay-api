@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 
 
-class StoreWalletVerifyRequest(BaseModel):
+class WalletVerifyRequest(BaseModel):
     wallet_address: str = Field(..., min_length=42, max_length=42)
     signature: str = Field(..., min_length=1)
     chain_type: str = Field(..., min_length=1, max_length=50)

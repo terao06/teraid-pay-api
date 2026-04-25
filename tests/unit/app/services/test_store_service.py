@@ -9,12 +9,64 @@ from app.core.exceptions.custom_exception import (
     UnauthorizedException,
     WalletConflictException,
 )
+from app.models.responses.store_wallet_response import StoreWalletResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
-from app.models.responses.wallet_nonce_verify_response import StoreWalletVerifyResponse
+from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
 from app.services.store_service import JST, StoreService
 
 
 NOW = datetime(2026, 4, 12, 12, 0, 0)
+
+
+class TestGetStoreWallet:
+    @patch("app.services.store_service.StoreRepository")
+    def test_get_store_wallet(self, mock_repository_class) -> None:
+        session = Mock()
+        store_id = 10
+        wallet_info = SimpleNamespace(
+            wallet_id=201,
+            wallet_address="0x2222222222222222222222222222222222222222",
+            chain_type="ETH",
+            network_name="mainnet",
+            is_active=True,
+            verified_at=datetime(2024, 2, 10, 12, 0, 0),
+            created_at=datetime(2024, 2, 1, 9, 30, 0),
+            updated_at=datetime(2024, 2, 15, 18, 45, 0),
+        )
+        mock_repository = mock_repository_class.return_value
+        mock_repository.get_store_wallet.return_value = wallet_info
+
+        result = StoreService().get_store_wallet(session=session, store_id=store_id)
+
+        mock_repository.get_store_wallet.assert_called_once_with(
+            session=session,
+            store_id=store_id,
+        )
+        assert result == StoreWalletResponse(
+            wallet_id=201,
+            wallet_address="0x2222222222222222222222222222222222222222",
+            chain_type="ETH",
+            network_name="mainnet",
+            is_active=True,
+            verified_at="2024-02-10 12:00",
+            created_at="2024-02-01 09:30",
+            updated_at="2024-02-15 18:45",
+        )
+
+    @patch("app.services.store_service.StoreRepository")
+    def test_get_store_wallet_returns_none_when_wallet_not_found(self, mock_repository_class) -> None:
+        session = Mock()
+        store_id = 999
+        mock_repository = mock_repository_class.return_value
+        mock_repository.get_store_wallet.return_value = None
+
+        result = StoreService().get_store_wallet(session=session, store_id=store_id)
+
+        mock_repository.get_store_wallet.assert_called_once_with(
+            session=session,
+            store_id=store_id,
+        )
+        assert result is None
 
 
 class TestCreateWalletNonce:
@@ -108,7 +160,7 @@ class TestCreateWalletNonce:
 class TestVerifyWalletNonce:
     """StoreService の verify_wallet_nonce を検証するテスト。"""
 
-    @patch.object(StoreService, "_recover_address")
+    @patch("app.services.store_service.WalletUtil.recover_address")
     @patch("app.services.store_service.StoreRepository")
     def test_verify_wallet_nonce(
         self,
@@ -191,7 +243,7 @@ class TestVerifyWalletNonce:
             "signature-mismatch",
         ],
     )
-    @patch.object(StoreService, "_recover_address")
+    @patch("app.services.store_service.WalletUtil.recover_address")
     @patch("app.services.store_service.StoreRepository")
     def test_verify_wallet_nonce_raises(
         self,
@@ -313,7 +365,7 @@ class TestCreateStoreWallet:
             nonce=nonce_entity,
         )
         assert nonce_entity.used_at == fixed_now
-        assert result == StoreWalletVerifyResponse(
+        assert result == WalletVerifyResponse(
             wallet_address=normalized_wallet_address,
             chain_type=chain_type,
             network_name=network_name,
@@ -354,65 +406,6 @@ class TestCreateStoreWallet:
         mock_repository.create_store_wallet.assert_not_called()
         mock_repository.update_nonce.assert_not_called()
         assert nonce_entity.used_at is None
-
-
-class TestRecoverAddress:
-    """StoreService の _recover_address を検証するテスト。"""
-
-    @patch("app.services.store_service.Account.recover_message")
-    @patch("app.services.store_service.encode_defunct")
-    def test_recover_address_returns_recovered_wallet_address(
-        self,
-        mock_encode_defunct,
-        mock_recover_message,
-    ) -> None:
-        """署名復元に成功した場合は復元されたウォレットアドレスを返す。"""
-        message = "sign this message"
-        signature = "0xsigned"
-        encoded_message = Mock()
-        recovered_address = "0xABCDEF1234567890ABCDEF1234567890ABCDEF12"
-
-        mock_encode_defunct.return_value = encoded_message
-        mock_recover_message.return_value = recovered_address
-
-        result = StoreService._recover_address(
-            message=message,
-            signature=signature,
-        )
-
-        mock_encode_defunct.assert_called_once_with(text=message)
-        mock_recover_message.assert_called_once_with(
-            encoded_message,
-            signature=signature,
-        )
-        assert result == recovered_address
-
-    @patch("app.services.store_service.Account.recover_message")
-    @patch("app.services.store_service.encode_defunct")
-    def test_recover_address_raises_unauthorized_when_recover_fails(
-        self,
-        mock_encode_defunct,
-        mock_recover_message,
-    ) -> None:
-        """署名復元で例外が発生した場合は UnauthorizedException へ変換する。"""
-        message = "sign this message"
-        signature = "0xinvalid"
-        encoded_message = Mock()
-
-        mock_encode_defunct.return_value = encoded_message
-        mock_recover_message.side_effect = Exception("recover failed")
-
-        with pytest.raises(UnauthorizedException):
-            StoreService._recover_address(
-                message=message,
-                signature=signature,
-            )
-
-        mock_encode_defunct.assert_called_once_with(text=message)
-        mock_recover_message.assert_called_once_with(
-            encoded_message,
-            signature=signature,
-        )
 
 
 class TestDeleteWallet:

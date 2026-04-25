@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from app.endpoints.store import store_router
+from app.endpoints.user import user_router
 from app.core.utils.logging import TeraidPayApiLog
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -25,3 +26,4 @@ app.add_middleware(
 )
 
 app.include_router(store_router, prefix="/store")
+app.include_router(user_router, prefix="/user")

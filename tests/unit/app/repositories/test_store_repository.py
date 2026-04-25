@@ -9,6 +9,7 @@ from app.models.mysql.store_wallet import StoreWallet
 from app.models.mysql.wallet import Wallet
 from app.repositories.nonce_repository import NonceRepository
 from app.repositories.store_repository import StoreRepository
+from app.repositories.wallet_repository import WalletRepository
 
 
 @pytest.mark.usefixtures("insert_stores", "insert_wallets", "insert_store_wallets")
@@ -107,6 +108,7 @@ class TestGetWalletByStoreId:
         ("store_id", "chain_type", "network_name", "expected_wallet_id"),
         [
             (101, "ETH", "mainnet", 301),
+            (101, "ETH", "goerli", None),
             (101, "ETH", "sepolia", None),
             (102, "ETH", "mainnet", 304),
             (999, "ETH", "mainnet", None),
@@ -187,12 +189,11 @@ class TestCreateStoreWallet:
             is_active=True,
             verified_at=datetime(2026, 4, 13, 12, 0, 0),
         )
-        session.add(new_wallet)
-        session.flush()
+        saved_wallet = WalletRepository().create_wallet(session, new_wallet)
 
         store_wallet = StoreWallet(
             store_id=101,
-            wallet_id=new_wallet.wallet_id,
+            wallet_id=saved_wallet.wallet_id,
         )
 
         repository.create_store_wallet(session, store_wallet)
@@ -200,13 +201,13 @@ class TestCreateStoreWallet:
 
         saved_store_wallet = (
             session.query(StoreWallet)
-            .filter(StoreWallet.wallet_id == new_wallet.wallet_id)
+            .filter(StoreWallet.wallet_id == saved_wallet.wallet_id)
             .one()
         )
 
         assert saved_store_wallet.store_wallet_id is not None
         assert saved_store_wallet.store_id == 101
-        assert saved_store_wallet.wallet_id == new_wallet.wallet_id
+        assert saved_store_wallet.wallet_id == saved_wallet.wallet_id
         assert saved_store_wallet.created_at is not None
         assert saved_store_wallet.updated_at is not None
         assert saved_store_wallet.deleted_at is None

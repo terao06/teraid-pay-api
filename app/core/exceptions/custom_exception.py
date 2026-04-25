@@ -5,6 +5,10 @@ class StoreNotFoundException(Exception):
     pass
 
 
+class UserNotFoundException(Exception):
+    pass
+
+
 class WalletConflictException(Exception):
     pass
 

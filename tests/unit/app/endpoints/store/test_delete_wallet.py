@@ -83,7 +83,7 @@ class TestDeleteWallet:
             "data": None,
         }
 
-        session.flush()
+        session.rollback()
         session.expire_all()
 
         after_wallet = session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()

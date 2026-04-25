@@ -107,3 +107,47 @@ INSERT INTO nonces (
     '2026-04-13 11:15:00',
     '2026-04-13 11:15:00'
 );
+
+INSERT INTO nonces (
+    nonce_id,
+    wallet_address,
+    chain_type,
+    network_name,
+    nonce,
+    expires_at,
+    used_at,
+    created_at,
+    updated_at
+) VALUES (
+    6,
+    '0x7d5e89df8eaf8872895865aef6de2d9373a159de',
+    'ethereum',
+    'sepolia',
+    'available-latest',
+    '2026-04-13 12:20:00',
+    NULL,
+    '2026-04-13 11:20:00',
+    '2026-04-13 11:20:00'
+);
+
+INSERT INTO nonces (
+    nonce_id,
+    wallet_address,
+    chain_type,
+    network_name,
+    nonce,
+    expires_at,
+    used_at,
+    created_at,
+    updated_at
+) VALUES (
+    7,
+    '0x7d5e89df8eaf8872895865aef6de2d9373a159de',
+    'ethereum',
+    'sepolia',
+    'store-available-latest',
+    '2026-04-13 12:25:00',
+    NULL,
+    '2026-04-13 11:25:00',
+    '2026-04-13 11:25:00'
+);

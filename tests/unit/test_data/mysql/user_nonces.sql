@@ -1,6 +1,6 @@
-INSERT INTO store_nonces (
-    store_nonce_id,
-    store_id,
+INSERT INTO user_nonces (
+    user_nonce_id,
+    user_id,
     nonce_id,
     created_at,
     updated_at,
@@ -14,9 +14,9 @@ INSERT INTO store_nonces (
     NULL
 );
 
-INSERT INTO store_nonces (
-    store_nonce_id,
-    store_id,
+INSERT INTO user_nonces (
+    user_nonce_id,
+    user_id,
     nonce_id,
     created_at,
     updated_at,
@@ -30,9 +30,9 @@ INSERT INTO store_nonces (
     NULL
 );
 
-INSERT INTO store_nonces (
-    store_nonce_id,
-    store_id,
+INSERT INTO user_nonces (
+    user_nonce_id,
+    user_id,
     nonce_id,
     created_at,
     updated_at,
@@ -46,9 +46,9 @@ INSERT INTO store_nonces (
     NULL
 );
 
-INSERT INTO store_nonces (
-    store_nonce_id,
-    store_id,
+INSERT INTO user_nonces (
+    user_nonce_id,
+    user_id,
     nonce_id,
     created_at,
     updated_at,
@@ -62,25 +62,25 @@ INSERT INTO store_nonces (
     NULL
 );
 
-INSERT INTO store_nonces (
-    store_nonce_id,
-    store_id,
+INSERT INTO user_nonces (
+    user_nonce_id,
+    user_id,
     nonce_id,
     created_at,
     updated_at,
     deleted_at
 ) VALUES (
     5,
-    101,
+    102,
     5,
     '2026-04-13 11:20:00',
     '2026-04-13 11:20:00',
     NULL
 );
 
-INSERT INTO store_nonces (
-    store_nonce_id,
-    store_id,
+INSERT INTO user_nonces (
+    user_nonce_id,
+    user_id,
     nonce_id,
     created_at,
     updated_at,
@@ -88,8 +88,8 @@ INSERT INTO store_nonces (
 ) VALUES (
     6,
     101,
-    7,
-    '2026-04-13 11:25:00',
-    '2026-04-13 11:25:00',
+    6,
+    '2026-04-13 11:20:00',
+    '2026-04-13 11:20:00',
     NULL
 );

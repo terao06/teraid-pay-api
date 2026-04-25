@@ -111,8 +111,16 @@ def insert_stores(engine) -> str:
     return _execute_sql_file(engine, "stores.sql")
 
 
+def insert_users(engine) -> str:
+    return _execute_sql_file(engine, "users.sql")
+
+
 def insert_wallets(engine) -> str:
     return _execute_sql_file(engine, "wallets.sql")
+
+
+def insert_user_wallets(engine) -> str:
+    return _execute_sql_file(engine, "user_wallets.sql")
 
 
 def insert_store_wallets(engine) -> str:
@@ -123,6 +131,10 @@ def insert_nonces(engine) -> str:
     return _execute_sql_file(engine, "nonces.sql")
 
 
+def insert_user_nonces(engine) -> str:
+    return _execute_sql_file(engine, "user_nonces.sql")
+
+
 def insert_store_nonces(engine) -> str:
     return _execute_sql_file(engine, "store_nonces.sql")
 
@@ -130,9 +142,12 @@ def insert_store_nonces(engine) -> str:
 def insert_sample_data(engine) -> list[str]:
     return [
         insert_stores(engine),
+        insert_users(engine),
         insert_wallets(engine),
+        insert_user_wallets(engine),
         insert_store_wallets(engine),
         insert_nonces(engine),
+        insert_user_nonces(engine),
         insert_store_nonces(engine),
     ]
 
@@ -166,7 +181,11 @@ def main() -> None:
 
     try:
         wait_for_database(engine)
-        Base.metadata.create_all(bind=engine)
+        with engine.begin() as connection:
+            connection.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
+            Base.metadata.drop_all(bind=connection)
+            Base.metadata.create_all(bind=connection)
+            connection.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
         executed_files = insert_sample_data(engine)
     except SQLAlchemyError as exc:
         raise SystemExit(f"Failed to create tables: {exc}") from exc

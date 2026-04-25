@@ -31,7 +31,7 @@ class SecretManager:
             secret_name: 取得対象のシークレット名です。
 
         Returns:
-            secret: JSON の場合は辞書、それ以外は文字列またはバイナリです。
+            Union: JSON の場合は辞書、それ以外は文字列またはバイナリです。
         """
         try:
             get_secret_value_response = self.client.get_secret_value(

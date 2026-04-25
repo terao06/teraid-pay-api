@@ -12,9 +12,13 @@ from tests.unit.test_data.mysql.build_local_db import (
     insert_nonces as load_nonces,
     insert_store_nonces as load_store_nonces,
     insert_stores as load_stores,
+    insert_user_nonces as load_user_nonces,
+    insert_users as load_users,
+    insert_user_wallets as load_user_wallets,
     insert_wallets as load_wallets,
     insert_store_wallets as load_store_wallets,
 )
+
 
 @pytest.fixture(scope="module")
 def engine():
@@ -56,8 +60,23 @@ def insert_wallets(engine) -> str:
 
 
 @pytest.fixture()
+def insert_users(engine) -> str:
+    return load_users(engine)
+
+
+@pytest.fixture()
+def insert_user_wallets(engine) -> str:
+    return load_user_wallets(engine)
+
+
+@pytest.fixture()
 def insert_nonces(engine) -> str:
     return load_nonces(engine)
+
+
+@pytest.fixture()
+def insert_user_nonces(engine) -> str:
+    return load_user_nonces(engine)
 
 
 @pytest.fixture()

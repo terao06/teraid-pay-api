@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 
 
-class StoreWalletVerifyResponse(BaseModel):
+class WalletVerifyResponse(BaseModel):
     wallet_address: str
     chain_type: str
     network_name: str

@@ -1,41 +1,47 @@
 from collections.abc import Generator
-from contextlib import contextmanager
 from unittest.mock import patch
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
+from app.core.aws.secret_manager import SecretManager
 from app.endpoints.store import store_router
+from app.endpoints.user import user_router
+from app.middlewares.transaction import get_db
 
 
 @pytest.fixture()
 def client() -> Generator[TestClient, None, None]:
     app = FastAPI()
     app.include_router(store_router, prefix="/store")
+    app.include_router(user_router, prefix="/user")
 
     with TestClient(app) as test_client:
         yield test_client
 
 
-class _TestDatabase:
-    def __init__(self, session: Session) -> None:
-        self._session = session
-
-    @contextmanager
-    def get_session(self) -> Generator[Session, None, None]:
-        yield self._session
-
-
 @pytest.fixture()
 def client_with_db(
-    session: Session,
 ) -> Generator[TestClient, None, None]:
+    get_db.cache_clear()
+
     app = FastAPI()
     app.include_router(store_router, prefix="/store")
+    app.include_router(user_router, prefix="/user")
 
-    test_database = _TestDatabase(session)
-    with patch("app.middlewares.transaction.get_db", return_value=test_database):
+    with patch.object(
+        SecretManager,
+        "get_secret",
+        return_value={
+            "mysql_user": "teraid_pay_admin_user",
+            "mysql_password": "password",
+            "mysql_host": "127.0.0.1",
+            "mysql_port": "3307",
+            "mysql_database": "db_local",
+        },
+    ):
         with TestClient(app) as test_client:
             yield test_client
+
+    get_db.cache_clear()

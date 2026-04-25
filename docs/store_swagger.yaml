@@ -41,7 +41,7 @@ paths:
                       wallet_id: 201
                       wallet_address: 0x1111111111111111111111111111111111111111
                       chain_type: ethereum
-                      network_name: mainnet
+                      network_name: sepolia
                       is_active: true
                       verified_at: '2024-01-10 12:00'
                       created_at: '2024-01-01 09:00'
@@ -75,7 +75,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/StoreWalletVerifyRequest'
+              $ref: '#/components/schemas/WalletVerifyRequest'
             examples:
               default:
                 value:
@@ -222,7 +222,7 @@ components:
           default: sepolia
           description: ブロックチェーンのネットワーク名
 
-    StoreWalletVerifyRequest:
+    WalletVerifyRequest:
       type: object
       required:
         - wallet_address
@@ -253,8 +253,7 @@ components:
     StoreWallet:
       type: object
       required:
-        - store_wallet_id
-        - store_id
+        - wallet_id
         - wallet_address
         - chain_type
         - network_name
@@ -262,12 +261,9 @@ components:
         - created_at
         - updated_at
       properties:
-        store_wallet_id:
+        wallet_id:
           type: integer
-          description: 店舗ウォレットID
-        store_id:
-          type: integer
-          description: 店舗ID
+          description: ウォレットID
         wallet_address:
           type: string
           description: ウォレットアドレス
@@ -294,13 +290,9 @@ components:
     WalletNonceCreate:
       type: object
       required:
-        - message
         - nonce
         - expires_at
       properties:
-        message:
-          type: string
-          description: 署名用メッセージ
         nonce:
           type: string
           description: ワンタイムトークン（nonce）

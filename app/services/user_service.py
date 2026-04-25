@@ -1,51 +1,46 @@
+
 from datetime import datetime, timedelta
 import secrets
 
 from sqlalchemy.orm import Session
-
-from app.core.exceptions.custom_exception import (
-    StoreNotFoundException,
-    WalletConflictException,
-    UnauthorizedException
-)
-from app.core.utils.datetime import DateTimeUtil
+from app.core.exceptions.custom_exception import UnauthorizedException, UserNotFoundException, WalletConflictException
+from app.core.utils.datetime import JST, DateTimeUtil
 from app.core.utils.logging import TeraidPayApiLog
 from app.core.utils.wallet import WalletUtil
 from app.models.mysql.nonce import Nonce
-from app.models.mysql.store_wallet import StoreWallet
-from app.models.mysql.store_nonce import StoreNonce
+from app.models.mysql.user_nonce import UserNonce
+from app.models.mysql.user_wallet import UserWallet
 from app.models.mysql.wallet import Wallet
-from app.models.responses.store_wallet_response import StoreWalletResponse
+from app.models.responses.user_wallet_response import UserWalletResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
 from app.repositories.nonce_repository import NonceRepository
-from app.repositories.store_repository import StoreRepository
-from app.core.utils.datetime import JST
+from app.repositories.user_repository import UserRepository
 from app.repositories.wallet_repository import WalletRepository
 
 
-class StoreService:
-    """店舗ウォレット関連処理を担当するサービス。"""
+class UserService:
+    """ユーザーウォレット関連処理を担当するサービス。"""
 
-    def get_store_wallet(self, session: Session, store_id: int) -> StoreWalletResponse | None:
-        """店舗 ID に紐づくウォレット情報を取得する。
+    def get_user_wallet(self, session: Session, user_id: int) -> UserWalletResponse | None:
+        """ユーザー ID に紐づくウォレット情報を取得する。
 
         Args:
             session: SQLAlchemy のセッション。
-            store_id: 対象店舗の ID。
+            user_id: 対象ユーザーの ID。
 
         Returns:
-            店舗ウォレットのレスポンス。存在しない場合は None。
+            ユーザーウォレットのレスポンス。存在しない場合は None。
         """
-        wallet_info = StoreRepository().get_store_wallet(
+        wallet_info = UserRepository().get_user_wallet(
             session=session,
-            store_id=store_id
+            user_id=user_id
         )
 
         if wallet_info is None:
             return None
 
-        return StoreWalletResponse(
+        return UserWalletResponse(
             wallet_id=wallet_info.wallet_id,
             wallet_address=wallet_info.wallet_address,
             chain_type=wallet_info.chain_type,
@@ -59,7 +54,7 @@ class StoreService:
     def create_wallet_nonce(
         self,
         session: Session,
-        store_id: int,
+        user_id: int,
         wallet_address: str,
         chain_type: str,
         network_name: str,
@@ -68,7 +63,7 @@ class StoreService:
 
         Args:
             session: SQLAlchemy のセッション。
-            store_id: 対象店舗の ID。
+            user_id: 対象ユーザーの ID。
             wallet_address: 対象ウォレットアドレス。
             chain_type: チェーン種別。
             network_name: ネットワーク名。
@@ -76,14 +71,15 @@ class StoreService:
         Returns:
             署名メッセージと nonce を含むレスポンス。
         """
-        store = StoreRepository().get_store_by_id(
+        store = UserRepository().get_user_by_id(
             session=session,
-            store_id=store_id
+            user_id=user_id
         )
         if not store:
-            raise StoreNotFoundException(f"対象の店舗は存在しません. store_id={store_id}")
+            raise UserNotFoundException(f"対象の店舗は存在しません. user_id={user_id}")
 
-        normalized_wallet_address = WalletUtil.normalize_wallet_address(wallet_address)
+        normalized_wallet_address = WalletUtil.normalize_wallet_address(
+            wallet_address=wallet_address)
         now = datetime.now(JST)
         expires_at = now + timedelta(minutes=10)
         nonce_str = secrets.token_urlsafe(32)
@@ -96,13 +92,13 @@ class StoreService:
         )
         saved_nonce = NonceRepository().create_nonce(session=session, nonce=nonce)
         
-        store_nonce = StoreNonce(
-            store_id=store_id,
+        user_nonce = UserNonce(
+            user_id=user_id,
             nonce_id=saved_nonce.nonce_id
         )
-        StoreRepository().create_store_nonce(
+        UserRepository().create_user_nonce(
             session=session,
-            store_nonce=store_nonce
+            user_nonce=user_nonce
         )
 
         return WalletNonceCreateResponse(
@@ -113,7 +109,7 @@ class StoreService:
     def verify_wallet_nonce(
         self,
         session: Session,
-        store_id: int,
+        user_id: int,
         wallet_address: str,
         signature: str,
         chain_type: str,
@@ -121,7 +117,7 @@ class StoreService:
         """署名済み nonce を検証し、利用可能な nonce エンティティを返す。
         Args:
             session: SQLAlchemy のセッション。
-            store_id: 対象店舗の ID。
+            user_id: 対象ユーザーの ID。
             wallet_address: 検証対象のウォレットアドレス。
             signature: 署名文字列。
             chain_type: チェーン種別。
@@ -130,14 +126,14 @@ class StoreService:
             検証に成功した未使用の Nonce。
         """
         normalized_wallet_address = WalletUtil.normalize_wallet_address(wallet_address)
-        repository = StoreRepository()
-        store = repository.get_store_by_id(session=session, store_id=store_id)
+        repository = UserRepository()
+        store = repository.get_user_by_id(session=session, user_id=user_id)
         if store is None:
-            raise StoreNotFoundException(f"対象の店舗は存在しません. store_id={store_id}")
+            raise UserNotFoundException(f"対象のユーザーは存在しません. user_id={user_id}")
 
         stor_nonce_entity = repository.get_latest_available_nonce(
             session=session,
-            store_id=store_id,
+            user_id=user_id,
             wallet_address=normalized_wallet_address,
             chain_type=chain_type,
             network_name=network_name,
@@ -157,11 +153,11 @@ class StoreService:
         if recovered_address.lower() != normalized_wallet_address:
             raise UnauthorizedException("認証に失敗しました。")
         return stor_nonce_entity
-
+    
     def create_store_wallet(
         self,
         session: Session,
-        store_id: int,
+        user_id: int,
         wallet_address: str,
         chain_type: str,
         network_name: str,
@@ -170,7 +166,7 @@ class StoreService:
 
         Args:
             session: SQLAlchemy のセッション。
-            store_id: 対象店舗の ID。
+            user_id: 対象ユーザーの ID。
             wallet_address: 登録対象のウォレットアドレス。
             signature: 署名値。
             chain_type: チェーン種別。
@@ -180,12 +176,12 @@ class StoreService:
             WalletVerifyResponse: ウォレット検証レスポンス
         """
 
-        repository = StoreRepository()
+        user_repository = UserRepository()
         normalized_wallet_address = WalletUtil.normalize_wallet_address(wallet_address)
 
-        existing_wallet = repository.get_wallet_by_store_id(
+        existing_wallet = user_repository.get_wallet_by_user_id(
             session=session,
-            store_id=store_id,
+            user_id=user_id,
             chain_type=chain_type,
             network_name=network_name,
         )
@@ -207,20 +203,20 @@ class StoreService:
             wallet=new_wallet
         )
 
-        new_store_wallet = StoreWallet(
-            store_id=store_id,
+        new_store_wallet = UserWallet(
+            user_id=user_id,
             wallet_id=saved_wallet.wallet_id
         )
-        repository.create_store_wallet(
+        user_repository.create_user_wallet(
             session=session,
-            store_wallet=new_store_wallet)
+            user_wallet=new_store_wallet)
 
         nonce_entity.used_at = datetime.now()
         NonceRepository().update_nonce(
             session=session,
             nonce=nonce_entity
         )
-        repository.delete_store_nonce_by_nonce_id(
+        user_repository.delete_user_nonce_by_nonce_id(
             session=session,
             nonce_id=nonce_entity.nonce_id
         )
@@ -234,7 +230,7 @@ class StoreService:
                 new_wallet.verified_at
             ),
         )
-
+    
     def delete_wallet(self, session: Session, wallet_id: int) -> None:
         """ウォレットを登録から削除する。
 
@@ -246,4 +242,4 @@ class StoreService:
             なし。
         """
         WalletRepository().delete_wallet_by_wallet_id(session=session, wallet_id=wallet_id)
-        StoreRepository().delete_store_wallet_by_wallet_id(session=session, wallet_id=wallet_id)
+        UserRepository().delete_user_wallet_by_wallet_id(session=session, wallet_id=wallet_id)

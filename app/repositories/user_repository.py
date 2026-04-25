@@ -2,88 +2,88 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from app.models.mysql.store import Store
+from app.models.mysql.user import User
 from app.models.mysql.wallet import Wallet
-from app.models.mysql.store_wallet import StoreWallet
-from app.models.mysql.store_nonce import StoreNonce
+from app.models.mysql.user_wallet import UserWallet
+from app.models.mysql.user_nonce import UserNonce
 from app.models.mysql.nonce import Nonce
 from app.core.utils.datetime import JST
 
 
-class StoreRepository:
-    """店舗ウォレット情報を取得するリポジトリです。"""
+class UserRepository:
+    """ユーザーウォレット情報を取得するリポジトリです。"""
 
-    def get_store_wallet(self, session: Session, store_id: int) -> Wallet | None:
-        """店舗に紐づくウォレットを取得します。
+    def get_user_wallet(self, session: Session, user_id: int) -> Wallet | None:
+        """ユーザーに紐づくウォレットを取得します。
         Args:
             session: SQLAlchemy のセッションです。
-            store_id: 絞り込み対象の店舗 ID です。
+            user_id: 絞り込み対象のユーザー ID です。
 
         Returns:
             Wallet: ウォレット情報。
         """
         return session.query(Wallet
         ).join(
-            StoreWallet, Wallet.wallet_id == StoreWallet.wallet_id
+            UserWallet, Wallet.wallet_id == UserWallet.wallet_id
         ).join(
-            Store, StoreWallet.store_id == Store.store_id
+            User, UserWallet.user_id == User.user_id
         ).where(
-            Store.store_id == store_id,
-            Store.deleted_at.is_(None),
-            StoreWallet.deleted_at.is_(None),
+            User.user_id == user_id,
+            User.deleted_at.is_(None),
+            UserWallet.deleted_at.is_(None),
             Wallet.deleted_at.is_(None)
         ).first()
 
-    def get_store_by_id(self, session: Session, store_id: int) -> Store | None:
-        """店舗 ID から店舗情報を取得する。
+    def get_user_by_id(self, session: Session, user_id: int) -> User | None:
+        """ユーザー ID から店舗情報を取得する。
 
         Args:
             session: SQLAlchemy のセッション。
-            store_id: 対象店舗の ID。
+            user_id: 対象ユーザーの ID。
 
         Returns:
-            取得した店舗情報。存在しない場合は `None`。
+            取得したユーザー情報。存在しない場合は `None`。
         """
-        return session.query(Store).where(
-            Store.store_id == store_id,
-            Store.deleted_at.is_(None)
+        return session.query(User).where(
+            User.user_id == user_id,
+            User.deleted_at.is_(None)
         ).one_or_none()
 
-    def create_store_nonce(self, session: Session, store_nonce: StoreNonce) -> None:
+    def create_user_nonce(self, session: Session, user_nonce: UserNonce) -> None:
         """店舗 nonce を保存対象としてセッションへ追加する。
 
         Args:
             session: SQLAlchemy のセッション。
-            store_nonce: 保存する店舗 nonce エンティティ。
+            user_nonce: 保存するユーザー nonce エンティティ。
 
         Returns:
             なし。
         """
-        session.add(store_nonce)
-    
-    def get_wallet_by_store_id(
+        session.add(user_nonce)
+
+    def get_wallet_by_user_id(
         self,
         session: Session,
-        store_id: int,
+        user_id: int,
         chain_type: str,
         network_name: str,
     ) -> Wallet | None:
-        """ウォレットアドレスに紐づく店舗ウォレットを取得する。
+        """ウォレットアドレスに紐づくユーザーウォレットを取得する。
 
         Args:
             session: SQLAlchemy のセッション。
-            store_id: 店舗ID
+            user_id: ユーザーID
             chain_type: チェーン種別。
             network_name: ネットワーク名。
 
         Returns:
-            該当する店舗ウォレット。存在しない場合は `None`。
+            該当するユーザーウォレット。存在しない場合は `None`。
         """
         return (
             session.query(Wallet)
-            .join(StoreWallet, Wallet.wallet_id == StoreWallet.wallet_id)
-            .where(StoreWallet.store_id == store_id)
-            .where(StoreWallet.deleted_at.is_(None))
+            .join(UserWallet, Wallet.wallet_id == UserWallet.wallet_id)
+            .where(UserWallet.user_id == user_id)
+            .where(UserWallet.deleted_at.is_(None))
             .where(Wallet.chain_type == chain_type)
             .where(Wallet.network_name == network_name)
             .where(Wallet.deleted_at.is_(None))
@@ -92,7 +92,7 @@ class StoreRepository:
     def get_latest_available_nonce(
         self,
         session: Session,
-        store_id: int,
+        user_id: int,
         wallet_address: str,
         chain_type: str,
         network_name: str,
@@ -101,7 +101,7 @@ class StoreRepository:
 
         Args:
             session: SQLAlchemy のセッション。
-            store_id: 対象店舗の ID。
+            user_id: 対象ユーザーの ID。
             wallet_address: 対象ウォレットアドレス。
             chain_type: チェーン種別。
             network_name: ネットワーク名。
@@ -113,33 +113,33 @@ class StoreRepository:
 
         return (
             session.query(Nonce)
-            .join(StoreNonce, StoreNonce.nonce_id == Nonce.nonce_id)
-            .where(StoreNonce.store_id == store_id)
-            .where(StoreNonce.deleted_at.is_(None))
+            .join(UserNonce, UserNonce.nonce_id == Nonce.nonce_id)
+            .where(UserNonce.user_id == user_id)
+            .where(UserNonce.deleted_at.is_(None))
             .where(Nonce.wallet_address == wallet_address)
             .where(Nonce.chain_type == chain_type)
             .where(Nonce.network_name == network_name)
             .where(Nonce.used_at.is_(None))
             .where(Nonce.expires_at >= expires_at)
-            .order_by(StoreNonce.store_nonce_id.desc())
+            .order_by(UserNonce.user_nonce_id.desc())
         ).first()
 
-    def create_store_wallet(self, session: Session, store_wallet: StoreWallet) -> None:
-        """店舗ウォレットを保存対象としてセッションへ追加する。
+    def create_user_wallet(self, session: Session, user_wallet: UserWallet) -> None:
+        """ユーザーウォレットを保存対象としてセッションへ追加する。
 
         Args:
             session: SQLAlchemy のセッション。
-            store_wallet: 保存する店舗ウォレット。
+            user_wallet: 保存する店舗ウォレット。
 
         Returns:
             なし。
         """
-        session.add(store_wallet)
+        session.add(user_wallet)
         session.flush()
-        return store_wallet
+        return user_wallet
 
-    def delete_store_nonce_by_nonce_id(self, session: Session, nonce_id: int) -> None:
-        """対象のnonceを論理削除する。
+    def delete_user_nonce_by_nonce_id(self, session: Session, nonce_id: int) -> None:
+        """対象のユーザーnonceを論理削除する。
 
         Args:
             session: SQLAlchemy のセッション。
@@ -151,12 +151,12 @@ class StoreRepository:
         """
         now = datetime.now(JST)
         (
-            session.query(StoreNonce)
-            .where(StoreNonce.nonce_id == nonce_id)
-            .update({StoreNonce.deleted_at: now, StoreNonce.updated_at: now})
+            session.query(UserNonce)
+            .where(UserNonce.nonce_id == nonce_id)
+            .update({UserNonce.deleted_at: now, UserNonce.updated_at: now})
         )
-
-    def delete_store_wallet_by_wallet_id(self, session: Session, wallet_id: int) -> None:
+    
+    def delete_user_wallet_by_wallet_id(self, session: Session, wallet_id: int) -> None:
         """wallet_idを指定し対象の店舗ウォレット紐づけを論理削除する。
 
         Args:
@@ -169,7 +169,7 @@ class StoreRepository:
         """
         now = datetime.now(JST)
         (
-            session.query(StoreWallet)
-            .where(StoreWallet.wallet_id == wallet_id)
-            .update({StoreWallet.deleted_at: now, StoreWallet.updated_at: now})
+            session.query(UserWallet)
+            .where(UserWallet.wallet_id == wallet_id)
+            .update({UserWallet.deleted_at: now, UserWallet.updated_at: now})
         )
