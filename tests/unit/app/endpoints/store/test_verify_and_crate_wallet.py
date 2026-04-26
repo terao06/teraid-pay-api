@@ -25,6 +25,7 @@ class TestVerifyAndCreateWallet:
             wallet_address="0xabcdef1234567890abcdef1234567890abcdef12",
             chain_type="ethereum",
             network_name="sepolia",
+            chain_id=11155111,
             is_active=True,
             verified_at="2026-04-13 12:00",
         )
@@ -36,6 +37,7 @@ class TestVerifyAndCreateWallet:
                 "signature": "signed-message",
                 "chain_type": "ethereum",
                 "network_name": "sepolia",
+                "chain_id": 11155111,
             },
         )
 
@@ -46,6 +48,7 @@ class TestVerifyAndCreateWallet:
                 "wallet_address": "0xabcdef1234567890abcdef1234567890abcdef12",
                 "chain_type": "ethereum",
                 "network_name": "sepolia",
+                "chain_id": 11155111,
                 "is_active": True,
                 "verified_at": "2026-04-13 12:00",
             },
@@ -57,6 +60,7 @@ class TestVerifyAndCreateWallet:
         assert request.signature == "signed-message"
         assert request.chain_type == "ethereum"
         assert request.network_name == "sepolia"
+        assert request.chain_id == 11155111
 
     @patch("app.endpoints.store.StoreController.verify_and_create_wallet_nonce")
     @pytest.mark.parametrize(
@@ -90,6 +94,7 @@ class TestVerifyAndCreateWallet:
                 "signature": "signed-message",
                 "chain_type": "ethereum",
                 "network_name": "sepolia",
+                "chain_id": 11155111,
             },
         )
 
@@ -121,6 +126,7 @@ class TestVerifyAndCreateWallet:
                 "signature": "28704a0a4569f9cd6e64ef2f887948d95f9c8df3925db552db22d91703724c5679a5beb30eda5643b56cd07646e8120a784f7acb9a6f53f877ca15fa9bc4b01e1c",
                 "chain_type": "ethereum",
                 "network_name": "sepolia",
+                "chain_id": 11155111,
             },
         )
 
@@ -131,6 +137,7 @@ class TestVerifyAndCreateWallet:
                 "wallet_address": wallet_address,
                 "chain_type": "ethereum",
                 "network_name": "sepolia",
+                "chain_id": 11155111,
                 "is_active": True,
                 "verified_at": "2026-04-13 12:00",
             },
@@ -143,6 +150,7 @@ class TestVerifyAndCreateWallet:
                 Wallet.wallet_address == wallet_address,
                 Wallet.chain_type == "ethereum",
                 Wallet.network_name == "sepolia",
+                Wallet.chain_id == 11155111,
                 Wallet.wallet_id != 301,
             )
             .one()

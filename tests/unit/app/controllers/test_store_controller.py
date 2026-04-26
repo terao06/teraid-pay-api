@@ -16,7 +16,7 @@ from app.core.exceptions.custom_exception import (
     WalletConflictException,
 )
 from app.models.requests.wallet_nonce_create_request import WalletNonceCreateRequest
-from app.models.responses.store_wallet_response import StoreWalletResponse
+from app.models.responses.wallet_response import WalletResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
@@ -31,11 +31,12 @@ class TestGetStoreWallet:
 
         session = Mock()
         store_id = 10
-        expected = StoreWalletResponse(
+        expected = WalletResponse(
             wallet_id=1,
             wallet_address="wallet-address-1",
             chain_type="ETH",
             network_name="mainnet",
+            chain_id=1,
             is_active=True,
             verified_at="2026-04-12 12:00",
             created_at="2026-04-12 12:00",
@@ -197,12 +198,14 @@ class TestVerifyAndCreateWalletNonce:
             signature="signed-message",
             chain_type="ethereum",
             network_name="sepolia",
+            chain_id=11155111,
         )
         nonce_entity = Mock()
         expected = WalletVerifyResponse(
             wallet_address=request.wallet_address,
             chain_type=request.chain_type,
             network_name=request.network_name,
+            chain_id=request.chain_id,
             is_active=True,
             verified_at="2026-04-12 12:10",
         )
@@ -231,6 +234,7 @@ class TestVerifyAndCreateWalletNonce:
             wallet_address=request.wallet_address,
             chain_type=request.chain_type,
             network_name=request.network_name,
+            chain_id=request.chain_id,
             nonce_entity=nonce_entity,
         )
         assert result == expected
@@ -261,6 +265,7 @@ class TestVerifyAndCreateWalletNonce:
             signature="signed-message",
             chain_type="ethereum",
             network_name="sepolia",
+            chain_id=11155111,
         )
         nonce_entity = Mock()
         mock_service = mock_service_class.return_value

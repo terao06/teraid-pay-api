@@ -11,7 +11,7 @@ from app.models.mysql.nonce import Nonce
 from app.models.mysql.user_nonce import UserNonce
 from app.models.mysql.user_wallet import UserWallet
 from app.models.mysql.wallet import Wallet
-from app.models.responses.user_wallet_response import UserWalletResponse
+from app.models.responses.wallet_response import WalletResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
 from app.repositories.nonce_repository import NonceRepository
@@ -22,7 +22,7 @@ from app.repositories.wallet_repository import WalletRepository
 class UserService:
     """ユーザーウォレット関連処理を担当するサービス。"""
 
-    def get_user_wallet(self, session: Session, user_id: int) -> UserWalletResponse | None:
+    def get_user_wallet(self, session: Session, user_id: int) -> WalletResponse | None:
         """ユーザー ID に紐づくウォレット情報を取得する。
 
         Args:
@@ -40,11 +40,12 @@ class UserService:
         if wallet_info is None:
             return None
 
-        return UserWalletResponse(
+        return WalletResponse(
             wallet_id=wallet_info.wallet_id,
             wallet_address=wallet_info.wallet_address,
             chain_type=wallet_info.chain_type,
             network_name=wallet_info.network_name,
+            chain_id=wallet_info.chain_id,
             is_active=wallet_info.is_active,
             verified_at=DateTimeUtil.change_datetime_to_string(wallet_info.verified_at),
             created_at=DateTimeUtil.change_datetime_to_string(wallet_info.created_at),
@@ -71,12 +72,12 @@ class UserService:
         Returns:
             署名メッセージと nonce を含むレスポンス。
         """
-        store = UserRepository().get_user_by_id(
+        user = UserRepository().get_user_by_id(
             session=session,
             user_id=user_id
         )
-        if not store:
-            raise UserNotFoundException(f"対象の店舗は存在しません. user_id={user_id}")
+        if not user:
+            raise UserNotFoundException(f"対象のユーザーは存在しません. user_id={user_id}")
 
         normalized_wallet_address = WalletUtil.normalize_wallet_address(
             wallet_address=wallet_address)
@@ -161,6 +162,7 @@ class UserService:
         wallet_address: str,
         chain_type: str,
         network_name: str,
+        chain_id: int,
         nonce_entity: Nonce) -> WalletVerifyResponse:
         """店舗ウォレットを登録する。
 
@@ -184,6 +186,7 @@ class UserService:
             user_id=user_id,
             chain_type=chain_type,
             network_name=network_name,
+            chain_id=chain_id,
         )
         if existing_wallet is not None:
             TeraidPayApiLog.warning(
@@ -195,6 +198,7 @@ class UserService:
             wallet_address=normalized_wallet_address,
             chain_type=chain_type,
             network_name=network_name,
+            chain_id=chain_id,
             verified_at=datetime.now(),
             is_active=True,
         )
@@ -225,6 +229,7 @@ class UserService:
             wallet_address=new_wallet.wallet_address,
             chain_type=new_wallet.chain_type,
             network_name=new_wallet.network_name,
+            chain_id=new_wallet.chain_id,
             is_active=bool(new_wallet.is_active),
             verified_at=DateTimeUtil.change_datetime_to_string(
                 new_wallet.verified_at

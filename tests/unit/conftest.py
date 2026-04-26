@@ -10,6 +10,7 @@ from tests.unit.test_data.mysql.build_local_db import (
     build_database_url,
     import_mysql_models,
     insert_nonces as load_nonces,
+    insert_payment_requests as load_payment_requests,
     insert_store_nonces as load_store_nonces,
     insert_stores as load_stores,
     insert_user_nonces as load_user_nonces,
@@ -82,3 +83,10 @@ def insert_user_nonces(engine) -> str:
 @pytest.fixture()
 def insert_store_nonces(engine) -> str:
     return load_store_nonces(engine)
+
+
+@pytest.fixture()
+def insert_payment_requests(engine) -> str:
+    load_stores(engine)
+    load_users(engine)
+    return load_payment_requests(engine)

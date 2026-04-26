@@ -18,6 +18,7 @@ class TestCreateWallet:
             wallet_address="0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             chain_type="ethereum",
             network_name="sepolia",
+            chain_id=11155111,
             is_active=True,
             verified_at=datetime(2026, 4, 13, 12, 0, 0),
         )
@@ -29,6 +30,7 @@ class TestCreateWallet:
         assert saved_wallet.wallet_address == "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
         assert saved_wallet.chain_type == "ethereum"
         assert saved_wallet.network_name == "sepolia"
+        assert saved_wallet.chain_id == 11155111
         assert saved_wallet.is_active is True
         assert saved_wallet.verified_at == datetime(2026, 4, 13, 12, 0, 0)
 

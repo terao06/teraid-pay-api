@@ -139,6 +139,10 @@ def insert_store_nonces(engine) -> str:
     return _execute_sql_file(engine, "store_nonces.sql")
 
 
+def insert_payment_requests(engine) -> str:
+    return _execute_sql_file(engine, "payment_requests.sql")
+
+
 def insert_sample_data(engine) -> list[str]:
     return [
         insert_stores(engine),
@@ -149,6 +153,7 @@ def insert_sample_data(engine) -> list[str]:
         insert_nonces(engine),
         insert_user_nonces(engine),
         insert_store_nonces(engine),
+        insert_payment_requests(engine),
     ]
 
 

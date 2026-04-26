@@ -37,10 +37,10 @@ class Wallet(Base):
         nullable=False,
         comment="ネットワーク名",
     )
-    token_symbol = Column(
-        String(20),
-        nullable=True,
-        comment="トークンシンボル",
+    chain_id = Column(
+        BigInteger,
+        nullable=False,
+        comment="チェーンID",
     )
     wallet_name = Column(
         String(255),

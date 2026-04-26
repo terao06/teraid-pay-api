@@ -6,7 +6,7 @@ from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
 from app.services.store_service import StoreService
-from app.models.responses.store_wallet_response import StoreWalletResponse
+from app.models.responses.wallet_response import WalletResponse
 from app.core.exceptions.message import SERVER_ERROR, STORE_NOT_FOUND_ERROR, VERIFY_ERROR, WALLET_CONFLICT_ERROR
 from app.core.exceptions.custom_exception import CustomHttpException, StoreNotFoundException, UnauthorizedException, WalletConflictException
 
@@ -15,7 +15,7 @@ class StoreController:
     """店舗ウォレット取得 API のリクエストを処理するコントローラーです。"""
 
     @transaction
-    def get_store_wallet(self, session: Session, store_id: int) -> StoreWalletResponse | None:
+    def get_store_wallet(self, session: Session, store_id: int) -> WalletResponse | None:
         """リクエスト条件に一致する店舗ウォレットを取得します。
 
         Args:
@@ -23,7 +23,7 @@ class StoreController:
             store_id: 取得対象の店舗 IDです。
 
         Returns:
-            StoreWalletResponse: 店舗ウォレットレスポンスです。
+            WalletResponse: 店舗ウォレットレスポンスです。
         """
         try:
             store_service = StoreService()
@@ -101,6 +101,7 @@ class StoreController:
                 wallet_address=request.wallet_address,
                 chain_type=request.chain_type,
                 network_name=request.network_name,
+                chain_id=request.chain_id,
                 nonce_entity=nonce_entity
             )
         except StoreNotFoundException:

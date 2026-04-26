@@ -45,3 +45,20 @@ INSERT INTO users (
     '2024-03-02 00:00:00',
     '2024-03-03 00:00:00'
 );
+
+INSERT INTO users (
+    user_id,
+    first_name,
+    last_name,
+    created_at,
+    updated_at,
+    deleted_at
+) VALUES (
+    104,
+    '寺尾',
+    '太郎',
+    '2024-03-01 00:00:00',
+    '2024-03-02 00:00:00',
+    NULL
+);
+

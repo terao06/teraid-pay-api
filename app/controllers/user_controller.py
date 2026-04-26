@@ -7,7 +7,7 @@ from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
 from app.services.user_service import UserService
-from app.models.responses.user_wallet_response import UserWalletResponse
+from app.models.responses.wallet_response import WalletResponse
 from app.core.exceptions.message import SERVER_ERROR, USER_NOT_FOUND_ERROR, VERIFY_ERROR, WALLET_CONFLICT_ERROR
 
 
@@ -15,7 +15,7 @@ class UserController:
     """ユーザーウォレット取得 API のリクエストを処理するコントローラーです。"""
 
     @transaction
-    def get_user_wallet(self, session: Session, user_id: int) -> UserWalletResponse | None:
+    def get_user_wallet(self, session: Session, user_id: int) -> WalletResponse | None:
         """リクエスト条件に一致するユーザーウォレットを取得します。
 
         Args:
@@ -23,7 +23,7 @@ class UserController:
             user_id: 取得対象のユーザーIDです。
 
         Returns:
-            UserWalletResponse: ユーザーウォレットレスポンスです。
+            WalletResponse: ユーザーウォレットレスポンスです。
         """
         try:
             store_service = UserService()
@@ -104,6 +104,7 @@ class UserController:
                 wallet_address=request.wallet_address,
                 chain_type=request.chain_type,
                 network_name=request.network_name,
+                chain_id=request.chain_id,
                 nonce_entity=nonce_entity
             )
         except UserNotFoundException:

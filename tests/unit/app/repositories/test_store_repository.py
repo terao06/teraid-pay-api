@@ -105,13 +105,14 @@ class TestGetStoreById:
 @pytest.mark.usefixtures("insert_stores", "insert_wallets", "insert_store_wallets")
 class TestGetWalletByStoreId:
     @pytest.mark.parametrize(
-        ("store_id", "chain_type", "network_name", "expected_wallet_id"),
+        ("store_id", "chain_type", "network_name", "chain_id", "expected_wallet_id"),
         [
-            (101, "ETH", "mainnet", 301),
-            (101, "ETH", "goerli", None),
-            (101, "ETH", "sepolia", None),
-            (102, "ETH", "mainnet", 304),
-            (999, "ETH", "mainnet", None),
+            (101, "ETH", "mainnet", 1, 301),
+            (101, "ETH", "mainnet", 11155111, None),
+            (101, "ETH", "goerli", 1, None),
+            (101, "ETH", "sepolia", 11155111, None),
+            (102, "ETH", "mainnet", 1, 304),
+            (999, "ETH", "mainnet", 1, None),
         ],
     )
     def test_get_wallet_by_store_id(
@@ -120,6 +121,7 @@ class TestGetWalletByStoreId:
         store_id: int,
         chain_type: str,
         network_name: str,
+        chain_id: int,
         expected_wallet_id: int | None,
     ) -> None:
         repository = StoreRepository()
@@ -129,6 +131,7 @@ class TestGetWalletByStoreId:
             store_id=store_id,
             chain_type=chain_type,
             network_name=network_name,
+            chain_id=chain_id,
         )
 
         if expected_wallet_id is None:
@@ -139,6 +142,7 @@ class TestGetWalletByStoreId:
         assert result.wallet_id == expected_wallet_id
         assert result.chain_type == chain_type
         assert result.network_name == network_name
+        assert result.chain_id == chain_id
 
 
 @pytest.mark.usefixtures("insert_stores")
@@ -186,6 +190,7 @@ class TestCreateStoreWallet:
             wallet_address="0xcccccccccccccccccccccccccccccccccccccccc",
             chain_type="ethereum",
             network_name="sepolia",
+            chain_id=11155111,
             is_active=True,
             verified_at=datetime(2026, 4, 13, 12, 0, 0),
         )

@@ -15,7 +15,7 @@ from app.models.mysql.nonce import Nonce
 from app.models.mysql.store_wallet import StoreWallet
 from app.models.mysql.store_nonce import StoreNonce
 from app.models.mysql.wallet import Wallet
-from app.models.responses.store_wallet_response import StoreWalletResponse
+from app.models.responses.wallet_response import WalletResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
 from app.repositories.nonce_repository import NonceRepository
@@ -27,7 +27,7 @@ from app.repositories.wallet_repository import WalletRepository
 class StoreService:
     """店舗ウォレット関連処理を担当するサービス。"""
 
-    def get_store_wallet(self, session: Session, store_id: int) -> StoreWalletResponse | None:
+    def get_store_wallet(self, session: Session, store_id: int) -> WalletResponse | None:
         """店舗 ID に紐づくウォレット情報を取得する。
 
         Args:
@@ -45,11 +45,12 @@ class StoreService:
         if wallet_info is None:
             return None
 
-        return StoreWalletResponse(
+        return WalletResponse(
             wallet_id=wallet_info.wallet_id,
             wallet_address=wallet_info.wallet_address,
             chain_type=wallet_info.chain_type,
             network_name=wallet_info.network_name,
+            chain_id=wallet_info.chain_id,
             is_active=wallet_info.is_active,
             verified_at=DateTimeUtil.change_datetime_to_string(wallet_info.verified_at),
             created_at=DateTimeUtil.change_datetime_to_string(wallet_info.created_at),
@@ -165,6 +166,7 @@ class StoreService:
         wallet_address: str,
         chain_type: str,
         network_name: str,
+        chain_id: int,
         nonce_entity: Nonce) -> WalletVerifyResponse:
         """店舗ウォレットを登録する。
 
@@ -188,6 +190,7 @@ class StoreService:
             store_id=store_id,
             chain_type=chain_type,
             network_name=network_name,
+            chain_id=chain_id,
         )
         if existing_wallet is not None:
             TeraidPayApiLog.warning(
@@ -199,6 +202,7 @@ class StoreService:
             wallet_address=normalized_wallet_address,
             chain_type=chain_type,
             network_name=network_name,
+            chain_id=chain_id,
             verified_at=datetime.now(),
             is_active=True,
         )
@@ -229,6 +233,7 @@ class StoreService:
             wallet_address=new_wallet.wallet_address,
             chain_type=new_wallet.chain_type,
             network_name=new_wallet.network_name,
+            chain_id=new_wallet.chain_id,
             is_active=bool(new_wallet.is_active),
             verified_at=DateTimeUtil.change_datetime_to_string(
                 new_wallet.verified_at

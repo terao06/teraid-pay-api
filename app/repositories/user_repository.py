@@ -67,6 +67,7 @@ class UserRepository:
         user_id: int,
         chain_type: str,
         network_name: str,
+        chain_id: int,
     ) -> Wallet | None:
         """ウォレットアドレスに紐づくユーザーウォレットを取得する。
 
@@ -86,6 +87,7 @@ class UserRepository:
             .where(UserWallet.deleted_at.is_(None))
             .where(Wallet.chain_type == chain_type)
             .where(Wallet.network_name == network_name)
+            .where(Wallet.chain_id == chain_id)
             .where(Wallet.deleted_at.is_(None))
         ).first()
 

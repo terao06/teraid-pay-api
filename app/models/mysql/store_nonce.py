@@ -21,7 +21,6 @@ class StoreNonce(Base):
         nullable=False,
         comment="店舗ID",
     )
-
     nonce_id = Column(
         BigInteger,
         ForeignKey("nonces.nonce_id", ondelete="CASCADE"),

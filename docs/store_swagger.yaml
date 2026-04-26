@@ -31,7 +31,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GetStoreWalletResponse'
+                $ref: '#/components/schemas/GetWalletResponse'
               examples:
                 found:
                   summary: ウォレットが見つかりました
@@ -42,6 +42,7 @@ paths:
                       wallet_address: 0x1111111111111111111111111111111111111111
                       chain_type: ethereum
                       network_name: sepolia
+                      chain_id: 11155111
                       is_active: true
                       verified_at: '2024-01-10 12:00'
                       created_at: '2024-01-01 09:00'
@@ -83,6 +84,7 @@ paths:
                   signature: signed-message
                   chain_type: ethereum
                   network_name: sepolia
+                  chain_id: 11155111
       responses:
         '200':
           description: nonce 検証・ウォレット作成に成功
@@ -229,6 +231,7 @@ components:
         - signature
         - chain_type
         - network_name
+        - chain_id
       properties:
         wallet_address:
           type: string
@@ -250,6 +253,10 @@ components:
           maxLength: 50
           description: ブロックチェーンのネットワーク名
 
+        chain_id:
+          type: integer
+          minimum: 1
+          description: チェーンID
     StoreWallet:
       type: object
       required:
@@ -257,6 +264,7 @@ components:
         - wallet_address
         - chain_type
         - network_name
+        - chain_id
         - is_active
         - created_at
         - updated_at
@@ -287,6 +295,9 @@ components:
           type: string
           description: ウォレットが最後に更新された日時
 
+        chain_id:
+          type: integer
+          description: チェーンID
     WalletNonceCreate:
       type: object
       required:
@@ -306,6 +317,7 @@ components:
         - wallet_address
         - chain_type
         - network_name
+        - chain_id
         - is_active
         - verified_at
       properties:
@@ -325,7 +337,10 @@ components:
           type: string
           description: ウォレットが検証された日時
 
-    GetStoreWalletResponse:
+        chain_id:
+          type: integer
+          description: チェーンID
+    GetWalletResponse:
       type: object
       required:
         - status

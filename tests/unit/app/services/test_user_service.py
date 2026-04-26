@@ -6,7 +6,7 @@ import pytest
 
 from app.core.exceptions.custom_exception import UnauthorizedException, UserNotFoundException
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
-from app.models.responses.user_wallet_response import UserWalletResponse
+from app.models.responses.wallet_response import WalletResponse
 from app.services.user_service import JST, UserService
 
 
@@ -23,6 +23,7 @@ class TestGetUserWallet:
             wallet_address="0x1111111111111111111111111111111111111111",
             chain_type="ETH",
             network_name="mainnet",
+            chain_id=1,
             is_active=True,
             verified_at=datetime(2024, 1, 10, 12, 0, 0),
             created_at=datetime(2024, 1, 1, 9, 30, 0),
@@ -37,11 +38,12 @@ class TestGetUserWallet:
             session=session,
             user_id=user_id,
         )
-        assert result == UserWalletResponse(
+        assert result == WalletResponse(
             wallet_id=301,
             wallet_address="0x1111111111111111111111111111111111111111",
             chain_type="ETH",
             network_name="mainnet",
+            chain_id=1,
             is_active=True,
             verified_at="2024-01-10 12:00",
             created_at="2024-01-01 09:30",

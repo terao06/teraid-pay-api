@@ -67,6 +67,7 @@ class StoreRepository:
         store_id: int,
         chain_type: str,
         network_name: str,
+        chain_id: int,
     ) -> Wallet | None:
         """ウォレットアドレスに紐づく店舗ウォレットを取得する。
 
@@ -86,6 +87,7 @@ class StoreRepository:
             .where(StoreWallet.deleted_at.is_(None))
             .where(Wallet.chain_type == chain_type)
             .where(Wallet.network_name == network_name)
+            .where(Wallet.chain_id == chain_id)
             .where(Wallet.deleted_at.is_(None))
         ).first()
 
@@ -132,7 +134,7 @@ class StoreRepository:
             store_wallet: 保存する店舗ウォレット。
 
         Returns:
-            なし。
+            store_wallet: idを付与したwallet情報
         """
         session.add(store_wallet)
         session.flush()

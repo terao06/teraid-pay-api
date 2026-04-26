@@ -9,7 +9,7 @@ from app.core.exceptions.custom_exception import (
     UnauthorizedException,
     WalletConflictException,
 )
-from app.models.responses.store_wallet_response import StoreWalletResponse
+from app.models.responses.wallet_response import WalletResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
 from app.services.store_service import JST, StoreService
@@ -28,6 +28,7 @@ class TestGetStoreWallet:
             wallet_address="0x2222222222222222222222222222222222222222",
             chain_type="ETH",
             network_name="mainnet",
+            chain_id=1,
             is_active=True,
             verified_at=datetime(2024, 2, 10, 12, 0, 0),
             created_at=datetime(2024, 2, 1, 9, 30, 0),
@@ -42,11 +43,12 @@ class TestGetStoreWallet:
             session=session,
             store_id=store_id,
         )
-        assert result == StoreWalletResponse(
+        assert result == WalletResponse(
             wallet_id=201,
             wallet_address="0x2222222222222222222222222222222222222222",
             chain_type="ETH",
             network_name="mainnet",
+            chain_id=1,
             is_active=True,
             verified_at="2024-02-10 12:00",
             created_at="2024-02-01 09:30",
@@ -313,6 +315,7 @@ class TestCreateStoreWallet:
         normalized_wallet_address = wallet_address.lower()
         chain_type = "ethereum"
         network_name = "sepolia"
+        chain_id = 11155111
         fixed_now = datetime(2026, 4, 12, 12, 34, 56)
         nonce_entity = SimpleNamespace(nonce_id=1, used_at=None)
 
@@ -333,6 +336,7 @@ class TestCreateStoreWallet:
                 wallet_address=wallet_address,
                 chain_type=chain_type,
                 network_name=network_name,
+                chain_id=chain_id,
                 nonce_entity=nonce_entity,
             )
 
@@ -341,6 +345,7 @@ class TestCreateStoreWallet:
             store_id=store_id,
             chain_type=chain_type,
             network_name=network_name,
+            chain_id=chain_id,
         )
 
         mock_wallet_repository.create_wallet.assert_called_once()
@@ -350,6 +355,7 @@ class TestCreateStoreWallet:
         assert created_wallet.wallet_address == normalized_wallet_address
         assert created_wallet.chain_type == chain_type
         assert created_wallet.network_name == network_name
+        assert created_wallet.chain_id == chain_id
         assert created_wallet.verified_at == fixed_now
         assert created_wallet.is_active is True
 
@@ -369,6 +375,7 @@ class TestCreateStoreWallet:
             wallet_address=normalized_wallet_address,
             chain_type=chain_type,
             network_name=network_name,
+            chain_id=chain_id,
             is_active=True,
             verified_at="2026-04-12 12:34",
         )
@@ -381,6 +388,7 @@ class TestCreateStoreWallet:
         wallet_address = "0xABCDEF1234567890ABCDEF1234567890ABCDEF12"
         chain_type = "ethereum"
         network_name = "sepolia"
+        chain_id = 11155111
         nonce_entity = SimpleNamespace(used_at=None)
 
         mock_repository = mock_repository_class.return_value
@@ -393,6 +401,7 @@ class TestCreateStoreWallet:
                 wallet_address=wallet_address,
                 chain_type=chain_type,
                 network_name=network_name,
+                chain_id=chain_id,
                 nonce_entity=nonce_entity,
             )
 
@@ -401,6 +410,7 @@ class TestCreateStoreWallet:
             store_id=store_id,
             chain_type=chain_type,
             network_name=network_name,
+            chain_id=chain_id,
         )
         mock_repository.create_wallet.assert_not_called()
         mock_repository.create_store_wallet.assert_not_called()
