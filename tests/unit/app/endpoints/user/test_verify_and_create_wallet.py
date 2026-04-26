@@ -25,6 +25,7 @@ class TestVerifyAndCreateWallet:
             wallet_address="0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             chain_type="ethereum",
             network_name="sepolia",
+            token_symbol="JPYC",
             chain_id=11155111,
             is_active=True,
             verified_at="2026-04-13 12:00",
@@ -37,6 +38,7 @@ class TestVerifyAndCreateWallet:
                 "signature": "signed-message",
                 "chain_type": "ethereum",
                 "network_name": "sepolia",
+                "token_symbol": "JPYC",
                 "chain_id": 11155111,
             },
         )
@@ -48,6 +50,7 @@ class TestVerifyAndCreateWallet:
                 "wallet_address": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 "chain_type": "ethereum",
                 "network_name": "sepolia",
+                "token_symbol": "JPYC",
                 "chain_id": 11155111,
                 "is_active": True,
                 "verified_at": "2026-04-13 12:00",
@@ -60,6 +63,7 @@ class TestVerifyAndCreateWallet:
         assert request.signature == "signed-message"
         assert request.chain_type == "ethereum"
         assert request.network_name == "sepolia"
+        assert request.token_symbol == "JPYC"
         assert request.chain_id == 11155111
 
     @patch("app.endpoints.user.UserController.verify_and_create_wallet_nonce")
@@ -94,6 +98,7 @@ class TestVerifyAndCreateWallet:
                 "signature": "signed-message",
                 "chain_type": "ethereum",
                 "network_name": "sepolia",
+                "token_symbol": "JPYC",
                 "chain_id": 11155111,
             },
         )
@@ -126,6 +131,7 @@ class TestVerifyAndCreateWallet:
                 "signature": "fcf1c4e7921a1ec72c818ed1cb5af485993be09e66fa541f0e95159c77c007fe5e335650237dbd6c24c266a96ca441f8bdf26cd52a2fc581d469790a8b11d2fe1c",
                 "chain_type": "ethereum",
                 "network_name": "sepolia",
+                "token_symbol": "JPYC",
                 "chain_id": 11155111,
             },
         )
@@ -137,6 +143,7 @@ class TestVerifyAndCreateWallet:
                 "wallet_address": wallet_address,
                 "chain_type": "ethereum",
                 "network_name": "sepolia",
+                "token_symbol": "JPYC",
                 "chain_id": 11155111,
                 "is_active": True,
                 "verified_at": "2026-04-13 12:00",
@@ -151,6 +158,7 @@ class TestVerifyAndCreateWallet:
                 Wallet.wallet_address == wallet_address,
                 Wallet.chain_type == "ethereum",
                 Wallet.network_name == "sepolia",
+                Wallet.token_symbol == "JPYC",
                 Wallet.chain_id == 11155111,
                 Wallet.wallet_id != 301,
             )

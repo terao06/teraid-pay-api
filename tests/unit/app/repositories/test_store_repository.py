@@ -190,6 +190,7 @@ class TestCreateStoreWallet:
             wallet_address="0xcccccccccccccccccccccccccccccccccccccccc",
             chain_type="ethereum",
             network_name="sepolia",
+            token_symbol="JPYC",
             chain_id=11155111,
             is_active=True,
             verified_at=datetime(2026, 4, 13, 12, 0, 0),

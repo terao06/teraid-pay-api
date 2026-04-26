@@ -104,6 +104,7 @@ class UserController:
                 wallet_address=request.wallet_address,
                 chain_type=request.chain_type,
                 network_name=request.network_name,
+                token_symbol=request.token_symbol,
                 chain_id=request.chain_id,
                 nonce_entity=nonce_entity
             )

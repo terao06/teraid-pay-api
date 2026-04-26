@@ -42,6 +42,7 @@ paths:
                       wallet_address: 0x1111111111111111111111111111111111111111
                       chain_type: ethereum
                       network_name: sepolia
+                      token_symbol: JPYC
                       chain_id: 11155111
                       is_active: true
                       verified_at: '2024-01-10 12:00'
@@ -84,6 +85,7 @@ paths:
                   signature: signed-message
                   chain_type: ethereum
                   network_name: sepolia
+                  token_symbol: JPYC
                   chain_id: 11155111
       responses:
         '200':
@@ -231,6 +233,7 @@ components:
         - signature
         - chain_type
         - network_name
+        - token_symbol
         - chain_id
       properties:
         wallet_address:
@@ -253,6 +256,12 @@ components:
           maxLength: 50
           description: ブロックチェーンのネットワーク名
 
+        token_symbol:
+          type: string
+          minLength: 1
+          maxLength: 20
+          description: トークンシンボル
+
         chain_id:
           type: integer
           minimum: 1
@@ -264,6 +273,7 @@ components:
         - wallet_address
         - chain_type
         - network_name
+        - token_symbol
         - chain_id
         - is_active
         - created_at
@@ -295,6 +305,10 @@ components:
           type: string
           description: ウォレットが最後に更新された日時
 
+        token_symbol:
+          type: string
+          description: トークンシンボル
+
         chain_id:
           type: integer
           description: チェーンID
@@ -317,6 +331,7 @@ components:
         - wallet_address
         - chain_type
         - network_name
+        - token_symbol
         - chain_id
         - is_active
         - verified_at
@@ -336,6 +351,10 @@ components:
         verified_at:
           type: string
           description: ウォレットが検証された日時
+
+        token_symbol:
+          type: string
+          description: トークンシンボル
 
         chain_id:
           type: integer

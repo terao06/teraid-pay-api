@@ -26,6 +26,7 @@ class TestGetUserWallet:
             wallet_address="0x1111111111111111111111111111111111111111",
             chain_type="ETH",
             network_name="mainnet",
+            token_symbol="JPYC",
             chain_id=1,
             is_active=True,
             verified_at="2024-01-10 12:00",
@@ -176,6 +177,7 @@ class TestVerifyAndCreateWalletNonce:
             signature="signed-message",
             chain_type="ethereum",
             network_name="sepolia",
+            token_symbol="JPYC",
             chain_id=11155111,
         )
         nonce_entity = Mock()
@@ -183,6 +185,7 @@ class TestVerifyAndCreateWalletNonce:
             wallet_address=request.wallet_address,
             chain_type=request.chain_type,
             network_name=request.network_name,
+            token_symbol=request.token_symbol,
             chain_id=request.chain_id,
             is_active=True,
             verified_at="2026-04-12 12:10",
@@ -212,6 +215,7 @@ class TestVerifyAndCreateWalletNonce:
             wallet_address=request.wallet_address,
             chain_type=request.chain_type,
             network_name=request.network_name,
+            token_symbol=request.token_symbol,
             chain_id=request.chain_id,
             nonce_entity=nonce_entity,
         )
@@ -241,6 +245,7 @@ class TestVerifyAndCreateWalletNonce:
             signature="signed-message",
             chain_type="ethereum",
             network_name="sepolia",
+            token_symbol="JPYC",
             chain_id=11155111,
         )
         nonce_entity = Mock()

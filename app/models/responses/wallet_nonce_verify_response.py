@@ -5,6 +5,7 @@ class WalletVerifyResponse(BaseModel):
     wallet_address: str
     chain_type: str
     network_name: str
+    token_symbol: str
     chain_id: int
     is_active: bool
     verified_at: str

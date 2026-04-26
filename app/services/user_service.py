@@ -45,6 +45,7 @@ class UserService:
             wallet_address=wallet_info.wallet_address,
             chain_type=wallet_info.chain_type,
             network_name=wallet_info.network_name,
+            token_symbol=wallet_info.token_symbol,
             chain_id=wallet_info.chain_id,
             is_active=wallet_info.is_active,
             verified_at=DateTimeUtil.change_datetime_to_string(wallet_info.verified_at),
@@ -162,6 +163,7 @@ class UserService:
         wallet_address: str,
         chain_type: str,
         network_name: str,
+        token_symbol: str,
         chain_id: int,
         nonce_entity: Nonce) -> WalletVerifyResponse:
         """店舗ウォレットを登録する。
@@ -198,6 +200,7 @@ class UserService:
             wallet_address=normalized_wallet_address,
             chain_type=chain_type,
             network_name=network_name,
+            token_symbol=token_symbol,
             chain_id=chain_id,
             verified_at=datetime.now(),
             is_active=True,
@@ -229,6 +232,7 @@ class UserService:
             wallet_address=new_wallet.wallet_address,
             chain_type=new_wallet.chain_type,
             network_name=new_wallet.network_name,
+            token_symbol=new_wallet.token_symbol,
             chain_id=new_wallet.chain_id,
             is_active=bool(new_wallet.is_active),
             verified_at=DateTimeUtil.change_datetime_to_string(
