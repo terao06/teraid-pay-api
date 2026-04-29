@@ -138,7 +138,7 @@ docker-compose.override.yml
 *.pem
 *.key
 *credential*.txt
-*secret*.json
+*secret.json
 .aws/
 credentials
 

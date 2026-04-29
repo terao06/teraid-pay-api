@@ -5,7 +5,13 @@ from fastapi import HTTPException
 
 from app.controllers.user_controller import UserController
 from app.core.exceptions.custom_exception import UnauthorizedException, UserNotFoundException, WalletConflictException
-from app.core.exceptions.message import SERVER_ERROR, USER_NOT_FOUND_ERROR, VERIFY_ERROR, WALLET_CONFLICT_ERROR
+from app.core.exceptions.message import (
+    SERVER_ERROR,
+    USER_NOT_FOUND_ERROR,
+    VERIFY_ERROR,
+    WALLET_CONFLICT_ERROR,
+    WALLET_IS_ALREADY_EXIST,
+)
 from app.models.requests.wallet_nonce_create_request import WalletNonceCreateRequest
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
@@ -14,7 +20,7 @@ from app.models.responses.wallet_response import WalletResponse
 
 
 class TestGetUserWallet:
-    """get_user_wallet の unit test。"""
+    """get_user_wallet の単体テスト。"""
 
     @patch("app.controllers.user_controller.UserService")
     def test_get_user_wallet(self, mock_service_class) -> None:
@@ -135,6 +141,35 @@ class TestCreateWalletNonce:
         assert exc_info.value.detail == {
             "status": "error",
             "message": USER_NOT_FOUND_ERROR,
+        }
+
+    @patch("app.controllers.user_controller.UserService")
+    def test_create_wallet_nonce_raise_http_exception_when_wallet_conflict(
+        self,
+        mock_service_class,
+    ) -> None:
+        session = Mock()
+        user_id = 10
+        request = WalletNonceCreateRequest(
+            wallet_address="0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
+            chain_type="ethereum",
+            network_name="sepolia",
+        )
+        mock_service = mock_service_class.return_value
+        mock_service.create_wallet_nonce.side_effect = WalletConflictException("wallet conflict")
+
+        with pytest.raises(HTTPException) as exc_info:
+            UserController.create_wallet_nonce.__wrapped__(
+                UserController(),
+                session=session,
+                user_id=user_id,
+                request=request,
+            )
+
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail == {
+            "status": "error",
+            "message": WALLET_IS_ALREADY_EXIST,
         }
 
     @patch("app.controllers.user_controller.UserService")

@@ -9,7 +9,7 @@ from app.models.mysql.wallet import Wallet
 
 
 class TestDeleteWallet:
-    """delete_wallet endpoint の unit test。"""
+    """delete_wallet エンドポイントの単体テスト。"""
 
     @patch("app.endpoints.store.StoreController.delete_wallet")
     def test_delete_wallet_returns_wrapped_success(

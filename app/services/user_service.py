@@ -73,12 +73,23 @@ class UserService:
         Returns:
             署名メッセージと nonce を含むレスポンス。
         """
-        user = UserRepository().get_user_by_id(
+        user_repository = UserRepository()
+        nonce_repository = NonceRepository()
+        wallet_repository = WalletRepository()
+
+        user = user_repository.get_user_by_id(
             session=session,
             user_id=user_id
         )
         if not user:
             raise UserNotFoundException(f"対象のユーザーは存在しません. user_id={user_id}")
+        
+        exist_wallet = wallet_repository.get_wallet_by_address(
+            session=session,
+            wallet_address=wallet_address)
+
+        if exist_wallet is not None:
+            raise WalletConflictException("このウォレットは既に使用されています。")
 
         normalized_wallet_address = WalletUtil.normalize_wallet_address(
             wallet_address=wallet_address)
@@ -92,13 +103,13 @@ class UserService:
             nonce=nonce_str,
             expires_at=expires_at,
         )
-        saved_nonce = NonceRepository().create_nonce(session=session, nonce=nonce)
-        
+        saved_nonce = nonce_repository.create_nonce(session=session, nonce=nonce)
+
         user_nonce = UserNonce(
             user_id=user_id,
             nonce_id=saved_nonce.nonce_id
         )
-        UserRepository().create_user_nonce(
+        user_repository.create_user_nonce(
             session=session,
             user_nonce=user_nonce
         )
@@ -127,13 +138,15 @@ class UserService:
         Returns:
             検証に成功した未使用の Nonce。
         """
+        user_repository = UserRepository()
+
         normalized_wallet_address = WalletUtil.normalize_wallet_address(wallet_address)
-        repository = UserRepository()
-        store = repository.get_user_by_id(session=session, user_id=user_id)
-        if store is None:
+
+        user = user_repository.get_user_by_id(session=session, user_id=user_id)
+        if user is None:
             raise UserNotFoundException(f"対象のユーザーは存在しません. user_id={user_id}")
 
-        stor_nonce_entity = repository.get_latest_available_nonce(
+        user_nonce_entity = user_repository.get_latest_available_nonce(
             session=session,
             user_id=user_id,
             wallet_address=normalized_wallet_address,
@@ -142,19 +155,19 @@ class UserService:
             expires_at=datetime.now()
         )
 
-        if stor_nonce_entity is None:
+        if user_nonce_entity is None:
             raise UnauthorizedException(
                 '有効なnonceが見つかりません。',
             )
 
         recovered_address = WalletUtil.recover_address(
-            message=stor_nonce_entity.nonce,
+            message=user_nonce_entity.nonce,
             signature=signature,
         )
 
         if recovered_address.lower() != normalized_wallet_address:
             raise UnauthorizedException("認証に失敗しました。")
-        return stor_nonce_entity
+        return user_nonce_entity
     
     def create_store_wallet(
         self,
@@ -181,6 +194,9 @@ class UserService:
         """
 
         user_repository = UserRepository()
+        wallet_repository = WalletRepository()
+        nonce_repository = NonceRepository()
+
         normalized_wallet_address = WalletUtil.normalize_wallet_address(wallet_address)
 
         existing_wallet = user_repository.get_wallet_by_user_id(
@@ -205,7 +221,7 @@ class UserService:
             verified_at=datetime.now(),
             is_active=True,
         )
-        saved_wallet = WalletRepository().create_wallet(
+        saved_wallet = wallet_repository.create_wallet(
             session=session,
             wallet=new_wallet
         )
@@ -219,7 +235,7 @@ class UserService:
             user_wallet=new_store_wallet)
 
         nonce_entity.used_at = datetime.now()
-        NonceRepository().update_nonce(
+        nonce_repository.update_nonce(
             session=session,
             nonce=nonce_entity
         )

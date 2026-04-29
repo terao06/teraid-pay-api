@@ -23,7 +23,7 @@ from app.models.responses.wallet_nonce_verify_response import WalletVerifyRespon
 
 
 class TestGetStoreWallet:
-    """StoreController の unit test。"""
+    """StoreController の単体テスト。"""
 
     @patch("app.controllers.store_controller.StoreService")
     def test_get_store_wallet(self, mock_service_class) -> None:
@@ -186,7 +186,7 @@ class TestCreateWalletNonce:
 
 
 class TestVerifyAndCreateWalletNonce:
-    """verify_and_create_wallet_nonce の unit test。"""
+    """verify_and_create_wallet_nonce の単体テスト。"""
 
     @patch("app.controllers.store_controller.StoreService")
     def test_verify_and_create_wallet_nonce(self, mock_service_class) -> None:
@@ -294,7 +294,7 @@ class TestVerifyAndCreateWalletNonce:
 
 
 class TestDeleteWallet:
-    """delete_wallet の unit test。"""
+    """delete_wallet の単体テスト。"""
 
     @patch("app.controllers.store_controller.StoreService")
     def test_delete_wallet(self, mock_service_class) -> None:

@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from app.endpoints.store import store_router
 from app.endpoints.user import user_router
+from app.endpoints.payment import payment_router
 from app.core.utils.logging import TeraidPayApiLog
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -13,6 +14,7 @@ TeraidPayApiLog.setup(
 app = FastAPI()
 
 origins = [
+    "http://localhost:3002",
     "http://localhost:3000", # 例えばローカル開発
     "http://localhost:3001", # フロントエンドの別ポート
     # 他の必要なオリジンもここに追加
@@ -27,3 +29,4 @@ app.add_middleware(
 
 app.include_router(store_router, prefix="/store")
 app.include_router(user_router, prefix="/user")
+app.include_router(payment_router, prefix="/payment")

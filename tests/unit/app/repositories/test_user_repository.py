@@ -10,7 +10,7 @@ from app.repositories.user_repository import UserRepository
 
 @pytest.mark.usefixtures("insert_users", "insert_wallets", "insert_user_wallets")
 class TestGetUserWallet:
-    """get_user_wallet の unit test。"""
+    """get_user_wallet の単体テスト。"""
 
     @pytest.mark.parametrize(
         ("user_id", "expected_wallet"),
@@ -63,7 +63,7 @@ class TestGetUserWallet:
 
 @pytest.mark.usefixtures("insert_users")
 class TestGetUserById:
-    """get_user_by_id の unit test。"""
+    """get_user_by_id の単体テスト。"""
 
     @pytest.mark.parametrize(
         ("user_id", "expected_user_id"),
@@ -95,7 +95,7 @@ class TestGetUserById:
 
 @pytest.mark.usefixtures("insert_users", "insert_nonces")
 class TestCreateUserNonce:
-    """create_user_nonce の unit test。"""
+    """create_user_nonce の単体テスト。"""
 
     def test_create_user_nonce(
         self,
@@ -128,7 +128,7 @@ class TestCreateUserNonce:
 
 @pytest.mark.usefixtures("insert_users", "insert_wallets", "insert_user_wallets")
 class TestGetWalletByUserId:
-    """get_wallet_by_user_id の unit test。"""
+    """get_wallet_by_user_id の単体テスト。"""
 
     @pytest.mark.parametrize(
         ("user_id", "chain_type", "network_name", "chain_id", "expected_wallet_id"),
@@ -174,7 +174,7 @@ class TestGetWalletByUserId:
 
 @pytest.mark.usefixtures("insert_users", "insert_nonces", "insert_user_nonces")
 class TestGetLatestAvailableNonce:
-    """get_latest_available_nonce の unit test。"""
+    """get_latest_available_nonce の単体テスト。"""
 
     def test_get_latest_available_nonce(
         self,
@@ -219,7 +219,7 @@ class TestGetLatestAvailableNonce:
 
 @pytest.mark.usefixtures("insert_users", "insert_wallets")
 class TestCreateUserWallet:
-    """create_user_wallet の unit test。"""
+    """create_user_wallet の単体テスト。"""
 
     def test_create_user_wallet(
         self,

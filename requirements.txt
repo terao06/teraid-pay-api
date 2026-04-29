@@ -6,3 +6,4 @@ cryptography
 boto3
 eth-account
 httpx
+web3

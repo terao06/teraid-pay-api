@@ -5,7 +5,7 @@ import pytest
 
 
 class TestGetUserWallet:
-    """get user wallet endpoint の unit test。"""
+    """get user wallet エンドポイントの単体テスト。"""
 
     @patch("app.endpoints.user.UserController.get_user_wallet")
     def test_user_root_returns_wrapped_user_wallet(

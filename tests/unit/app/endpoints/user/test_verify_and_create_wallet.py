@@ -12,7 +12,7 @@ from app.models.responses.wallet_nonce_verify_response import WalletVerifyRespon
 
 
 class TestVerifyAndCreateWallet:
-    """verify_and_create_wallet endpoint の unit test"""
+    """verify_and_create_wallet エンドポイントの単体テスト。"""
 
     @patch("app.endpoints.user.UserController.verify_and_create_wallet_nonce")
     def test_verify_and_create_wallet_returns_wrapped_success(
@@ -20,7 +20,7 @@ class TestVerifyAndCreateWallet:
         mock_verify_and_create_wallet_nonce,
         client,
     ) -> None:
-        """controller の success response が wrapper 付きで返ることを確認する"""
+        """controller の success レスポンスが wrapper 付きで返ることを確認する。"""
         mock_verify_and_create_wallet_nonce.return_value = WalletVerifyResponse(
             wallet_address="0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             chain_type="ethereum",
@@ -82,7 +82,7 @@ class TestVerifyAndCreateWallet:
         message,
         client,
     ) -> None:
-        """controller の HTTPException がそのまま返ることを確認する"""
+        """controller の HTTPException がそのまま返ることを確認する。"""
         mock_verify_and_create_wallet_nonce.side_effect = HTTPException(
             status_code=status_code,
             detail={
@@ -119,7 +119,7 @@ class TestVerifyAndCreateWallet:
         client_with_db,
         session: Session,
     ) -> None:
-        """DB 連携で nonce 検証から wallet 作成まで行えることを確認する"""
+        """DB 連携で nonce 検証から wallet 作成まで行えることを確認する。"""
         fixed_now = datetime(2026, 4, 13, 12, 0, 0)
         wallet_address = "0x7d5e89df8eaf8872895865aef6de2d9373a159de"
         mock_datetime.now.return_value = fixed_now

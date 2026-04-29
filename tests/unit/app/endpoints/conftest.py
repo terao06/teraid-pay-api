@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.core.aws.secret_manager import SecretManager
+from app.endpoints.payment import payment_router
 from app.endpoints.store import store_router
 from app.endpoints.user import user_router
 from app.middlewares.transaction import get_db
@@ -14,6 +15,7 @@ from app.middlewares.transaction import get_db
 @pytest.fixture()
 def client() -> Generator[TestClient, None, None]:
     app = FastAPI()
+    app.include_router(payment_router, prefix="/payment")
     app.include_router(store_router, prefix="/store")
     app.include_router(user_router, prefix="/user")
 
@@ -27,6 +29,7 @@ def client_with_db(
     get_db.cache_clear()
 
     app = FastAPI()
+    app.include_router(payment_router, prefix="/payment")
     app.include_router(store_router, prefix="/store")
     app.include_router(user_router, prefix="/user")
 
@@ -39,6 +42,7 @@ def client_with_db(
             "mysql_host": "127.0.0.1",
             "mysql_port": "3307",
             "mysql_database": "db_local",
+            "sepolia_infra_api_key": "hogehoge"
         },
     ):
         with TestClient(app) as test_client:

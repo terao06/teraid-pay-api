@@ -17,6 +17,13 @@ class UnauthorizedException(Exception):
     pass
 
 
+class WalletNotFoundException(Exception):
+    pass
+
+class PaymentRequestNotFoundException(Exception):
+    pass
+
+
 class CustomHttpException:
     @staticmethod
     def get_http_exception(status_code: int, message: str) -> HTTPException:

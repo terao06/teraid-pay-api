@@ -78,12 +78,23 @@ class StoreService:
         Returns:
             署名メッセージと nonce を含むレスポンス。
         """
-        store = StoreRepository().get_store_by_id(
+        store_repository = StoreRepository()
+        nonce_repository = NonceRepository()
+        wallet_repository = WalletRepository()
+
+        store = store_repository.get_store_by_id(
             session=session,
             store_id=store_id
         )
         if not store:
             raise StoreNotFoundException(f"対象の店舗は存在しません. store_id={store_id}")
+        
+        exist_wallet = wallet_repository.get_wallet_by_address(
+            session=session,
+            wallet_address=wallet_address)
+
+        if exist_wallet is not None:
+            raise WalletConflictException("このウォレットは既に使用されています。")
 
         normalized_wallet_address = WalletUtil.normalize_wallet_address(wallet_address)
         now = datetime.now(JST)
@@ -96,13 +107,13 @@ class StoreService:
             nonce=nonce_str,
             expires_at=expires_at,
         )
-        saved_nonce = NonceRepository().create_nonce(session=session, nonce=nonce)
+        saved_nonce = nonce_repository.create_nonce(session=session, nonce=nonce)
         
         store_nonce = StoreNonce(
             store_id=store_id,
             nonce_id=saved_nonce.nonce_id
         )
-        StoreRepository().create_store_nonce(
+        store_repository.create_store_nonce(
             session=session,
             store_nonce=store_nonce
         )
@@ -131,13 +142,14 @@ class StoreService:
         Returns:
             検証に成功した未使用の Nonce。
         """
+        store_repository = StoreRepository()
+
         normalized_wallet_address = WalletUtil.normalize_wallet_address(wallet_address)
-        repository = StoreRepository()
-        store = repository.get_store_by_id(session=session, store_id=store_id)
+        store = store_repository.get_store_by_id(session=session, store_id=store_id)
         if store is None:
             raise StoreNotFoundException(f"対象の店舗は存在しません. store_id={store_id}")
 
-        stor_nonce_entity = repository.get_latest_available_nonce(
+        stor_nonce_entity = store_repository.get_latest_available_nonce(
             session=session,
             store_id=store_id,
             wallet_address=normalized_wallet_address,
@@ -184,10 +196,13 @@ class StoreService:
             WalletVerifyResponse: ウォレット検証レスポンス
         """
 
-        repository = StoreRepository()
+        store_repository = StoreRepository()
+        wallet_repository = WalletRepository()
+        nonce_repository = NonceRepository()
+
         normalized_wallet_address = WalletUtil.normalize_wallet_address(wallet_address)
 
-        existing_wallet = repository.get_wallet_by_store_id(
+        existing_wallet = store_repository.get_wallet_by_store_id(
             session=session,
             store_id=store_id,
             chain_type=chain_type,
@@ -209,7 +224,7 @@ class StoreService:
             verified_at=datetime.now(),
             is_active=True,
         )
-        saved_wallet = WalletRepository().create_wallet(
+        saved_wallet = wallet_repository.create_wallet(
             session=session,
             wallet=new_wallet
         )
@@ -218,16 +233,16 @@ class StoreService:
             store_id=store_id,
             wallet_id=saved_wallet.wallet_id
         )
-        repository.create_store_wallet(
+        store_repository.create_store_wallet(
             session=session,
             store_wallet=new_store_wallet)
 
         nonce_entity.used_at = datetime.now()
-        NonceRepository().update_nonce(
+        nonce_repository.update_nonce(
             session=session,
             nonce=nonce_entity
         )
-        repository.delete_store_nonce_by_nonce_id(
+        store_repository.delete_store_nonce_by_nonce_id(
             session=session,
             nonce_id=nonce_entity.nonce_id
         )

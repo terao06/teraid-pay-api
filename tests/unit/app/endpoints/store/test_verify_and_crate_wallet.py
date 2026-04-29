@@ -12,7 +12,7 @@ from app.models.responses.wallet_nonce_verify_response import WalletVerifyRespon
 
 
 class TestVerifyAndCreateWallet:
-    """verify_and_create_wallet endpoint の unit test。"""
+    """verify_and_create_wallet エンドポイントの単体テスト。"""
 
     @patch("app.endpoints.store.StoreController.verify_and_create_wallet_nonce")
     def test_verify_and_create_wallet_returns_wrapped_success(

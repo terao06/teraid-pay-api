@@ -79,7 +79,14 @@ class TestCreateWalletNonce:
     @patch("app.services.store_service.secrets.token_urlsafe", return_value="generated-nonce")
     @patch("app.services.store_service.StoreRepository")
     @patch("app.services.store_service.NonceRepository")
-    def test_create_wallet_nonce(self, mock_nonce_repository_class, mock_store_repository_class, mock_token_urlsafe):
+    @patch("app.services.store_service.WalletRepository")
+    def test_create_wallet_nonce(
+        self,
+        mock_wallet_repository_class,
+        mock_nonce_repository_class,
+        mock_store_repository_class,
+        mock_token_urlsafe,
+    ):
         """nonce を生成して保存し、レスポンスへ整形することを検証する。"""
         session = Mock()
         store_id = 10
@@ -91,8 +98,13 @@ class TestCreateWalletNonce:
         mock_store_repository = mock_store_repository_class.return_value
         mock_store_repository.get_store_by_id.return_value = SimpleNamespace(store_id=store_id)
 
+        mock_wallet_repository = mock_wallet_repository_class.return_value
+        mock_wallet_repository.get_wallet_by_address.return_value = None
+
         mock_nonce_repository = mock_nonce_repository_class.return_value
-        mock_nonce_repository.create_nonce.side_effect = lambda session, nonce: SimpleNamespace(nonce_id=123, nonce=nonce.nonce)
+        mock_nonce_repository.create_nonce.side_effect = (
+            lambda session, nonce: SimpleNamespace(nonce_id=123, nonce=nonce.nonce)
+        )
 
         with patch("app.services.store_service.datetime") as mock_datetime:
             mock_datetime.now.return_value = fixed_now
@@ -108,6 +120,10 @@ class TestCreateWalletNonce:
         mock_store_repository.get_store_by_id.assert_called_once_with(
             session=session,
             store_id=store_id,
+        )
+        mock_wallet_repository.get_wallet_by_address.assert_called_once_with(
+            session=session,
+            wallet_address=wallet_address,
         )
         mock_token_urlsafe.assert_called_once_with(32)
         mock_nonce_repository.create_nonce.assert_called_once()
@@ -132,8 +148,13 @@ class TestCreateWalletNonce:
             expires_at="2026-04-12 12:10",
         )
 
+    @patch("app.services.store_service.WalletRepository")
     @patch("app.services.store_service.StoreRepository")
-    def test_create_wallet_nonce_not_found_error(self, mock_repository_class):
+    def test_create_wallet_nonce_not_found_error(
+        self,
+        mock_repository_class,
+        mock_wallet_repository_class,
+    ):
         """店舗が存在しない場合に StoreNotFoundException を送出することを検証する。"""
         session = Mock()
         store_id = 999
@@ -157,8 +178,54 @@ class TestCreateWalletNonce:
             session=session,
             store_id=store_id,
         )
+        mock_wallet_repository_class.return_value.get_wallet_by_address.assert_not_called()
         mock_repository.create_nonce.assert_not_called()
         mock_repository.create_store_nonce.assert_not_called()
+
+    @patch("app.services.store_service.secrets.token_urlsafe")
+    @patch("app.services.store_service.StoreRepository")
+    @patch("app.services.store_service.NonceRepository")
+    @patch("app.services.store_service.WalletRepository")
+    def test_create_wallet_nonce_wallet_conflict_error(
+        self,
+        mock_wallet_repository_class,
+        mock_nonce_repository_class,
+        mock_store_repository_class,
+        mock_token_urlsafe,
+    ):
+        """ウォレットが既に存在する場合に WalletConflictException を送出することを検証する。"""
+        session = Mock()
+        store_id = 10
+        wallet_address = "0xABCDEF1234567890ABCDEF1234567890ABCDEF12"
+        chain_type = "ethereum"
+        network_name = "sepolia"
+
+        mock_store_repository = mock_store_repository_class.return_value
+        mock_store_repository.get_store_by_id.return_value = SimpleNamespace(store_id=store_id)
+
+        mock_wallet_repository = mock_wallet_repository_class.return_value
+        mock_wallet_repository.get_wallet_by_address.return_value = SimpleNamespace(wallet_id=1)
+
+        with pytest.raises(WalletConflictException):
+            StoreService().create_wallet_nonce(
+                session=session,
+                store_id=store_id,
+                wallet_address=wallet_address,
+                chain_type=chain_type,
+                network_name=network_name,
+            )
+
+        mock_store_repository.get_store_by_id.assert_called_once_with(
+            session=session,
+            store_id=store_id,
+        )
+        mock_wallet_repository.get_wallet_by_address.assert_called_once_with(
+            session=session,
+            wallet_address=wallet_address,
+        )
+        mock_token_urlsafe.assert_not_called()
+        mock_nonce_repository_class.return_value.create_nonce.assert_not_called()
+        mock_store_repository.create_store_nonce.assert_not_called()
 
 
 class TestVerifyWalletNonce:

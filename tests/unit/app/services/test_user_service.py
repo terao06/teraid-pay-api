@@ -4,14 +4,18 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from app.core.exceptions.custom_exception import UnauthorizedException, UserNotFoundException
+from app.core.exceptions.custom_exception import (
+    UnauthorizedException,
+    UserNotFoundException,
+    WalletConflictException,
+)
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_response import WalletResponse
 from app.services.user_service import JST, UserService
 
 
 class TestGetUserWallet:
-    """get_user_wallet の unit test。"""
+    """get_user_wallet の単体テスト。"""
 
     @patch("app.services.user_service.UserRepository")
     def test_get_user_wallet(self, mock_repository_class) -> None:
@@ -70,13 +74,15 @@ class TestGetUserWallet:
 
 
 class TestCreateWalletNonce:
-    """create_wallet_nonce の unit test。"""
+    """create_wallet_nonce の単体テスト。"""
 
     @patch("app.services.user_service.secrets.token_urlsafe", return_value="generated-nonce")
     @patch("app.services.user_service.UserRepository")
     @patch("app.services.user_service.NonceRepository")
+    @patch("app.services.user_service.WalletRepository")
     def test_create_wallet_nonce(
         self,
+        mock_wallet_repository_class,
         mock_nonce_repository_class,
         mock_user_repository_class,
         mock_token_urlsafe,
@@ -91,6 +97,9 @@ class TestCreateWalletNonce:
 
         mock_user_repository = mock_user_repository_class.return_value
         mock_user_repository.get_user_by_id.return_value = SimpleNamespace(user_id=user_id)
+
+        mock_wallet_repository = mock_wallet_repository_class.return_value
+        mock_wallet_repository.get_wallet_by_address.return_value = None
 
         mock_nonce_repository = mock_nonce_repository_class.return_value
         mock_nonce_repository.create_nonce.side_effect = (
@@ -111,6 +120,10 @@ class TestCreateWalletNonce:
         mock_user_repository.get_user_by_id.assert_called_once_with(
             session=session,
             user_id=user_id,
+        )
+        mock_wallet_repository.get_wallet_by_address.assert_called_once_with(
+            session=session,
+            wallet_address=wallet_address,
         )
         mock_token_urlsafe.assert_called_once_with(32)
         mock_nonce_repository.create_nonce.assert_called_once()
@@ -135,8 +148,13 @@ class TestCreateWalletNonce:
             expires_at="2026-04-12 12:10",
         )
 
+    @patch("app.services.user_service.WalletRepository")
     @patch("app.services.user_service.UserRepository")
-    def test_create_wallet_nonce_not_found_error(self, mock_repository_class) -> None:
+    def test_create_wallet_nonce_not_found_error(
+        self,
+        mock_repository_class,
+        mock_wallet_repository_class,
+    ) -> None:
         """ユーザーが存在しない場合に UserNotFoundException を送出することを検証する。"""
         session = Mock()
         user_id = 999
@@ -160,11 +178,57 @@ class TestCreateWalletNonce:
             session=session,
             user_id=user_id,
         )
+        mock_wallet_repository_class.return_value.get_wallet_by_address.assert_not_called()
         mock_repository.create_user_nonce.assert_not_called()
+
+    @patch("app.services.user_service.secrets.token_urlsafe")
+    @patch("app.services.user_service.UserRepository")
+    @patch("app.services.user_service.NonceRepository")
+    @patch("app.services.user_service.WalletRepository")
+    def test_create_wallet_nonce_wallet_conflict_error(
+        self,
+        mock_wallet_repository_class,
+        mock_nonce_repository_class,
+        mock_user_repository_class,
+        mock_token_urlsafe,
+    ) -> None:
+        """ウォレットが既に存在する場合に WalletConflictException を送出することを検証する。"""
+        session = Mock()
+        user_id = 10
+        wallet_address = "0xABCDEF1234567890ABCDEF1234567890ABCDEF12"
+        chain_type = "ethereum"
+        network_name = "sepolia"
+
+        mock_user_repository = mock_user_repository_class.return_value
+        mock_user_repository.get_user_by_id.return_value = SimpleNamespace(user_id=user_id)
+
+        mock_wallet_repository = mock_wallet_repository_class.return_value
+        mock_wallet_repository.get_wallet_by_address.return_value = SimpleNamespace(wallet_id=1)
+
+        with pytest.raises(WalletConflictException):
+            UserService().create_wallet_nonce(
+                session=session,
+                user_id=user_id,
+                wallet_address=wallet_address,
+                chain_type=chain_type,
+                network_name=network_name,
+            )
+
+        mock_user_repository.get_user_by_id.assert_called_once_with(
+            session=session,
+            user_id=user_id,
+        )
+        mock_wallet_repository.get_wallet_by_address.assert_called_once_with(
+            session=session,
+            wallet_address=wallet_address,
+        )
+        mock_token_urlsafe.assert_not_called()
+        mock_nonce_repository_class.return_value.create_nonce.assert_not_called()
+        mock_user_repository.create_user_nonce.assert_not_called()
 
 
 class TestVerifyWalletNonce:
-    """verify_wallet_nonce の unit test。"""
+    """verify_wallet_nonce の単体テスト。"""
 
     @patch("app.services.user_service.WalletUtil.recover_address")
     @patch("app.services.user_service.UserRepository")

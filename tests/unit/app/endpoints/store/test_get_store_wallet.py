@@ -5,7 +5,7 @@ import pytest
 
 
 class TestGetStoreWallet:
-    """get store wallet endpoint の unit test。"""
+    """get store wallet エンドポイントの単体テスト。"""
 
     @patch("app.endpoints.store.StoreController.get_store_wallet")
     def test_store_root_returns_wrapped_store_wallets(

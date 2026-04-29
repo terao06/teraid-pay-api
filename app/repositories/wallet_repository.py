@@ -21,6 +21,22 @@ class WalletRepository:
         session.flush()
         return wallet
     
+    def get_wallet_by_address(self, session: Session, wallet_address: str) -> Wallet | None:
+        """ウォレットアドレスに紐づくウォレットを取得。
+
+        Args:
+            session: SQLAlchemy のセッション。
+            wallet_address: 検索対象のウォレットアドレス
+
+        Returns:
+            wallet: 登録済みウォレット。
+        """
+        return (
+            session.query(Wallet)
+            .where(Wallet.wallet_address == wallet_address)
+            .where(Wallet.deleted_at.is_(None))
+        ).first()
+
     def delete_wallet_by_wallet_id(self, session: Session, wallet_id: int) -> None:
         """ウォレットを削除する。
 

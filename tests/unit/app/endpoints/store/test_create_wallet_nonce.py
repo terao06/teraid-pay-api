@@ -12,7 +12,7 @@ from app.services.store_service import JST
 
 
 class TestCreateWalletNonce:
-    """create wallet nonce endpoint の unit test。"""
+    """create wallet nonce エンドポイントの単体テスト。"""
 
     @patch("app.endpoints.store.StoreController.create_wallet_nonce")
     def test_create_wallet_nonce_returns_wrapped_success(
