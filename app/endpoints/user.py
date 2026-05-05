@@ -6,6 +6,7 @@ from app.middlewares.response_wrapper import response_rapper
 from app.models.requests.wallet_nonce_create_request import WalletNonceCreateRequest
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
 
+
 user_router = APIRouter()
 
 
@@ -22,6 +23,25 @@ def get_user_wallet(user_id: int):
         共通レスポンス形式で整形されるウォレット一覧。
     """
     return UserController().get_user_wallet(user_id=user_id)
+
+
+@user_router.get("/{user_id}/wallet/approval")
+@response_rapper()
+@request_rapper()
+def get_user_wallet_approval(user_id: int):
+    """ユーザーウォレットのJPYC approveに必要な情報を取得する。"""
+    return UserController().get_user_wallet_approval(user_id=user_id)
+
+
+@user_router.post("/{user_id}/wallet/{wallet_id}/approval")
+@response_rapper()
+@request_rapper()
+def update_wallet_approval_state(user_id: int, wallet_id: int):
+    """ユーザーウォレットの approve 状態を更新する。"""
+    TeraidPayApiLog.info(
+        f"ウォレットの approve 状態更新を行います。 user_id={user_id} wallet_id={wallet_id}")
+
+    return UserController().update_wallet_approval_state(wallet_id=wallet_id)
 
 
 @user_router.post("/{user_id}/wallet/nonce")

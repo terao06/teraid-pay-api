@@ -158,6 +158,51 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /user/{user_id}/wallet/{wallet_id}/approval:
+    post:
+      tags:
+        - User
+      summary: ユーザーウォレット approve 状態更新
+      operationId: updateWalletApprovalState
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: ユーザーID
+          schema:
+            type: integer
+        - name: wallet_id
+          in: path
+          required: true
+          description: ウォレットID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: ウォレット approve 状態更新に成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletApprovalStateWrappedResponse'
+              examples:
+                success:
+                  summary: 更新成功
+                  value:
+                    status: success
+                    data: null
+        '404':
+          description: ウォレットが存在しない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /user/{user_id}/wallet/nonce:
     post:
       tags:
@@ -192,6 +237,49 @@ paths:
                 $ref: '#/components/schemas/WalletNonceCreateWrappedResponse'
         '404':
           description: ユーザーが存在しない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /user/{user_id}/wallet/approval:
+    get:
+      tags:
+        - User
+      summary: ユーザーウォレットの approve 情報取得
+      operationId: getUserWalletApproval
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: ユーザーID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: approve に必要な情報の取得に成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletApprovalWrappedResponse'
+              examples:
+                success:
+                  value:
+                    status: success
+                    data:
+                      wallet_address: 0x1111111111111111111111111111111111111111
+                      chain_id: 11155111
+                      token_symbol: JPYC
+                      token_contract_address: 0x4444444444444444444444444444444444444444
+                      spender_address: 0x5555555555555555555555555555555555555555
+        '404':
+          description: ユーザーウォレットが存在しない
           content:
             application/json:
               schema:
@@ -276,6 +364,7 @@ components:
         - token_symbol
         - chain_id
         - is_active
+        - is_approval
         - created_at
         - updated_at
       properties:
@@ -294,6 +383,9 @@ components:
         is_active:
           type: boolean
           description: ウォレットが有効かどうか
+        is_approval:
+          type: boolean
+          description: approve 済みかどうか
         verified_at:
           type: string
           nullable: true
@@ -334,6 +426,7 @@ components:
         - token_symbol
         - chain_id
         - is_active
+        - is_approval
         - verified_at
       properties:
         wallet_address:
@@ -348,6 +441,9 @@ components:
         is_active:
           type: boolean
           description: ウォレットが有効かどうか
+        is_approval:
+          type: boolean
+          description: approve 済みかどうか
         verified_at:
           type: string
           description: ウォレットが検証された日時
@@ -373,6 +469,31 @@ components:
             - $ref: '#/components/schemas/UserWallet'
           nullable: true
 
+    WalletApproval:
+      type: object
+      required:
+        - wallet_address
+        - chain_id
+        - token_symbol
+        - token_contract_address
+        - spender_address
+      properties:
+        wallet_address:
+          type: string
+          description: approve を実行するユーザーウォレットアドレス
+        chain_id:
+          type: integer
+          description: approve を実行するチェーンID
+        token_symbol:
+          type: string
+          description: トークンシンボル
+        token_contract_address:
+          type: string
+          description: approve 対象のJPYCトークンコントラクトアドレス
+        spender_address:
+          type: string
+          description: approve の spender になる PaymentProcessor コントラクトアドレス
+
     WalletNonceCreateWrappedResponse:
       type: object
       required:
@@ -396,6 +517,30 @@ components:
           enum: [success]
         data:
           $ref: '#/components/schemas/UserWalletVerify'
+
+    WalletApprovalWrappedResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/WalletApproval'
+
+    WalletApprovalStateWrappedResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          nullable: true
 
     DeleteWalletWrappedResponse:
       type: object

@@ -8,6 +8,36 @@ from app.repositories.wallet_repository import WalletRepository
 
 
 @pytest.mark.usefixtures("insert_wallets")
+class TestGetWalletById:
+    @pytest.mark.parametrize(
+        ("wallet_id", "expected_wallet_address"),
+        [
+            (301, "0x1111111111111111111111111111111111111111"),
+            (303, None),
+            (999, None),
+        ],
+    )
+    def test_get_wallet_by_id(
+        self,
+        session: Session,
+        wallet_id: int,
+        expected_wallet_address: str | None,
+    ) -> None:
+        repository = WalletRepository()
+
+        result = repository.get_wallet_by_id(session, wallet_id)
+
+        if expected_wallet_address is None:
+            assert result is None
+            return
+
+        assert result is not None
+        assert result.wallet_id == wallet_id
+        assert result.wallet_address == expected_wallet_address
+        assert result.deleted_at is None
+
+
+@pytest.mark.usefixtures("insert_wallets")
 class TestGetWalletByAddress:
     @pytest.mark.parametrize(
         ("wallet_address", "expected_wallet_id"),
@@ -64,7 +94,36 @@ class TestCreateWallet:
         assert saved_wallet.token_symbol == "JPYC"
         assert saved_wallet.chain_id == 11155111
         assert saved_wallet.is_active is True
+        assert saved_wallet.is_approval is True
         assert saved_wallet.verified_at == datetime(2026, 4, 13, 12, 0, 0)
+
+
+@pytest.mark.usefixtures("insert_wallets")
+class TestUpdateWallet:
+    def test_update_wallet(
+        self,
+        session: Session,
+    ) -> None:
+        repository = WalletRepository()
+        wallet = session.query(Wallet).where(Wallet.wallet_id == 301).one()
+        before_updated_at = wallet.updated_at
+        verified_at = datetime(2026, 4, 13, 12, 0, 0)
+
+        wallet.wallet_name = "updated wallet"
+        wallet.is_active = False
+        wallet.verified_at = verified_at
+
+        updated_wallet = repository.update_wallet(session, wallet)
+        session.flush()
+        session.expire_all()
+
+        after = session.query(Wallet).where(Wallet.wallet_id == 301).one()
+        assert updated_wallet.wallet_id == 301
+        assert after.wallet_name == "updated wallet"
+        assert after.is_active is False
+        assert after.verified_at == verified_at
+        assert after.updated_at is not None
+        assert after.updated_at > before_updated_at
 
 
 @pytest.mark.usefixtures("insert_stores", "insert_wallets", "insert_store_wallets")

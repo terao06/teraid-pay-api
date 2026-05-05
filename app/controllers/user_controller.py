@@ -1,14 +1,16 @@
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.core.exceptions.custom_exception import CustomHttpException, UnauthorizedException, UserNotFoundException, WalletConflictException
+from app.core.exceptions.custom_exception import CustomHttpException, UnauthorizedException, UserNotFoundException, WalletConflictException, WalletNotFoundException
 from app.middlewares.transaction import transaction
 from app.models.requests.wallet_nonce_create_request import WalletNonceCreateRequest
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
+from app.models.responses.wallet_approval_response import WalletApprovalResponse
 from app.services.user_service import UserService
 from app.models.responses.wallet_response import WalletResponse
-from app.core.exceptions.message import SERVER_ERROR, USER_NOT_FOUND_ERROR, VERIFY_ERROR, WALLET_CONFLICT_ERROR, WALLET_IS_ALREADY_EXIST
+from app.core.exceptions.message import SERVER_ERROR, USER_NOT_FOUND_ERROR, VERIFY_ERROR, WALLET_CONFLICT_ERROR, WALLET_IS_ALREADY_EXIST, WALLET_NOT_FOUND_ERROR
 
 
 class UserController:
@@ -31,6 +33,43 @@ class UserController:
                 session=session,
                 user_id=user_id
             )
+        except Exception:
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR)
+
+    @transaction
+    def get_user_wallet_approval(self, session: Session, user_id: int) -> WalletApprovalResponse:
+        try:
+            approval = UserService().get_user_wallet_approval(
+                session=session,
+                user_id=user_id
+            )
+            if approval is None:
+                raise CustomHttpException.get_http_exception(
+                    status_code=404,
+                    message=WALLET_NOT_FOUND_ERROR
+                )
+            return approval
+        except HTTPException:
+            raise
+        except Exception:
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR)
+
+    @transaction
+    def update_wallet_approval_state(self, session: Session, wallet_id: int) -> None:
+        try:
+            UserService().update_wallet_approval_state(
+                session=session,
+                wallet_id=wallet_id
+            )
+        except WalletNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=404,
+                message=WALLET_NOT_FOUND_ERROR)
+
         except Exception:
             raise CustomHttpException.get_http_exception(
                 status_code=500,
@@ -95,8 +134,8 @@ class UserController:
             検証済みとして登録された店舗ウォレット情報。
         """
         try:
-            store_service = UserService()
-            nonce_entity = store_service.verify_wallet_nonce(
+            user_service = UserService()
+            nonce_entity = user_service.verify_wallet_nonce(
                 session=session,
                 user_id=user_id,
                 wallet_address=request.wallet_address,
@@ -104,7 +143,7 @@ class UserController:
                 chain_type=request.chain_type,
                 network_name=request.network_name
             )
-            return store_service.create_store_wallet(
+            return user_service.create_user_wallet(
                 session=session,
                 user_id=user_id,
                 wallet_address=request.wallet_address,

@@ -59,6 +59,13 @@ class Wallet(Base):
         server_default=text("1"),
         comment="有効フラグ",
     )
+    is_approval = Column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=text("1"),
+        comment="認証済みフラグ",
+    )
     verified_at = Column(
         DateTime,
         nullable=True,

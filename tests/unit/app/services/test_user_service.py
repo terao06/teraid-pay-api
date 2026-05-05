@@ -3,13 +3,17 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import pytest
+from sqlalchemy.orm import Session
 
 from app.core.exceptions.custom_exception import (
     UnauthorizedException,
     UserNotFoundException,
     WalletConflictException,
+    WalletNotFoundException,
 )
+from app.models.mysql.wallet import Wallet
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
+from app.models.responses.wallet_approval_response import WalletApprovalResponse
 from app.models.responses.wallet_response import WalletResponse
 from app.services.user_service import JST, UserService
 
@@ -30,6 +34,7 @@ class TestGetUserWallet:
             token_symbol="JPYC",
             chain_id=1,
             is_active=True,
+            is_approval=False,
             verified_at=datetime(2024, 1, 10, 12, 0, 0),
             created_at=datetime(2024, 1, 1, 9, 30, 0),
             updated_at=datetime(2024, 1, 15, 18, 45, 0),
@@ -51,6 +56,7 @@ class TestGetUserWallet:
             token_symbol="JPYC",
             chain_id=1,
             is_active=True,
+            is_approval=False,
             verified_at="2024-01-10 12:00",
             created_at="2024-01-01 09:30",
             updated_at="2024-01-15 18:45",
@@ -70,6 +76,145 @@ class TestGetUserWallet:
             session=session,
             user_id=user_id,
         )
+        assert result is None
+
+
+class TestGetUserWalletApproval:
+    @patch("app.services.user_service.get_wallet_approval_config")
+    @patch("app.services.user_service.UserRepository")
+    def test_get_user_wallet_approval(
+        self,
+        mock_repository_class,
+        mock_get_wallet_approval_config,
+    ) -> None:
+        session = Mock()
+        user_id = 101
+        wallet_info = SimpleNamespace(
+            wallet_address="0x1111111111111111111111111111111111111111",
+            chain_id=11155111,
+            token_symbol="JPYC",
+        )
+        mock_repository = mock_repository_class.return_value
+        mock_repository.get_user_wallet.return_value = wallet_info
+        mock_get_wallet_approval_config.return_value = SimpleNamespace(
+            token_contract_address="0x2222222222222222222222222222222222222222",
+            spender_address="0x3333333333333333333333333333333333333333",
+        )
+
+        result = UserService().get_user_wallet_approval(session=session, user_id=user_id)
+
+        mock_repository.get_user_wallet.assert_called_once_with(
+            session=session,
+            user_id=user_id,
+        )
+        mock_get_wallet_approval_config.assert_called_once_with(chain_id=11155111)
+        assert result == WalletApprovalResponse(
+            wallet_address=wallet_info.wallet_address,
+            chain_id=11155111,
+            token_symbol="JPYC",
+            token_contract_address="0x2222222222222222222222222222222222222222",
+            spender_address="0x3333333333333333333333333333333333333333",
+        )
+
+    @patch("app.services.user_service.get_wallet_approval_config")
+    @patch("app.services.user_service.UserRepository")
+    def test_get_user_wallet_approval_returns_none_when_wallet_not_found(
+        self,
+        mock_repository_class,
+        mock_get_wallet_approval_config,
+    ) -> None:
+        session = Mock()
+        user_id = 999
+        mock_repository = mock_repository_class.return_value
+        mock_repository.get_user_wallet.return_value = None
+
+        result = UserService().get_user_wallet_approval(session=session, user_id=user_id)
+
+        mock_repository.get_user_wallet.assert_called_once_with(
+            session=session,
+            user_id=user_id,
+        )
+        mock_get_wallet_approval_config.assert_not_called()
+        assert result is None
+
+
+class TestUpdateWalletApprovalState:
+    @patch("app.services.user_service.WalletRepository")
+    def test_update_wallet_approval_state(
+        self,
+        mock_repository_class,
+    ) -> None:
+        session = Mock()
+        wallet_id = 301
+        wallet_info = SimpleNamespace(
+            wallet_id=wallet_id,
+            wallet_address="0x1111111111111111111111111111111111111111",
+            is_approval=False,
+        )
+        mock_repository = mock_repository_class.return_value
+        mock_repository.get_wallet_by_id.return_value = wallet_info
+
+        result = UserService().update_wallet_approval_state(
+            session=session,
+            wallet_id=wallet_id,
+        )
+
+        mock_repository.get_wallet_by_id.assert_called_once_with(
+            session=session,
+            wallet_id=wallet_id,
+        )
+        assert wallet_info.is_approval is True
+        mock_repository.update_wallet.assert_called_once_with(
+            session=session,
+            wallet=wallet_info,
+        )
+        assert result is None
+
+    @patch("app.services.user_service.WalletRepository")
+    def test_update_wallet_approval_state_wallet_not_found(
+        self,
+        mock_repository_class,
+    ) -> None:
+        session = Mock()
+        wallet_id = 999
+        mock_repository = mock_repository_class.return_value
+        mock_repository.get_wallet_by_id.return_value = None
+
+        with pytest.raises(WalletNotFoundException):
+            UserService().update_wallet_approval_state(
+                session=session,
+                wallet_id=wallet_id,
+            )
+
+        mock_repository.get_wallet_by_id.assert_called_once_with(
+            session=session,
+            wallet_id=wallet_id,
+        )
+        mock_repository.update_wallet.assert_not_called()
+
+    @pytest.mark.usefixtures("insert_wallets")
+    def test_with_db(
+        self,
+        session: Session,
+    ) -> None:
+        wallet_id = 301
+        before_wallet = session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
+        before_wallet.is_approval = False
+        session.flush()
+        session.expire_all()
+
+        before_wallet = session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
+        assert before_wallet.is_approval is False
+
+        result = UserService().update_wallet_approval_state(
+            session=session,
+            wallet_id=wallet_id,
+        )
+        session.flush()
+        session.expire_all()
+
+        after_wallet = session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
+        assert after_wallet.is_approval is True
         assert result is None
 
 
