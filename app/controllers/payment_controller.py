@@ -26,6 +26,12 @@ class PaymentController:
         Returns:
             署名メッセージと nonce を含むレスポンス。
         """
+        return PaymentService().create_payment_request(
+            session=session,
+            store_id=request.store_id,
+            user_id=request.user_id,
+            amount=request.amount
+        )
         try:
             return PaymentService().create_payment_request(
                 session=session,
@@ -59,6 +65,10 @@ class PaymentController:
         self,
         session: Session,
         payment_request_id: int) -> PaymentTransactionHashResponse:
+        return PaymentService().execute_payment(
+            session=session,
+            payment_request_id=payment_request_id,
+        )
         try:
             return PaymentService().execute_payment(
                 session=session,
@@ -80,6 +90,10 @@ class PaymentController:
         self,
         session: Session,
         payment_request_id: int) -> PaymentVerifyResponse:
+        return PaymentService().verify_transaction_hash(
+            session=session,
+            payment_request_id=payment_request_id,
+        )
         try:
             return PaymentService().verify_transaction_hash(
                 session=session,
