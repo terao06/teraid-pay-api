@@ -39,6 +39,7 @@ class TestGetStoreWallet:
             token_symbol="JPYC",
             chain_id=1,
             is_active=True,
+            is_approval=False,
             verified_at="2026-04-12 12:00",
             created_at="2026-04-12 12:00",
             updated_at="2026-04-12 12:00",
@@ -210,6 +211,7 @@ class TestVerifyAndCreateWalletNonce:
             token_symbol=request.token_symbol,
             chain_id=request.chain_id,
             is_active=True,
+            is_approval=True,
             verified_at="2026-04-12 12:10",
         )
         mock_service = mock_service_class.return_value

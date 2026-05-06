@@ -10,6 +10,7 @@ class WalletResponse(BaseModel):
     token_symbol: str = Field(..., description="Token symbol")
     chain_id: int = Field(..., description="Blockchain chain ID")
     is_active: bool = Field(..., description="Whether the wallet is active")
+    is_approval: bool = Field(..., description="Whether the wallet is approved")
     verified_at: str | None = Field(description="Datetime when the wallet was verified")
     created_at: str = Field(..., description="Datetime when the wallet was created")
     updated_at: str = Field(..., description="Datetime when the wallet was last updated")

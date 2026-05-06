@@ -3,7 +3,13 @@ from datetime import datetime, timedelta
 import secrets
 
 from sqlalchemy.orm import Session
-from app.core.exceptions.custom_exception import UnauthorizedException, UserNotFoundException, WalletConflictException
+from app.core.config.wallet_approval import get_wallet_approval_config
+from app.core.exceptions.custom_exception import (
+    UnauthorizedException,
+    UserNotFoundException,
+    WalletConflictException,
+    WalletNotFoundException
+)
 from app.core.utils.datetime import JST, DateTimeUtil
 from app.core.utils.logging import TeraidPayApiLog
 from app.core.utils.wallet import WalletUtil
@@ -12,6 +18,7 @@ from app.models.mysql.user_nonce import UserNonce
 from app.models.mysql.user_wallet import UserWallet
 from app.models.mysql.wallet import Wallet
 from app.models.responses.wallet_response import WalletResponse
+from app.models.responses.wallet_approval_response import WalletApprovalResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
 from app.repositories.nonce_repository import NonceRepository
@@ -48,10 +55,42 @@ class UserService:
             token_symbol=wallet_info.token_symbol,
             chain_id=wallet_info.chain_id,
             is_active=wallet_info.is_active,
+            is_approval=wallet_info.is_approval,
             verified_at=DateTimeUtil.change_datetime_to_string(wallet_info.verified_at),
             created_at=DateTimeUtil.change_datetime_to_string(wallet_info.created_at),
             updated_at=DateTimeUtil.change_datetime_to_string(wallet_info.updated_at)
         )
+
+    def get_user_wallet_approval(self, session: Session, user_id: int) -> WalletApprovalResponse | None:
+        wallet_info = UserRepository().get_user_wallet(
+            session=session,
+            user_id=user_id
+        )
+
+        if wallet_info is None:
+            return None
+
+        approval_config = get_wallet_approval_config(chain_id=wallet_info.chain_id)
+
+        return WalletApprovalResponse(
+            wallet_address=wallet_info.wallet_address,
+            chain_id=wallet_info.chain_id,
+            token_symbol=wallet_info.token_symbol,
+            token_contract_address=approval_config.token_contract_address,
+            spender_address=approval_config.spender_address,
+        )
+    
+    def update_wallet_approval_state(self, session: Session, wallet_id: int) -> None:
+        wallet_repository = WalletRepository()
+        wallet_info = wallet_repository.get_wallet_by_id(
+            session=session,
+            wallet_id=wallet_id)
+        if not wallet_info:
+            raise WalletNotFoundException(f"対象のウォレットは存在しません。 wallet_id={wallet_id}")
+        wallet_info.is_approval = True
+
+        wallet_repository.update_wallet(session=session, wallet=wallet_info)
+        return None
 
     def create_wallet_nonce(
         self,
@@ -169,7 +208,7 @@ class UserService:
             raise UnauthorizedException("認証に失敗しました。")
         return user_nonce_entity
     
-    def create_store_wallet(
+    def create_user_wallet(
         self,
         session: Session,
         user_id: int,
@@ -219,20 +258,20 @@ class UserService:
             token_symbol=token_symbol,
             chain_id=chain_id,
             verified_at=datetime.now(),
-            is_active=True,
+            is_approval=False,
         )
         saved_wallet = wallet_repository.create_wallet(
             session=session,
             wallet=new_wallet
         )
 
-        new_store_wallet = UserWallet(
+        new_user_wallet = UserWallet(
             user_id=user_id,
             wallet_id=saved_wallet.wallet_id
         )
         user_repository.create_user_wallet(
             session=session,
-            user_wallet=new_store_wallet)
+            user_wallet=new_user_wallet)
 
         nonce_entity.used_at = datetime.now()
         nonce_repository.update_nonce(
@@ -251,11 +290,12 @@ class UserService:
             token_symbol=new_wallet.token_symbol,
             chain_id=new_wallet.chain_id,
             is_active=bool(new_wallet.is_active),
+            is_approval=bool(new_wallet.is_approval),
             verified_at=DateTimeUtil.change_datetime_to_string(
                 new_wallet.verified_at
             ),
         )
-    
+
     def delete_wallet(self, session: Session, wallet_id: int) -> None:
         """ウォレットを登録から削除する。
 

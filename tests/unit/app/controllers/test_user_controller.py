@@ -2,20 +2,29 @@ from unittest.mock import Mock, patch
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy.orm import Session
 
 from app.controllers.user_controller import UserController
-from app.core.exceptions.custom_exception import UnauthorizedException, UserNotFoundException, WalletConflictException
+from app.core.exceptions.custom_exception import (
+    UnauthorizedException,
+    UserNotFoundException,
+    WalletConflictException,
+    WalletNotFoundException,
+)
 from app.core.exceptions.message import (
     SERVER_ERROR,
     USER_NOT_FOUND_ERROR,
     VERIFY_ERROR,
     WALLET_CONFLICT_ERROR,
     WALLET_IS_ALREADY_EXIST,
+    WALLET_NOT_FOUND_ERROR,
 )
+from app.models.mysql.wallet import Wallet
 from app.models.requests.wallet_nonce_create_request import WalletNonceCreateRequest
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
+from app.models.responses.wallet_approval_response import WalletApprovalResponse
 from app.models.responses.wallet_response import WalletResponse
 
 
@@ -35,6 +44,7 @@ class TestGetUserWallet:
             token_symbol="JPYC",
             chain_id=1,
             is_active=True,
+            is_approval=False,
             verified_at="2024-01-10 12:00",
             created_at="2024-01-01 09:30",
             updated_at="2024-01-15 18:45",
@@ -77,6 +87,149 @@ class TestGetUserWallet:
             "status": "error",
             "message": SERVER_ERROR,
         }
+
+
+class TestGetUserWalletApproval:
+    @patch("app.controllers.user_controller.UserService")
+    def test_get_user_wallet_approval(self, mock_service_class) -> None:
+        session = Mock()
+        user_id = 101
+        expected = WalletApprovalResponse(
+            wallet_address="0x1111111111111111111111111111111111111111",
+            chain_id=11155111,
+            token_symbol="JPYC",
+            token_contract_address="0x2222222222222222222222222222222222222222",
+            spender_address="0x3333333333333333333333333333333333333333",
+        )
+        mock_service = mock_service_class.return_value
+        mock_service.get_user_wallet_approval.return_value = expected
+
+        result = UserController.get_user_wallet_approval.__wrapped__(
+            UserController(),
+            session=session,
+            user_id=user_id,
+        )
+
+        mock_service.get_user_wallet_approval.assert_called_once_with(
+            session=session,
+            user_id=user_id,
+        )
+        assert result == expected
+
+    @patch("app.controllers.user_controller.UserService")
+    def test_get_user_wallet_approval_returns_404_when_wallet_not_found(
+        self,
+        mock_service_class,
+    ) -> None:
+        session = Mock()
+        user_id = 999
+        mock_service = mock_service_class.return_value
+        mock_service.get_user_wallet_approval.return_value = None
+
+        with pytest.raises(HTTPException) as exc_info:
+            UserController.get_user_wallet_approval.__wrapped__(
+                UserController(),
+                session=session,
+                user_id=user_id,
+            )
+
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail == {
+            "status": "error",
+            "message": WALLET_NOT_FOUND_ERROR,
+        }
+
+
+class TestUpdateWalletApprovalState:
+    @patch("app.controllers.user_controller.UserService")
+    def test_update_wallet_approval_state(self, mock_service_class) -> None:
+        session = Mock()
+        wallet_id = 301
+        mock_service = mock_service_class.return_value
+
+        result = UserController.update_wallet_approval_state.__wrapped__(
+            UserController(),
+            session=session,
+            wallet_id=wallet_id,
+        )
+
+        mock_service.update_wallet_approval_state.assert_called_once_with(
+            session=session,
+            wallet_id=wallet_id,
+        )
+        assert result is None
+
+    @patch("app.controllers.user_controller.UserService")
+    def test_update_wallet_approval_state_raise_http_exception_when_wallet_not_found(
+        self,
+        mock_service_class,
+    ) -> None:
+        session = Mock()
+        wallet_id = 999
+        mock_service = mock_service_class.return_value
+        mock_service.update_wallet_approval_state.side_effect = WalletNotFoundException("wallet not found")
+
+        with pytest.raises(HTTPException) as exc_info:
+            UserController.update_wallet_approval_state.__wrapped__(
+                UserController(),
+                session=session,
+                wallet_id=wallet_id,
+            )
+
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail == {
+            "status": "error",
+            "message": WALLET_NOT_FOUND_ERROR,
+        }
+
+    @patch("app.controllers.user_controller.UserService")
+    def test_update_wallet_approval_state_raise_http_exception_when_service_fails(
+        self,
+        mock_service_class,
+    ) -> None:
+        session = Mock()
+        wallet_id = 301
+        mock_service = mock_service_class.return_value
+        mock_service.update_wallet_approval_state.side_effect = Exception("unexpected error")
+
+        with pytest.raises(HTTPException) as exc_info:
+            UserController.update_wallet_approval_state.__wrapped__(
+                UserController(),
+                session=session,
+                wallet_id=wallet_id,
+            )
+
+        assert exc_info.value.status_code == 500
+        assert exc_info.value.detail == {
+            "status": "error",
+            "message": SERVER_ERROR,
+        }
+
+    @pytest.mark.usefixtures("insert_wallets")
+    def test_with_db(
+        self,
+        session: Session,
+    ) -> None:
+        wallet_id = 301
+        before_wallet = session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
+        before_wallet.is_approval = False
+        session.flush()
+        session.expire_all()
+
+        before_wallet = session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
+        assert before_wallet.is_approval is False
+
+        result = UserController.update_wallet_approval_state.__wrapped__(
+            UserController(),
+            session=session,
+            wallet_id=wallet_id,
+        )
+        session.flush()
+        session.expire_all()
+
+        after_wallet = session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
+        assert after_wallet.is_approval is True
+        assert result is None
 
 
 class TestCreateWalletNonce:
@@ -223,11 +376,12 @@ class TestVerifyAndCreateWalletNonce:
             token_symbol=request.token_symbol,
             chain_id=request.chain_id,
             is_active=True,
+            is_approval=True,
             verified_at="2026-04-12 12:10",
         )
         mock_service = mock_service_class.return_value
         mock_service.verify_wallet_nonce.return_value = nonce_entity
-        mock_service.create_store_wallet.return_value = expected
+        mock_service.create_user_wallet.return_value = expected
 
         result = UserController.verify_and_create_wallet_nonce.__wrapped__(
             UserController(),
@@ -244,7 +398,7 @@ class TestVerifyAndCreateWalletNonce:
             chain_type=request.chain_type,
             network_name=request.network_name,
         )
-        mock_service.create_store_wallet.assert_called_once_with(
+        mock_service.create_user_wallet.assert_called_once_with(
             session=session,
             user_id=user_id,
             wallet_address=request.wallet_address,
@@ -287,7 +441,7 @@ class TestVerifyAndCreateWalletNonce:
         mock_service = mock_service_class.return_value
         mock_service.verify_wallet_nonce.return_value = nonce_entity
         mock_service.verify_wallet_nonce.side_effect = verify_side_effect
-        mock_service.create_store_wallet.side_effect = create_side_effect
+        mock_service.create_user_wallet.side_effect = create_side_effect
 
         with pytest.raises(HTTPException) as exc_info:
             UserController.verify_and_create_wallet_nonce.__wrapped__(
