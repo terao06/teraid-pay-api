@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -6,7 +7,7 @@ from eth_abi import encode
 import pytest
 from web3.exceptions import TransactionNotFound
 
-from app.core.exceptions.custom_exception import PaymentRequestNotFoundException, WalletNotFoundException
+from app.core.exceptions.custom_exception import PaymentRequestNotFoundException, WalletNotApprovedException, WalletNotFoundException
 from app.models.mysql.payment_request import PaymentRequest, PaymentStatus
 from app.models.responses.payment_create_response import PaymentCreateResponse
 from app.models.responses.payment_transaction_hash_response import PaymentTransactionHashResponse
@@ -43,6 +44,7 @@ class TestCreatePaymentRequest:
             wallet_address="0x2222222222222222222222222222222222222222",
             token_symbol="JPYC",
             chain_id=11155111,
+            is_approval=True,
         )
 
         mock_datetime.now.return_value = fixed_now
@@ -109,6 +111,7 @@ class TestCreatePaymentRequest:
                     wallet_address="0x2222222222222222222222222222222222222222",
                     token_symbol="JPYC",
                     chain_id=11155111,
+                    is_approval=True,
                 ),
             ),
             (
@@ -169,11 +172,13 @@ class TestCreatePaymentRequest:
                 wallet_address="0x2222222222222222222222222222222222222222",
                 token_symbol="USDC",
                 chain_id=11155111,
+                is_approval=True,
             ),
             SimpleNamespace(
                 wallet_address="0x2222222222222222222222222222222222222222",
                 token_symbol="JPYC",
                 chain_id=137,
+                is_approval=True,
             ),
         ],
         ids=["token-mismatch", "chain-mismatch"],
@@ -219,13 +224,68 @@ class TestCreatePaymentRequest:
         )
         mock_payment_repository_class.assert_not_called()
 
-
-class TestAddTransactionHash:
-    """PaymentService.add_transaction_hash の単体テスト。"""
-
     @patch("app.services.payment_service.PaymentRepository")
-    def test_add_transaction_hash(self, mock_payment_repository_class) -> None:
-        """REQUESTED の payment に transaction_hash を設定し、SUBMITTED に更新することを検証する。"""
+    @patch("app.services.payment_service.UserRepository")
+    @patch("app.services.payment_service.StoreRepository")
+    def test_create_payment_request_raises_when_user_wallet_is_not_approved(
+        self,
+        mock_store_repository_class,
+        mock_user_repository_class,
+        mock_payment_repository_class,
+    ) -> None:
+        """user wallet が未承認の場合は payment request を作成しないことを検証する。"""
+        session = Mock()
+        store_wallet = SimpleNamespace(
+            wallet_address="0x1111111111111111111111111111111111111111",
+            token_symbol="JPYC",
+            chain_id=11155111,
+        )
+        user_wallet = SimpleNamespace(
+            wallet_address="0x2222222222222222222222222222222222222222",
+            token_symbol="JPYC",
+            chain_id=11155111,
+            is_approval=False,
+        )
+
+        mock_store_repository = mock_store_repository_class.return_value
+        mock_store_repository.get_store_wallet.return_value = store_wallet
+        mock_user_repository = mock_user_repository_class.return_value
+        mock_user_repository.get_user_wallet.return_value = user_wallet
+
+        with pytest.raises(WalletNotApprovedException):
+            PaymentService().create_payment_request(
+                session=session,
+                store_id=101,
+                user_id=102,
+                amount=1500,
+            )
+
+        mock_store_repository.get_store_wallet.assert_called_once_with(
+            session=session,
+            store_id=101,
+        )
+        mock_user_repository.get_user_wallet.assert_called_once_with(
+            session=session,
+            user_id=102,
+        )
+        mock_payment_repository_class.assert_not_called()
+
+
+class TestExecutePayment:
+    """PaymentService.execute_payment の単体テスト。"""
+
+    @patch("app.services.payment_service.Web3")
+    @patch("app.services.payment_service.HTTPProvider")
+    @patch("app.services.payment_service.get_payment_processor_config")
+    @patch("app.services.payment_service.get_chain_config")
+    @patch("app.services.payment_service.PaymentRepository")
+    def test_execute_payment(self,
+                             mock_payment_repository_class,
+                             mock_get_chain_config,
+                             mock_get_payment_processor_config,
+                             mock_http_provider_class,
+                             mock_web3_class) -> None:
+        """REQUESTED の payment を PaymentProcessor で実行し、transaction_hash を保存することを検証する。"""
         session = Mock()
         payment_request_id = 501
         transaction_hash = "0xabcdef1234567890"
@@ -233,15 +293,41 @@ class TestAddTransactionHash:
             payment_request_id=payment_request_id,
             status=PaymentStatus.REQUESTED,
             transaction_hash=None,
+            amount=1500,
+            chain_id=11155111,
+            user_wallet_address="0x2222222222222222222222222222222222222222",
+            store_wallet_address="0x1111111111111111111111111111111111111111",
         )
         mock_payment_repository = mock_payment_repository_class.return_value
         mock_payment_repository.get_payment_by_id.return_value = target_payment_request
         mock_payment_repository.update_payment_request.return_value = target_payment_request
+        mock_get_chain_config.return_value = SimpleNamespace(rpc_url="https://example.invalid")
+        mock_get_payment_processor_config.return_value = SimpleNamespace(
+            token_contract_address="0x3333333333333333333333333333333333333333",
+            payment_processor_address="0x4444444444444444444444444444444444444444",
+            operator_private_key="0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        )
+        mock_http_provider_class.return_value = "provider"
+        mock_web3 = mock_web3_class.return_value
+        mock_web3.to_checksum_address.side_effect = lambda address: address
+        mock_account = SimpleNamespace(
+            address="0x5555555555555555555555555555555555555555",
+            sign_transaction=Mock(return_value=SimpleNamespace(raw_transaction=b"signed")),
+        )
+        mock_web3.eth.account.from_key.return_value = mock_account
+        mock_web3.eth.get_transaction_count.return_value = 7
+        mock_sent_hash = Mock()
+        mock_sent_hash.hex.return_value = transaction_hash
+        mock_web3.eth.send_raw_transaction.return_value = mock_sent_hash
+        mock_payment_processor = Mock()
+        mock_pay_call = Mock()
+        mock_pay_call.build_transaction.return_value = {"nonce": 7}
+        mock_payment_processor.functions.pay.return_value = mock_pay_call
+        mock_web3.eth.contract.return_value = mock_payment_processor
 
-        result = PaymentService().add_transaction_hash(
+        result = PaymentService().execute_payment(
             session=session,
             payment_request_id=payment_request_id,
-            transaction_hash=transaction_hash,
         )
 
         mock_payment_repository.get_payment_by_id.assert_called_once_with(
@@ -249,6 +335,24 @@ class TestAddTransactionHash:
             payment_request_id=payment_request_id,
             status=PaymentStatus.REQUESTED,
         )
+        mock_get_chain_config.assert_called_once_with(chain_id=target_payment_request.chain_id)
+        mock_get_payment_processor_config.assert_called_once_with(chain_id=target_payment_request.chain_id)
+        mock_http_provider_class.assert_called_once_with("https://example.invalid")
+        mock_web3_class.assert_called_once_with("provider")
+        mock_web3.eth.contract.assert_called_once()
+        mock_payment_processor.functions.pay.assert_called_once_with(
+            int(payment_request_id).to_bytes(32, byteorder="big"),
+            "0x3333333333333333333333333333333333333333",
+            target_payment_request.user_wallet_address,
+            target_payment_request.store_wallet_address,
+            int(Decimal(str(target_payment_request.amount)) * (Decimal(10) ** 18)),
+        )
+        mock_pay_call.build_transaction.assert_called_once_with({
+            "from": mock_account.address,
+            "nonce": 7,
+            "chainId": target_payment_request.chain_id,
+        })
+        mock_web3.eth.send_raw_transaction.assert_called_once_with(b"signed")
         mock_payment_repository.update_payment_request.assert_called_once_with(
             session=session,
             payment_request=target_payment_request,
@@ -260,22 +364,20 @@ class TestAddTransactionHash:
             transaction_hash=transaction_hash)
 
     @patch("app.services.payment_service.PaymentRepository")
-    def test_add_transaction_hash_raises_when_payment_request_not_found(
+    def test_execute_payment_raises_when_payment_request_not_found(
         self,
         mock_payment_repository_class,
     ) -> None:
         """REQUESTED の payment が取得できない場合は PaymentRequestNotFoundException を送出する。"""
         session = Mock()
         payment_request_id = 501
-        transaction_hash = "0xabcdef1234567890"
         mock_payment_repository = mock_payment_repository_class.return_value
         mock_payment_repository.get_payment_by_id.return_value = None
 
         with pytest.raises(PaymentRequestNotFoundException):
-            PaymentService().add_transaction_hash(
+            PaymentService().execute_payment(
                 session=session,
                 payment_request_id=payment_request_id,
-                transaction_hash=transaction_hash,
             )
 
         mock_payment_repository.get_payment_by_id.assert_called_once_with(

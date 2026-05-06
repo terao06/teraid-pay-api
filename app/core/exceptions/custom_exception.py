@@ -20,6 +20,11 @@ class UnauthorizedException(Exception):
 class WalletNotFoundException(Exception):
     pass
 
+
+class WalletNotApprovedException(Exception):
+    pass
+
+
 class PaymentRequestNotFoundException(Exception):
     pass
 

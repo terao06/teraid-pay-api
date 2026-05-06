@@ -4,10 +4,9 @@ import pytest
 from fastapi import HTTPException
 
 from app.controllers.payment_controller import PaymentController
-from app.core.exceptions.custom_exception import PaymentRequestNotFoundException, WalletNotFoundException
-from app.core.exceptions.message import NOT_MATCH_ERROR, PAYMENT_ERROR, PAYMENT_INFO_NOT_FOUND, SERVER_ERROR, WALLET_NOT_FOUND_ERROR
+from app.core.exceptions.custom_exception import PaymentRequestNotFoundException, WalletNotApprovedException, WalletNotFoundException
+from app.core.exceptions.message import NOT_MATCH_ERROR, PAYMENT_ERROR, PAYMENT_INFO_NOT_FOUND, SERVER_ERROR, WALLET_NOT_APPROVED_ERROR, WALLET_NOT_FOUND_ERROR
 from app.models.requests.payment_create_request import PaymentCreateRequest
-from app.models.requests.payment_transaction_hash_request import PaymentTransactionHashRequest
 from app.models.responses.payment_create_response import PaymentCreateResponse
 from app.models.responses.payment_transaction_hash_response import PaymentTransactionHashResponse
 from app.models.responses.payment_verify_response import PaymentVerifyResponse
@@ -58,6 +57,7 @@ class TestCreatePaymentRequest:
         [
             (WalletNotFoundException("wallet not found"), 404, WALLET_NOT_FOUND_ERROR),
             (ValueError("wallet values mismatch"), 400, NOT_MATCH_ERROR),
+            (WalletNotApprovedException("wallet not approved"), 400, WALLET_NOT_APPROVED_ERROR),
             (Exception("unexpected error"), 500, SERVER_ERROR),
         ],
     )
@@ -93,37 +93,32 @@ class TestCreatePaymentRequest:
         }
 
 
-class TestAddTransactionHash:
-    """PaymentController.add_transaction_hash の単体テスト。"""
+class TestExecutePayment:
+    """PaymentController.execute_payment の単体テスト。"""
 
     @patch("app.controllers.payment_controller.PaymentService")
-    def test_add_transaction_hash(self, mock_service_class) -> None:
+    def test_execute_payment(self, mock_service_class) -> None:
         """サービスの戻り値を返し、リクエスト値をサービスへ渡すことを確認する。"""
 
         session = Mock()
         payment_request_id = 501
-        request = PaymentTransactionHashRequest(
-            payment_request_id=999,
-            transaction_hash="0xabcdef1234567890",
-        )
+        transaction_hash = "0xabcdef1234567890"
         expected = PaymentTransactionHashResponse(
             payment_request_id=payment_request_id,
-            transaction_hash=request.transaction_hash,
+            transaction_hash=transaction_hash,
         )
         mock_service = mock_service_class.return_value
-        mock_service.add_transaction_hash.return_value = expected
+        mock_service.execute_payment.return_value = expected
 
-        result = PaymentController.add_transaction_hash.__wrapped__(
+        result = PaymentController.execute_payment.__wrapped__(
             PaymentController(),
             session=session,
             payment_request_id=payment_request_id,
-            request=request,
         )
 
-        mock_service.add_transaction_hash.assert_called_once_with(
+        mock_service.execute_payment.assert_called_once_with(
             session=session,
             payment_request_id=payment_request_id,
-            transaction_hash=request.transaction_hash,
         )
         assert result == expected
 
@@ -135,7 +130,7 @@ class TestAddTransactionHash:
             (Exception("unexpected error"), 500, SERVER_ERROR),
         ],
     )
-    def test_add_transaction_hash_raise_http_exception(
+    def test_execute_payment_raise_http_exception(
         self,
         mock_service_class,
         side_effect,
@@ -146,19 +141,14 @@ class TestAddTransactionHash:
 
         session = Mock()
         payment_request_id = 501
-        request = PaymentTransactionHashRequest(
-            payment_request_id=999,
-            transaction_hash="0xabcdef1234567890",
-        )
         mock_service = mock_service_class.return_value
-        mock_service.add_transaction_hash.side_effect = side_effect
+        mock_service.execute_payment.side_effect = side_effect
 
         with pytest.raises(HTTPException) as exc_info:
-            PaymentController.add_transaction_hash.__wrapped__(
+            PaymentController.execute_payment.__wrapped__(
                 PaymentController(),
                 session=session,
                 payment_request_id=payment_request_id,
-                request=request,
             )
 
         assert exc_info.value.status_code == expected_status_code
