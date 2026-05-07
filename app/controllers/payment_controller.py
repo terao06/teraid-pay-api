@@ -65,10 +65,7 @@ class PaymentController:
         self,
         session: Session,
         payment_request_id: int) -> PaymentTransactionHashResponse:
-        return PaymentService().execute_payment(
-            session=session,
-            payment_request_id=payment_request_id,
-        )
+
         try:
             return PaymentService().execute_payment(
                 session=session,
@@ -90,10 +87,7 @@ class PaymentController:
         self,
         session: Session,
         payment_request_id: int) -> PaymentVerifyResponse:
-        return PaymentService().verify_transaction_hash(
-            session=session,
-            payment_request_id=payment_request_id,
-        )
+
         try:
             return PaymentService().verify_transaction_hash(
                 session=session,
