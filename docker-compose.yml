@@ -50,7 +50,7 @@ services:
       retries: 10
     networks:
       - teraid-pay-api-network
-  
+
   teraid-pay-api-phpmyadmin:
     image: phpmyadmin/phpmyadmin
     container_name: teraid-pay-api-phpmyadmin

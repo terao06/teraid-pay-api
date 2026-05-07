@@ -126,6 +126,7 @@ paths:
       tags:
         - Payment
       summary: トランザクション検証
+      description: トランザクションレシートを取得し、PaymentProcessor の PaymentProcessed イベント内容を決済リクエストと照合して決済ステータスを更新する。
       operationId: verifyPaymentTransactionHash
       parameters:
         - name: payment_request_id
@@ -164,6 +165,13 @@ paths:
                     data:
                       payment_request_id: 501
                       status: verify_failed
+                tx_failed:
+                  summary: トランザクション失敗
+                  value:
+                    status: success
+                    data:
+                      payment_request_id: 501
+                      status: tx_failed
         '404':
           description: 決済リクエストまたはトランザクションハッシュが存在しない
           content:

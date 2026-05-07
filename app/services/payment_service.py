@@ -1,11 +1,9 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from eth_abi import decode
 from sqlalchemy.orm import Session
 from web3 import Web3, HTTPProvider
 from web3.exceptions import TransactionNotFound
-from web3.types import TxData
 
 from app.core.exceptions.custom_exception import PaymentRequestNotFoundException, WalletNotApprovedException, WalletNotFoundException
 from app.core.utils.datetime import JST, DateTimeUtil
@@ -20,8 +18,6 @@ from app.models.responses.payment_create_response import PaymentCreateResponse
 from app.models.responses.payment_verify_response import PaymentVerifyResponse
 
 
-TRANSFER_SELECTOR = "a9059cbb" 
-
 PAYMENT_PROCESSOR_ABI = [
     {
         "inputs": [
@@ -35,7 +31,20 @@ PAYMENT_PROCESSOR_ABI = [
         "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function",
-    }
+    },
+    {
+        "anonymous": False,
+        "inputs": [
+            {"indexed": True, "internalType": "bytes32", "name": "paymentId", "type": "bytes32"},
+            {"indexed": True, "internalType": "address", "name": "token", "type": "address"},
+            {"indexed": True, "internalType": "address", "name": "from", "type": "address"},
+            {"indexed": False, "internalType": "address", "name": "to", "type": "address"},
+            {"indexed": False, "internalType": "uint256", "name": "amount", "type": "uint256"},
+            {"indexed": False, "internalType": "address", "name": "operator", "type": "address"},
+        ],
+        "name": "PaymentProcessed",
+        "type": "event",
+    },
 ]
 
 
@@ -227,12 +236,18 @@ class PaymentService:
                 payment_request_id=payment_request_id,
                 status=PaymentStatus.TX_FAILED.value
             )
-        target_transaction = web3.eth.get_transaction(transaction_hash=target_payment_request.transaction_hash)
+        payment_processor_config = get_payment_processor_config(
+            chain_id=target_payment_request.chain_id)
+        payment_processor = web3.eth.contract(
+            address=web3.to_checksum_address(payment_processor_config.payment_processor_address),
+            abi=PAYMENT_PROCESSOR_ABI,
+        )
 
-        is_validate = self._validate_contract(
+        is_validate = self._validate_payment_processed_event(
             payment_request=target_payment_request,
-            transaction=target_transaction,
-            token_contract_address=chain_config.token_contract_address
+            receipt=receipt,
+            payment_processor=payment_processor,
+            token_contract_address=payment_processor_config.token_contract_address,
         )
 
         if not is_validate:
@@ -252,10 +267,11 @@ class PaymentService:
             status=PaymentStatus.PAID.value
         )
 
-    def _validate_contract(
+    def _validate_payment_processed_event(
         self,
         payment_request: PaymentRequest,
-        transaction: TxData,
+        receipt,
+        payment_processor,
         token_contract_address: str,
     ) -> bool:
         """取得したcontractのバリデーションを行う
@@ -269,34 +285,26 @@ class PaymentService:
             bool: バリデーション結果
         """
 
-        if transaction.get("to") is None:
-            return False
-
-        if transaction.get("to").lower() != token_contract_address.lower():
-            return False
-
-        if transaction.get("from").lower() != str(payment_request.user_wallet_address).lower():
-            return False
-
-        data = transaction.get("input").hex()
-
-        if data.startswith("0x"):
-            data = data[2:]
-
-        if not data.startswith(TRANSFER_SELECTOR):
-            return False
-
-        decoded_to, decoded_amount = decode(
-            ["address", "uint256"],
-            bytes.fromhex(data[8:]),
-        )
-
-        if str(decoded_to).lower() != str(payment_request.store_wallet_address).lower():
-            return False
-
+        events = payment_processor.events.PaymentProcessed().process_receipt(receipt)
+        expected_payment_id = int(payment_request.payment_request_id).to_bytes(32, byteorder="big")
         expected_amount = int(Decimal(str(payment_request.amount)) * (Decimal(10) ** 18))
 
-        if decoded_amount != expected_amount:
-            return False
+        for event in events:
+            args = event.get("args", {})
+            payment_id = args.get("paymentId")
+            if isinstance(payment_id, str):
+                payment_id = bytes.fromhex(payment_id.removeprefix("0x"))
 
-        return True
+            if bytes(payment_id) != expected_payment_id:
+                continue
+            if str(args.get("token")).lower() != str(token_contract_address).lower():
+                continue
+            if str(args.get("from")).lower() != str(payment_request.user_wallet_address).lower():
+                continue
+            if str(args.get("to")).lower() != str(payment_request.store_wallet_address).lower():
+                continue
+            if int(args.get("amount")) != expected_amount:
+                continue
+            return True
+
+        return False

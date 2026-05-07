@@ -3,7 +3,6 @@ from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from eth_abi import encode
 import pytest
 from web3.exceptions import TransactionNotFound
 
@@ -12,7 +11,7 @@ from app.models.mysql.payment_request import PaymentRequest, PaymentStatus
 from app.models.responses.payment_create_response import PaymentCreateResponse
 from app.models.responses.payment_transaction_hash_response import PaymentTransactionHashResponse
 from app.models.responses.payment_verify_response import PaymentVerifyResponse
-from app.services.payment_service import JST, TRANSFER_SELECTOR, PaymentService
+from app.services.payment_service import JST, PaymentService
 
 
 class TestCreatePaymentRequest:
@@ -567,18 +566,20 @@ class TestVerifyTransactionHash:
         ],
         ids=["valid-contract", "invalid-contract"],
     )
-    @patch("app.services.payment_service.PaymentService._validate_contract")
+    @patch("app.services.payment_service.PaymentService._validate_payment_processed_event")
     @patch("app.services.payment_service.Web3")
     @patch("app.services.payment_service.HTTPProvider")
+    @patch("app.services.payment_service.get_payment_processor_config")
     @patch("app.services.payment_service.get_chain_config")
     @patch("app.services.payment_service.PaymentRepository")
     def test_verify_transaction_hash_updates_status_by_contract_validation(
         self,
         mock_payment_repository_class,
         mock_get_chain_config,
+        mock_get_payment_processor_config,
         mock_http_provider_class,
         mock_web3_class,
-        mock_validate_contract,
+        mock_validate_payment_processed_event,
         is_validate,
         expected_status,
     ) -> None:
@@ -591,12 +592,10 @@ class TestVerifyTransactionHash:
             transaction_hash=transaction_hash,
             chain_id=11155111,
             status=PaymentStatus.SUBMITTED,
+            amount=1500,
+            user_wallet_address="0x2222222222222222222222222222222222222222",
+            store_wallet_address="0x3333333333333333333333333333333333333333",
         )
-        target_transaction = {
-            "to": "0x1111111111111111111111111111111111111111",
-            "from": "0x2222222222222222222222222222222222222222",
-            "input": b"",
-        }
         mock_payment_repository = mock_payment_repository_class.return_value
         mock_payment_repository.get_payment_by_id.return_value = target_payment_request
         mock_chain_config = SimpleNamespace(
@@ -604,10 +603,17 @@ class TestVerifyTransactionHash:
             token_contract_address="0x1111111111111111111111111111111111111111",
         )
         mock_get_chain_config.return_value = mock_chain_config
+        mock_get_payment_processor_config.return_value = SimpleNamespace(
+            token_contract_address="0x1111111111111111111111111111111111111111",
+            payment_processor_address="0x4444444444444444444444444444444444444444",
+            operator_private_key="0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        )
         mock_web3 = mock_web3_class.return_value
-        mock_web3.eth.get_transaction_receipt.return_value = SimpleNamespace(status=1)
-        mock_web3.eth.get_transaction.return_value = target_transaction
-        mock_validate_contract.return_value = is_validate
+        receipt = SimpleNamespace(status=1)
+        mock_web3.eth.get_transaction_receipt.return_value = receipt
+        mock_web3.to_checksum_address.side_effect = lambda address: address
+        payment_processor = mock_web3.eth.contract.return_value
+        mock_validate_payment_processed_event.return_value = is_validate
 
         result = PaymentService().verify_transaction_hash(
             session=session,
@@ -617,13 +623,14 @@ class TestVerifyTransactionHash:
         mock_web3.eth.get_transaction_receipt.assert_called_once_with(
             transaction_hash=transaction_hash,
         )
-        mock_web3.eth.get_transaction.assert_called_once_with(
-            transaction_hash=transaction_hash,
-        )
-        mock_validate_contract.assert_called_once_with(
+        mock_web3.eth.get_transaction.assert_not_called()
+        mock_get_payment_processor_config.assert_called_once_with(chain_id=target_payment_request.chain_id)
+        mock_web3.eth.contract.assert_called_once()
+        mock_validate_payment_processed_event.assert_called_once_with(
             payment_request=target_payment_request,
-            transaction=target_transaction,
-            token_contract_address=mock_chain_config.token_contract_address,
+            receipt=receipt,
+            payment_processor=payment_processor,
+            token_contract_address="0x1111111111111111111111111111111111111111",
         )
         mock_payment_repository.update_payment_request.assert_called_once_with(
             session=session,
@@ -689,95 +696,85 @@ class TestVerifyTransactionHash:
         mock_web3_class.assert_not_called()
 
 
-class TestValidateContract:
-    """PaymentService._validate_contract の単体テスト。"""
+class TestValidatePaymentProcessedEvent:
+    """PaymentService._validate_payment_processed_event tests."""
 
     token_contract_address = "0x1111111111111111111111111111111111111111"
     user_wallet_address = "0x2222222222222222222222222222222222222222"
     store_wallet_address = "0x3333333333333333333333333333333333333333"
 
-    def _build_payment_request(self, amount=1500):
+    def _build_payment_request(self, payment_request_id=501, amount=1500):
         return SimpleNamespace(
+            payment_request_id=payment_request_id,
             user_wallet_address=self.user_wallet_address,
             store_wallet_address=self.store_wallet_address,
             amount=amount,
         )
 
-    def _build_transfer_input(self, to_address=None, amount=1500, selector=TRANSFER_SELECTOR):
-        encoded_args = encode(
-            ["address", "uint256"],
-            [
-                to_address or self.store_wallet_address,
-                amount * 10**18,
-            ],
-        )
-        return bytes.fromhex(f"{selector}{encoded_args.hex()}")
+    def _build_payment_processor(self, events):
+        payment_processor = Mock()
+        payment_processor.events.PaymentProcessed.return_value.process_receipt.return_value = events
+        return payment_processor
 
-    def _build_transaction(self, **overrides):
-        transaction = {
-            "to": self.token_contract_address,
+    def _build_event(self, **overrides):
+        args = {
+            "paymentId": int(501).to_bytes(32, byteorder="big"),
+            "token": self.token_contract_address,
             "from": self.user_wallet_address,
-            "input": self._build_transfer_input(),
+            "to": self.store_wallet_address,
+            "amount": 1500 * 10**18,
+            "operator": "0x4444444444444444444444444444444444444444",
         }
-        transaction.update(overrides)
-        return transaction
+        args.update(overrides)
+        return {"args": args}
 
-    def test_validate_contract_returns_true_when_transaction_matches_payment_request(self) -> None:
+    def test_validate_payment_processed_event_returns_true_when_event_matches_payment_request(self) -> None:
         """transaction の contract/from/input が payment_request と一致する場合 True を返す。"""
         payment_request = self._build_payment_request()
-        transaction = self._build_transaction(
-            to=self.token_contract_address.upper(),
-            **{"from": self.user_wallet_address.upper()},
-        )
+        receipt = SimpleNamespace()
+        payment_processor = self._build_payment_processor([self._build_event()])
 
-        result = PaymentService()._validate_contract(
+        result = PaymentService()._validate_payment_processed_event(
             payment_request=payment_request,
-            transaction=transaction,
+            receipt=receipt,
+            payment_processor=payment_processor,
             token_contract_address=self.token_contract_address,
         )
 
         assert result is True
 
     @pytest.mark.parametrize(
-        ("payment_request_overrides", "transaction_overrides", "token_contract_address"),
+        ("payment_request_overrides", "event_overrides", "token_contract_address"),
         [
-            ({}, {"to": None}, token_contract_address),
-            ({}, {"to": "0x4444444444444444444444444444444444444444"}, token_contract_address),
+            ({"payment_request_id": 502}, {}, token_contract_address),
+            ({}, {"token": "0x4444444444444444444444444444444444444444"}, token_contract_address),
             ({}, {"from": "0x5555555555555555555555555555555555555555"}, token_contract_address),
-            ({}, {"input": bytes.fromhex(f"deadbeef{'00' * 64}")}, token_contract_address),
-            (
-                {},
-                {"input_to_address": "0x6666666666666666666666666666666666666666"},
-                token_contract_address,
-            ),
+            ({}, {"to": "0x6666666666666666666666666666666666666666"}, token_contract_address),
             ({"amount": 1501}, {}, token_contract_address),
         ],
         ids=[
-            "contract-to-is-none",
-            "contract-address-mismatch",
+            "payment-id-mismatch",
+            "token-address-mismatch",
             "from-address-mismatch",
-            "selector-mismatch",
-            "recipient-address-mismatch",
+            "to-address-mismatch",
             "amount-mismatch",
         ],
     )
-    def test_validate_contract_returns_false_when_transaction_does_not_match_payment_request(
+    def test_validate_payment_processed_event_returns_false_when_event_does_not_match_payment_request(
         self,
         payment_request_overrides,
-        transaction_overrides,
+        event_overrides,
         token_contract_address,
     ) -> None:
         """transaction の検証対象値が一致しない場合 False を返す。"""
         payment_request = self._build_payment_request(**payment_request_overrides)
-        transaction_overrides = transaction_overrides.copy()
-        input_to_address = transaction_overrides.pop("input_to_address", None)
-        if input_to_address is not None:
-            transaction_overrides["input"] = self._build_transfer_input(to_address=input_to_address)
-        transaction = self._build_transaction(**transaction_overrides)
+        receipt = SimpleNamespace()
+        payment_processor = self._build_payment_processor([self._build_event(**event_overrides)])
 
-        result = PaymentService()._validate_contract(
+        result = PaymentService()._validate_payment_processed_event(
             payment_request=payment_request,
-            transaction=transaction,
+            receipt=receipt,
+            payment_processor=payment_processor,
             token_contract_address=token_contract_address,
         )
 
