@@ -36,4 +36,3 @@ class SsmClient:
                 return value
         except ClientError as e:
             raise e
-
