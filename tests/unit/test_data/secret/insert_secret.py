@@ -29,6 +29,7 @@ def upsert_secret(secret_name: str, secret_string: str, endpoint_url: str, regio
     )
 
     try:
+        print(f"secret情報登録 secret名: {secret_name}")
         client.describe_secret(SecretId=secret_name)
         client.put_secret_value(SecretId=secret_name, SecretString=secret_string)
         print(f"Updated secret: {secret_name}")

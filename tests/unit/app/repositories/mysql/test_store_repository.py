@@ -7,9 +7,9 @@ from app.models.mysql.nonce import Nonce
 from app.models.mysql.store_nonce import StoreNonce
 from app.models.mysql.store_wallet import StoreWallet
 from app.models.mysql.wallet import Wallet
-from app.repositories.nonce_repository import NonceRepository
-from app.repositories.store_repository import StoreRepository
-from app.repositories.wallet_repository import WalletRepository
+from app.repositories.mysql.nonce_repository import NonceRepository
+from app.repositories.mysql.store_repository import StoreRepository
+from app.repositories.mysql.wallet_repository import WalletRepository
 
 
 @pytest.mark.usefixtures("insert_stores", "insert_wallets", "insert_store_wallets")
@@ -51,13 +51,13 @@ class TestGetStoreWallet:
     )
     def test_get_store_wallet(
         self,
-        session: Session,
+        mysql_session: Session,
         store_id: int | None,
         expected_wallet: dict,
     ) -> None:
         repository = StoreRepository()
 
-        result = repository.get_store_wallet(session, store_id)
+        result = repository.get_store_wallet(mysql_session, store_id)
 
         if expected_wallet is None:
             assert result is None
@@ -86,13 +86,13 @@ class TestGetStoreById:
     )
     def test_get_store_by_id(
         self,
-        session: Session,
+        mysql_session: Session,
         store_id: int,
         expected_store_id: int | None,
     ) -> None:
         repository = StoreRepository()
 
-        result = repository.get_store_by_id(session, store_id)
+        result = repository.get_store_by_id(mysql_session, store_id)
 
         if expected_store_id is None:
             assert result is None
@@ -117,7 +117,7 @@ class TestGetWalletByStoreId:
     )
     def test_get_wallet_by_store_id(
         self,
-        session: Session,
+        mysql_session: Session,
         store_id: int,
         chain_type: str,
         network_name: str,
@@ -127,7 +127,7 @@ class TestGetWalletByStoreId:
         repository = StoreRepository()
 
         result = repository.get_wallet_by_store_id(
-            session=session,
+            session=mysql_session,
             store_id=store_id,
             chain_type=chain_type,
             network_name=network_name,
@@ -149,7 +149,7 @@ class TestGetWalletByStoreId:
 class TestCreateStoreNonce:
     def test_create_store_nonce(
         self,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         repository = StoreRepository()
         nonce = Nonce(
@@ -159,14 +159,14 @@ class TestCreateStoreNonce:
             nonce="test-store-wallet-nonce",
             expires_at=datetime(2026, 4, 13, 12, 0, 0),
         )
-        saved_nonce = NonceRepository().create_nonce(session, nonce)
+        saved_nonce = NonceRepository().create_nonce(mysql_session, nonce)
 
         store_nonce = StoreNonce(store_id=101, nonce_id=saved_nonce.nonce_id)
-        repository.create_store_nonce(session, store_nonce)
-        session.flush()
+        repository.create_store_nonce(mysql_session, store_nonce)
+        mysql_session.flush()
 
         saved_store_nonce = (
-            session.query(StoreNonce)
+            mysql_session.query(StoreNonce)
             .filter(StoreNonce.store_id == 101, StoreNonce.nonce_id == saved_nonce.nonce_id)
             .one()
         )
@@ -183,7 +183,7 @@ class TestCreateStoreNonce:
 class TestCreateStoreWallet:
     def test_create_store_wallet(
         self,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         repository = StoreRepository()
         new_wallet = Wallet(
@@ -195,18 +195,18 @@ class TestCreateStoreWallet:
             is_active=True,
             verified_at=datetime(2026, 4, 13, 12, 0, 0),
         )
-        saved_wallet = WalletRepository().create_wallet(session, new_wallet)
+        saved_wallet = WalletRepository().create_wallet(mysql_session, new_wallet)
 
         store_wallet = StoreWallet(
             store_id=101,
             wallet_id=saved_wallet.wallet_id,
         )
 
-        repository.create_store_wallet(session, store_wallet)
-        session.flush()
+        repository.create_store_wallet(mysql_session, store_wallet)
+        mysql_session.flush()
 
         saved_store_wallet = (
-            session.query(StoreWallet)
+            mysql_session.query(StoreWallet)
             .filter(StoreWallet.wallet_id == saved_wallet.wallet_id)
             .one()
         )
@@ -223,13 +223,13 @@ class TestCreateStoreWallet:
 class TestGetLatestAvailableNonce:
     def test_get_latest_available_nonce(
         self,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         repository = StoreRepository()
         base_expires_at = datetime(2026, 4, 13, 12, 0, 0)
 
         result = repository.get_latest_available_nonce(
-            session=session,
+            session=mysql_session,
             store_id=101,
             wallet_address="0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             chain_type="ethereum",
@@ -244,12 +244,12 @@ class TestGetLatestAvailableNonce:
 
     def test_get_latest_available_nonce_returns_none(
         self,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         repository = StoreRepository()
 
         result = repository.get_latest_available_nonce(
-            session=session,
+            session=mysql_session,
             store_id=102,
             wallet_address="0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             chain_type="ethereum",
@@ -264,26 +264,26 @@ class TestGetLatestAvailableNonce:
 class TestDeleteStoreNonceByNonceId:
     def test_delete_store_nonce_by_nonce_id(
         self,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         """存在する nonce_id を指定した場合、対象 StoreNonce の deleted_at が設定されること。"""
         repository = StoreRepository()
         target_nonce_id = 1
 
         before = (
-            session.query(StoreNonce)
+            mysql_session.query(StoreNonce)
             .filter(StoreNonce.nonce_id == target_nonce_id)
             .one()
         )
         assert before.deleted_at is None
         before_updated_at = before.updated_at
 
-        repository.delete_store_nonce_by_nonce_id(session, target_nonce_id)
-        session.flush()
-        session.expire_all()
+        repository.delete_store_nonce_by_nonce_id(mysql_session, target_nonce_id)
+        mysql_session.flush()
+        mysql_session.expire_all()
 
         after = (
-            session.query(StoreNonce)
+            mysql_session.query(StoreNonce)
             .filter(StoreNonce.nonce_id == target_nonce_id)
             .one()
         )
@@ -293,18 +293,18 @@ class TestDeleteStoreNonceByNonceId:
 
     def test_delete_store_nonce_by_nonce_id_not_found(
         self,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         """存在しない nonce_id を指定した場合、いずれの StoreNonce も更新されないこと。"""
         repository = StoreRepository()
         non_existent_nonce_id = 99999
 
-        repository.delete_store_nonce_by_nonce_id(session, non_existent_nonce_id)
-        session.flush()
-        session.expire_all()
+        repository.delete_store_nonce_by_nonce_id(mysql_session, non_existent_nonce_id)
+        mysql_session.flush()
+        mysql_session.expire_all()
 
         updated = (
-            session.query(StoreNonce)
+            mysql_session.query(StoreNonce)
             .filter(StoreNonce.deleted_at.isnot(None))
             .all()
         )
@@ -315,26 +315,26 @@ class TestDeleteStoreNonceByNonceId:
 class TestDeleteStoreWalletByWalletId:
     def test_delete_store_wallet_by_wallet_id(
         self,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         """存在する wallet_id を指定した場合、対象 StoreWallet の deleted_at と updated_at が設定されること。"""
         repository = StoreRepository()
         target_wallet_id = 301
 
         before = (
-            session.query(StoreWallet)
+            mysql_session.query(StoreWallet)
             .filter(StoreWallet.wallet_id == target_wallet_id)
             .one()
         )
         assert before.deleted_at is None
         before_updated_at = before.updated_at
 
-        repository.delete_store_wallet_by_wallet_id(session, target_wallet_id)
-        session.flush()
-        session.expire_all()
+        repository.delete_store_wallet_by_wallet_id(mysql_session, target_wallet_id)
+        mysql_session.flush()
+        mysql_session.expire_all()
 
         after = (
-            session.query(StoreWallet)
+            mysql_session.query(StoreWallet)
             .filter(StoreWallet.wallet_id == target_wallet_id)
             .one()
         )
@@ -344,24 +344,24 @@ class TestDeleteStoreWalletByWalletId:
 
     def test_delete_store_wallet_by_wallet_id_not_found(
         self,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         """存在しない wallet_id を指定した場合、いずれの StoreWallet も更新されないこと。"""
         repository = StoreRepository()
         non_existent_wallet_id = 99999
 
         before_count = (
-            session.query(StoreWallet)
+            mysql_session.query(StoreWallet)
             .filter(StoreWallet.deleted_at.isnot(None))
             .count()
         )
 
-        repository.delete_store_wallet_by_wallet_id(session, non_existent_wallet_id)
-        session.flush()
-        session.expire_all()
+        repository.delete_store_wallet_by_wallet_id(mysql_session, non_existent_wallet_id)
+        mysql_session.flush()
+        mysql_session.expire_all()
 
         after_count = (
-            session.query(StoreWallet)
+            mysql_session.query(StoreWallet)
             .filter(StoreWallet.deleted_at.isnot(None))
             .count()
         )

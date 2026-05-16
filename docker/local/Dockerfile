@@ -40,6 +40,9 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --upgrade pip setuptools wheel
 
 RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+
+RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -v -r requirements.txt
 
 # アプリケーションコードのコピー

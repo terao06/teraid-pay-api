@@ -9,7 +9,7 @@ from app.core.aws.secret_manager import SecretManager
 from app.endpoints.payment import payment_router
 from app.endpoints.store import store_router
 from app.endpoints.user import user_router
-from app.middlewares.transaction import get_db
+from app.middlewares.transaction import get_mysql_db
 
 
 @pytest.fixture()
@@ -26,7 +26,7 @@ def client() -> Generator[TestClient, None, None]:
 @pytest.fixture()
 def client_with_db(
 ) -> Generator[TestClient, None, None]:
-    get_db.cache_clear()
+    get_mysql_db.cache_clear()
 
     app = FastAPI()
     app.include_router(payment_router, prefix="/payment")
@@ -52,4 +52,4 @@ def client_with_db(
         with TestClient(app) as test_client:
             yield test_client
 
-    get_db.cache_clear()
+    get_mysql_db.cache_clear()

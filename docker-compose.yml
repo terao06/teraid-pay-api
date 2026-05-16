@@ -51,6 +51,36 @@ services:
     networks:
       - teraid-pay-api-network
 
+  teraid-pay-api-vector-db:
+    image: pgvector/pgvector:pg16
+    container_name: teraid-pay-api-vector-db
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_USER=vector_user
+      - POSTGRES_PASSWORD=vector_password
+      - POSTGRES_DB=vector_db
+    volumes:
+      - ./local_data/vector_db:/var/lib/postgresql/data
+      - ./local_setting/local_postgres/create_tables.sh:/docker-entrypoint-initdb.d/init.sh
+    networks:
+      - teraid-pay-api-network
+  teraid-pay-api-s3:
+    image: minio/minio
+    container_name: teraid-pay-api-s3
+    ports:
+      - "9002:9000"
+      - "9003:9001"
+    volumes:
+      - ./local_data/minio:/data
+    environment:
+      - MINIO_ROOT_USER=dummy
+      - MINIO_ROOT_PASSWORD=dummy123
+    command: server /data --console-address ":9001"
+    networks:
+      - teraid-pay-api-network
+    restart: always
+
   teraid-pay-api-phpmyadmin:
     image: phpmyadmin/phpmyadmin
     container_name: teraid-pay-api-phpmyadmin

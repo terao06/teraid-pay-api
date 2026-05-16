@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.models.mysql.user_wallet import UserWallet
 from app.models.mysql.user_nonce import UserNonce
-from app.repositories.user_repository import UserRepository
+from app.repositories.mysql.user_repository import UserRepository
 
 
 @pytest.mark.usefixtures("insert_users", "insert_wallets", "insert_user_wallets")
@@ -38,14 +38,14 @@ class TestGetUserWallet:
     )
     def test_get_user_wallet(
         self,
-        session: Session,
+        mysql_session: Session,
         user_id: int,
         expected_wallet: dict | None,
     ) -> None:
         """ユーザーに紐づくウォレットを取得し、未存在時は None を返すことを確認する。"""
         repository = UserRepository()
 
-        result = repository.get_user_wallet(session, user_id)
+        result = repository.get_user_wallet(mysql_session, user_id)
 
         if expected_wallet is None:
             assert result is None
@@ -76,14 +76,14 @@ class TestGetUserById:
     )
     def test_get_user_by_id(
         self,
-        session: Session,
+        mysql_session: Session,
         user_id: int,
         expected_user_id: int | None,
     ) -> None:
         """ユーザー ID からユーザー情報を取得し、論理削除と未存在は None を返すことを確認する。"""
         repository = UserRepository()
 
-        result = repository.get_user_by_id(session, user_id)
+        result = repository.get_user_by_id(mysql_session, user_id)
 
         if expected_user_id is None:
             assert result is None
@@ -99,7 +99,7 @@ class TestCreateUserNonce:
 
     def test_create_user_nonce(
         self,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         """user_nonce を追加し、flush 後に永続化内容を取得できることを検証する。"""
         repository = UserRepository()
@@ -108,12 +108,12 @@ class TestCreateUserNonce:
             nonce_id=1,
         )
 
-        repository.create_user_nonce(session, user_nonce)
-        session.flush()
-        session.expire_all()
+        repository.create_user_nonce(mysql_session, user_nonce)
+        mysql_session.flush()
+        mysql_session.expire_all()
 
         saved_user_nonce = (
-            session.query(UserNonce)
+            mysql_session.query(UserNonce)
             .filter(UserNonce.user_nonce_id == user_nonce.user_nonce_id)
             .one()
         )
@@ -143,7 +143,7 @@ class TestGetWalletByUserId:
     )
     def test_get_wallet_by_user_id(
         self,
-        session: Session,
+        mysql_session: Session,
         user_id: int,
         chain_type: str,
         network_name: str,
@@ -154,7 +154,7 @@ class TestGetWalletByUserId:
         repository = UserRepository()
 
         result = repository.get_wallet_by_user_id(
-            session=session,
+            session=mysql_session,
             user_id=user_id,
             chain_type=chain_type,
             network_name=network_name,
@@ -178,13 +178,13 @@ class TestGetLatestAvailableNonce:
 
     def test_get_latest_available_nonce(
         self,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         """条件に一致する未使用かつ有効期限内の最新 nonce を返すことを検証する。"""
         repository = UserRepository()
 
         result = repository.get_latest_available_nonce(
-            session=session,
+            session=mysql_session,
             user_id=101,
             wallet_address="0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             chain_type="ethereum",
@@ -200,13 +200,13 @@ class TestGetLatestAvailableNonce:
 
     def test_get_latest_available_nonce_returns_none(
         self,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         """一致する user_nonce が存在しない場合は None を返すことを検証する。"""
         repository = UserRepository()
 
         result = repository.get_latest_available_nonce(
-            session=session,
+            session=mysql_session,
             user_id=102,
             wallet_address="0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             chain_type="ethereum",
@@ -223,7 +223,7 @@ class TestCreateUserWallet:
 
     def test_create_user_wallet(
         self,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         """user_wallet を保存し、flush 済みで採番済み ID を取得できることを確認する。"""
         repository = UserRepository()
@@ -232,11 +232,11 @@ class TestCreateUserWallet:
             wallet_id=302,
         )
 
-        result = repository.create_user_wallet(session, user_wallet)
-        session.expire_all()
+        result = repository.create_user_wallet(mysql_session, user_wallet)
+        mysql_session.expire_all()
 
         saved_user_wallet = (
-            session.query(UserWallet)
+            mysql_session.query(UserWallet)
             .filter(UserWallet.user_wallet_id == user_wallet.user_wallet_id)
             .one()
         )
@@ -255,26 +255,26 @@ class TestCreateUserWallet:
 class TestDeleteUserNonceByNonceId:
     def test_delete_user_nonce_by_nonce_id(
         self,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         """存在する nonce_id を指定した場合、対象 UserNonce の deleted_at が設定されること。"""
         repository = UserRepository()
         target_nonce_id = 1
 
         before = (
-            session.query(UserNonce)
+            mysql_session.query(UserNonce)
             .filter(UserNonce.nonce_id == target_nonce_id)
             .one()
         )
         assert before.deleted_at is None
         before_updated_at = before.updated_at
 
-        repository.delete_user_nonce_by_nonce_id(session, target_nonce_id)
-        session.flush()
-        session.expire_all()
+        repository.delete_user_nonce_by_nonce_id(mysql_session, target_nonce_id)
+        mysql_session.flush()
+        mysql_session.expire_all()
 
         after = (
-            session.query(UserNonce)
+            mysql_session.query(UserNonce)
             .filter(UserNonce.nonce_id == target_nonce_id)
             .one()
         )
@@ -284,18 +284,18 @@ class TestDeleteUserNonceByNonceId:
 
     def test_delete_user_nonce_by_nonce_id_not_found(
         self,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         """存在しない nonce_id を指定した場合、いずれの UserNonce も更新されないこと。"""
         repository = UserRepository()
         non_existent_nonce_id = 99999
 
-        repository.delete_user_nonce_by_nonce_id(session, non_existent_nonce_id)
-        session.flush()
-        session.expire_all()
+        repository.delete_user_nonce_by_nonce_id(mysql_session, non_existent_nonce_id)
+        mysql_session.flush()
+        mysql_session.expire_all()
 
         updated = (
-            session.query(UserNonce)
+            mysql_session.query(UserNonce)
             .filter(UserNonce.deleted_at.isnot(None))
             .all()
         )
@@ -306,26 +306,26 @@ class TestDeleteUserNonceByNonceId:
 class TestDeleteUserWalletByWalletId:
     def test_delete_user_wallet_by_wallet_id(
         self,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         """存在する wallet_id を指定した場合、対象 UserWallet の deleted_at が設定されること。"""
         repository = UserRepository()
         target_wallet_id = 301
 
         before = (
-            session.query(UserWallet)
+            mysql_session.query(UserWallet)
             .filter(UserWallet.wallet_id == target_wallet_id)
             .one()
         )
         assert before.deleted_at is None
         before_updated_at = before.updated_at
 
-        repository.delete_user_wallet_by_wallet_id(session, target_wallet_id)
-        session.flush()
-        session.expire_all()
+        repository.delete_user_wallet_by_wallet_id(mysql_session, target_wallet_id)
+        mysql_session.flush()
+        mysql_session.expire_all()
 
         after = (
-            session.query(UserWallet)
+            mysql_session.query(UserWallet)
             .filter(UserWallet.wallet_id == target_wallet_id)
             .one()
         )
@@ -335,24 +335,24 @@ class TestDeleteUserWalletByWalletId:
 
     def test_delete_user_wallet_by_wallet_id_not_found(
         self,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         """存在しない wallet_id を指定した場合、いずれの UserWallet も更新されないこと。"""
         repository = UserRepository()
         non_existent_wallet_id = 99999
 
         before_count = (
-            session.query(UserWallet)
+            mysql_session.query(UserWallet)
             .filter(UserWallet.deleted_at.isnot(None))
             .count()
         )
 
-        repository.delete_user_wallet_by_wallet_id(session, non_existent_wallet_id)
-        session.flush()
-        session.expire_all()
+        repository.delete_user_wallet_by_wallet_id(mysql_session, non_existent_wallet_id)
+        mysql_session.flush()
+        mysql_session.expire_all()
 
         after_count = (
-            session.query(UserWallet)
+            mysql_session.query(UserWallet)
             .filter(UserWallet.deleted_at.isnot(None))
             .count()
         )

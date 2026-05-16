@@ -1,0 +1,8 @@
+{
+    "s3_endpoint": "http://teraid-pay-api-s3:9000",
+    "llm_weight_bucket": "weights",
+    "adaface_weight": "adaface/adaface_ir50_ms1mv2.ckpt",
+    "scrfd_weight": "scrfd/scrfd.onnx",
+    "face_image_bucket": "faces"
+
+}

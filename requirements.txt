@@ -2,8 +2,13 @@ fastapi
 uvicorn[standard]
 SQLAlchemy
 PyMySQL
+psycopg2-binary
 cryptography
 boto3
 eth-account
 httpx
 web3
+scrfd
+pillow
+onnxruntime
+numpy

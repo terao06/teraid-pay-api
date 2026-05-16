@@ -5,7 +5,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.models.mysql.payment_request import PaymentRequest, PaymentStatus
-from app.repositories.payment_repository import PaymentRepository
+from app.repositories.mysql.payment_repository import PaymentRepository
 
 
 @pytest.mark.usefixtures("insert_payment_requests")
@@ -87,7 +87,7 @@ class TestGetPaymentById:
     )
     def test_get_payment_by_id(
         self,
-        session: Session,
+        mysql_session: Session,
         payment_request_id: int,
         status: PaymentStatus | None,
         expected_payment: dict | None,
@@ -95,7 +95,7 @@ class TestGetPaymentById:
         """決済リクエスト ID と status で取得し、対象外は None を返すことを確認する。"""
         repository = PaymentRepository()
 
-        result = repository.get_payment_by_id(session, payment_request_id, status)
+        result = repository.get_payment_by_id(mysql_session, payment_request_id, status)
 
         if expected_payment is None:
             assert result is None
@@ -122,7 +122,7 @@ class TestCreatePaymentRequest:
 
     def test_create_payment_request(
         self,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         """payment_request を保存し、flush 後に採番済み ID と保存内容を取得できることを検証する。"""
         repository = PaymentRepository()
@@ -139,11 +139,11 @@ class TestCreatePaymentRequest:
             expires_at=datetime(2026, 4, 13, 12, 30, 0),
         )
 
-        result = repository.create_payment_request(session, payment_request)
-        session.expire_all()
+        result = repository.create_payment_request(mysql_session, payment_request)
+        mysql_session.expire_all()
 
         saved_payment_request = (
-            session.query(PaymentRequest)
+            mysql_session.query(PaymentRequest)
             .filter(
                 PaymentRequest.payment_request_id
                 == payment_request.payment_request_id
@@ -181,11 +181,11 @@ class TestUpdatePaymentRequest:
 
     def test_update_payment_request(
         self,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         repository = PaymentRepository()
         payment_request = (
-            session.query(PaymentRequest)
+            mysql_session.query(PaymentRequest)
             .filter(PaymentRequest.payment_request_id == 401)
             .one()
         )
@@ -196,12 +196,12 @@ class TestUpdatePaymentRequest:
             "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
         )
 
-        result = repository.update_payment_request(session, payment_request)
-        session.flush()
-        session.expire_all()
+        result = repository.update_payment_request(mysql_session, payment_request)
+        mysql_session.flush()
+        mysql_session.expire_all()
 
         saved_payment_request = (
-            session.query(PaymentRequest)
+            mysql_session.query(PaymentRequest)
             .filter(PaymentRequest.payment_request_id == 401)
             .one()
         )

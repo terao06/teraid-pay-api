@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.models.mysql.wallet import Wallet
-from app.repositories.wallet_repository import WalletRepository
+from app.repositories.mysql.wallet_repository import WalletRepository
 
 
 @pytest.mark.usefixtures("insert_wallets")
@@ -19,13 +19,13 @@ class TestGetWalletById:
     )
     def test_get_wallet_by_id(
         self,
-        session: Session,
+        mysql_session: Session,
         wallet_id: int,
         expected_wallet_address: str | None,
     ) -> None:
         repository = WalletRepository()
 
-        result = repository.get_wallet_by_id(session, wallet_id)
+        result = repository.get_wallet_by_id(mysql_session, wallet_id)
 
         if expected_wallet_address is None:
             assert result is None
@@ -49,13 +49,13 @@ class TestGetWalletByAddress:
     )
     def test_get_wallet_by_address(
         self,
-        session: Session,
+        mysql_session: Session,
         wallet_address: str,
         expected_wallet_id: int | None,
     ) -> None:
         repository = WalletRepository()
 
-        result = repository.get_wallet_by_address(session, wallet_address)
+        result = repository.get_wallet_by_address(mysql_session, wallet_address)
 
         if expected_wallet_id is None:
             assert result is None
@@ -71,7 +71,7 @@ class TestGetWalletByAddress:
 class TestCreateWallet:
     def test_create_wallet(
         self,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         repository = WalletRepository()
         wallet = Wallet(
@@ -84,8 +84,8 @@ class TestCreateWallet:
             verified_at=datetime(2026, 4, 13, 12, 0, 0),
         )
 
-        saved_wallet = repository.create_wallet(session, wallet)
-        session.flush()
+        saved_wallet = repository.create_wallet(mysql_session, wallet)
+        mysql_session.flush()
 
         assert saved_wallet.wallet_id is not None
         assert saved_wallet.wallet_address == "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
@@ -102,10 +102,10 @@ class TestCreateWallet:
 class TestUpdateWallet:
     def test_update_wallet(
         self,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         repository = WalletRepository()
-        wallet = session.query(Wallet).where(Wallet.wallet_id == 301).one()
+        wallet = mysql_session.query(Wallet).where(Wallet.wallet_id == 301).one()
         before_updated_at = wallet.updated_at
         verified_at = datetime(2026, 4, 13, 12, 0, 0)
 
@@ -113,11 +113,11 @@ class TestUpdateWallet:
         wallet.is_active = False
         wallet.verified_at = verified_at
 
-        updated_wallet = repository.update_wallet(session, wallet)
-        session.flush()
-        session.expire_all()
+        updated_wallet = repository.update_wallet(mysql_session, wallet)
+        mysql_session.flush()
+        mysql_session.expire_all()
 
-        after = session.query(Wallet).where(Wallet.wallet_id == 301).one()
+        after = mysql_session.query(Wallet).where(Wallet.wallet_id == 301).one()
         assert updated_wallet.wallet_id == 301
         assert after.wallet_name == "updated wallet"
         assert after.is_active is False
@@ -130,20 +130,20 @@ class TestUpdateWallet:
 class TestDeleteWallet:
     def test_delete_wallet_by_wallet_id(
         self,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         repository = WalletRepository()
         wallet_id = 301
 
-        before = session.query(Wallet).where(Wallet.wallet_id == wallet_id).one()
+        before = mysql_session.query(Wallet).where(Wallet.wallet_id == wallet_id).one()
         assert before.deleted_at is None
         before_updated_at = before.updated_at
 
-        repository.delete_wallet_by_wallet_id(session, wallet_id)
-        session.flush()
-        session.expire_all()
+        repository.delete_wallet_by_wallet_id(mysql_session, wallet_id)
+        mysql_session.flush()
+        mysql_session.expire_all()
 
-        after = session.query(Wallet).where(Wallet.wallet_id == wallet_id).one()
+        after = mysql_session.query(Wallet).where(Wallet.wallet_id == wallet_id).one()
         assert after.deleted_at is not None
         assert after.updated_at is not None
         assert after.updated_at > before_updated_at

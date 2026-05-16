@@ -21,9 +21,9 @@ from app.models.responses.wallet_response import WalletResponse
 from app.models.responses.wallet_approval_response import WalletApprovalResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
-from app.repositories.nonce_repository import NonceRepository
-from app.repositories.user_repository import UserRepository
-from app.repositories.wallet_repository import WalletRepository
+from app.repositories.mysql.nonce_repository import NonceRepository
+from app.repositories.mysql.user_repository import UserRepository
+from app.repositories.mysql.wallet_repository import WalletRepository
 
 
 class UserService:

@@ -89,7 +89,7 @@ class TestCreateWalletNonce:
         self,
         mock_token_urlsafe,
         client_with_db,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         """DB 連携時に nonce 作成結果と保存内容が一致することを確認する。"""
         fixed_now = datetime(2026, 4, 12, 12, 0, 0, tzinfo=JST)
@@ -116,8 +116,8 @@ class TestCreateWalletNonce:
         }
         mock_token_urlsafe.assert_called_once_with(32)
 
-        saved_nonce = session.query(Nonce).one()
-        saved_store_nonce = session.query(StoreNonce).one()
+        saved_nonce = mysql_session.query(Nonce).one()
+        saved_store_nonce = mysql_session.query(StoreNonce).one()
 
         assert saved_nonce.wallet_address == "0xabcdef1234567890abcdef1234567890abcdef12"
         assert saved_nonce.chain_type == "ethereum"

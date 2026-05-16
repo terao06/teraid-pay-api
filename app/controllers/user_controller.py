@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.exceptions.custom_exception import CustomHttpException, UnauthorizedException, UserNotFoundException, WalletConflictException, WalletNotFoundException
-from app.middlewares.transaction import transaction
+from app.middlewares.transaction import mysql_transaction
 from app.models.requests.wallet_nonce_create_request import WalletNonceCreateRequest
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
@@ -16,7 +16,7 @@ from app.core.exceptions.message import SERVER_ERROR, USER_NOT_FOUND_ERROR, VERI
 class UserController:
     """ユーザーウォレット取得 API のリクエストを処理するコントローラーです。"""
 
-    @transaction
+    @mysql_transaction
     def get_user_wallet(self, session: Session, user_id: int) -> WalletResponse | None:
         """リクエスト条件に一致するユーザーウォレットを取得します。
 
@@ -38,7 +38,7 @@ class UserController:
                 status_code=500,
                 message=SERVER_ERROR)
 
-    @transaction
+    @mysql_transaction
     def get_user_wallet_approval(self, session: Session, user_id: int) -> WalletApprovalResponse:
         try:
             approval = UserService().get_user_wallet_approval(
@@ -58,7 +58,7 @@ class UserController:
                 status_code=500,
                 message=SERVER_ERROR)
 
-    @transaction
+    @mysql_transaction
     def update_wallet_approval_state(self, session: Session, wallet_id: int) -> None:
         try:
             UserService().update_wallet_approval_state(
@@ -75,7 +75,7 @@ class UserController:
                 status_code=500,
                 message=SERVER_ERROR)
 
-    @transaction
+    @mysql_transaction
     def create_wallet_nonce(
         self,
         session: Session,
@@ -119,7 +119,7 @@ class UserController:
                 status_code=500,
                 message=SERVER_ERROR)
 
-    @transaction
+    @mysql_transaction
     def verify_and_create_wallet_nonce(
         self,
         session: Session,
@@ -176,7 +176,7 @@ class UserController:
                 status_code=500,
                 message=SERVER_ERROR)
 
-    @transaction
+    @mysql_transaction
     def delete_wallet(self, session: Session, wallet_id: int) -> None:
         """登録済みウォレットの削除を行う。
         Args:
