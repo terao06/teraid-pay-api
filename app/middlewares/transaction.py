@@ -84,7 +84,7 @@ def postgres_transaction(func):
         """
         with get_postgres_db().get_session() as session:
             try:
-                kwargs['session'] = session
+                kwargs['postgres_session'] = session
                 result = func(*args, **kwargs)
                 session.commit()
                 return result

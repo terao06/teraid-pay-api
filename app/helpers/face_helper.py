@@ -1,4 +1,3 @@
-from io import BytesIO
 from math import ceil, floor
 from pathlib import Path
 from typing import NamedTuple
@@ -6,7 +5,8 @@ from typing import NamedTuple
 import numpy as np
 from PIL import Image
 
-from app.ml.scrfd import Scrfd
+from app.ml.scrfd import Scrfd, ScrfdDevice
+from app.ml.adaface import AdaFace
 
 
 ML_ROOT = Path(__file__).resolve().parent
@@ -33,7 +33,12 @@ class FaceImage(NamedTuple):
 
 
 class FaceHelper:
-    def get_face_landmark(self, weight_bytes: BytesIO, image: Image.Image) -> FaceImage:
+    @classmethod
+    def get_face_landmark(
+        cls,
+        weight_bytes: bytes,
+        image: Image.Image,
+    ) -> FaceImage:
         """画像から顔を検出し、顔画像と5点ランドマークを返す。
 
         Args:
@@ -47,7 +52,10 @@ class FaceHelper:
             FaceNotFoundException: 顔を検出できなかった場合。
             SameFaceFoundException: 顔を複数検出した場合。
         """
-        scrfd = Scrfd(weight_bytes=weight_bytes)
+        scrfd = Scrfd(
+            weight_bytes=weight_bytes,
+            device="cuda",
+        )
         face = scrfd.get_face(image=image)
         bbox = face.bbox
 
@@ -70,7 +78,8 @@ class FaceHelper:
             landmarks=landmarks,
         )
 
-    def alignment_face(self, face_image: FaceImage) -> Image.Image:
+    @classmethod
+    def alignment_face(cls, face_image: FaceImage) -> Image.Image:
         """5点ランドマークを基準に顔画像を112x112へアライメントする。
 
         Args:
@@ -80,7 +89,7 @@ class FaceHelper:
             AdaFace/ArcFace系モデルに入力しやすい112x112のアライメント済み顔画像。
         """
         source_landmarks = np.asarray(face_image.landmarks, dtype=np.float32)
-        affine_matrix = self._estimate_affine_matrix(
+        affine_matrix = cls._estimate_affine_matrix(
             source_landmarks=source_landmarks,
             target_landmarks=REFERENCE_FIVE_POINT_LANDMARKS,
         )
@@ -139,3 +148,8 @@ class FaceHelper:
             ],
             dtype=np.float32,
         )
+    
+    @classmethod
+    def get_embedding(cls, weight_bytes: bytes, face_image: Image.Image) -> list[float]:
+        adaface = AdaFace(weight_bytes=weight_bytes, device="cuda")
+        return adaface.get_embedding(image=face_image)

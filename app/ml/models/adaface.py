@@ -831,14 +831,14 @@ def IR_SE_200(input_size: InputSize = (112, 112)) -> Backbone:
 
 
 def load_pretrained_model(
-    weight_bytes: BytesIO,
+    weight_bytes: bytes,
     architecture: ModelName = "ir_50",
     map_location: torch.device = torch.device("cpu"),
 ) -> Backbone:
     """学習済み重みを読み込んだ AdaFace バックボーンを生成する。
 
     Args:
-        weight_bytes: 重みデータの BytesIO。
+        weight_bytes: 重みデータの bytes。
         architecture: 生成するバックボーン名。
         map_location: 重みを読み込むデバイス。
 
@@ -846,7 +846,6 @@ def load_pretrained_model(
         評価モードに設定された AdaFace バックボーン。
     """
     model = build_model(architecture)
-    weight_bytes.seek(0)
     checkpoint = _load_checkpoint(weight_bytes, map_location=map_location)
     state_dict = checkpoint.get("state_dict", checkpoint) if isinstance(checkpoint, dict) else checkpoint
     model_state_dict = {
@@ -860,17 +859,18 @@ def load_pretrained_model(
 
 
 def _load_checkpoint(
-    weight_bytes: BytesIO,
+    weight_bytes: bytes,
     map_location: torch.device = torch.device("cpu"),
 ) -> object:
     """AdaFace の PyTorch Lightning ckpt を state_dict 抽出用に読み込む。
 
     Args:
-        weight_bytes: 重みデータの BytesIO。
+        weight_bytes: 重みデータの bytes。
         map_location: 重みを読み込むデバイス。
 
     Returns:
         読み込んだ checkpoint オブジェクト。
     """
     with torch.serialization.safe_globals([_LightningModelCheckpoint]):
-        return torch.load(weight_bytes, map_location=map_location, weights_only=True)
+        with BytesIO(weight_bytes) as weight_buffer:
+            return torch.load(weight_buffer, map_location=map_location, weights_only=True)

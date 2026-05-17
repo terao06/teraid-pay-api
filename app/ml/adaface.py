@@ -1,4 +1,3 @@
-from io import BytesIO
 from pathlib import Path
 
 import numpy as np
@@ -14,7 +13,7 @@ ML_ROOT = Path(__file__).resolve().parent
 class AdaFace:
     def __init__(
         self,
-        weight_bytes: BytesIO,
+        weight_bytes: bytes,
         architecture: ModelName = "ir_50",
         device: str | torch.device = "cpu",
     ) -> None:

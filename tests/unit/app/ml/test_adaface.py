@@ -1,4 +1,3 @@
-from io import BytesIO
 from pathlib import Path
 
 import numpy as np
@@ -14,12 +13,17 @@ TEST_DATA_ROOT = Path(__file__).resolve().parents[2] / "test_data"
 ADAFACE_WEIGHT_PATH = (
     TEST_DATA_ROOT / "s3" / "buckets" / "weights" / "adaface" / "adaface_ir50_ms1mv2.ckpt"
 )
+TEST_FACE_PATH = TEST_DATA_ROOT / "images" / "adaface" / "test_face.png"
+
+
+def load_test_face_image() -> Image.Image:
+    return Image.open(TEST_FACE_PATH).convert("RGB").resize((112, 112))
 
 
 class TestAdaFaceGetEmbedding:
     def test_get_embedding_returns_normalized_embedding_with_real_model(self) -> None:
-        weight_bytes = BytesIO(ADAFACE_WEIGHT_PATH.read_bytes())
-        image = Image.new("RGB", (112, 112), color=(128, 128, 128))
+        weight_bytes = ADAFACE_WEIGHT_PATH.read_bytes()
+        image = load_test_face_image()
 
         embedding = AdaFace(weight_bytes=weight_bytes).get_embedding(image=image)
 
@@ -28,9 +32,9 @@ class TestAdaFaceGetEmbedding:
         assert np.linalg.norm(embedding) == pytest.approx(1.0, abs=1e-5)
 
     def test_get_embedding_can_be_called_multiple_times_with_real_model(self) -> None:
-        weight_bytes = BytesIO(ADAFACE_WEIGHT_PATH.read_bytes())
+        weight_bytes = ADAFACE_WEIGHT_PATH.read_bytes()
         model = AdaFace(weight_bytes=weight_bytes)
-        image = Image.new("RGB", (112, 112), color=(128, 128, 128))
+        image = load_test_face_image()
 
         first_embedding = model.get_embedding(image=image)
         second_embedding = model.get_embedding(image=image)

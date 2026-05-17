@@ -1,3 +1,4 @@
+import os
 from collections.abc import Generator
 
 import pytest
@@ -21,6 +22,68 @@ from tests.unit.test_data.mysql.build_local_db import (
     insert_wallets as load_wallets,
     insert_store_wallets as load_store_wallets,
 )
+from tests.unit.test_data.postgres.build_local_db import (
+    build_database_url as build_postgres_database_url,
+    import_postgres_models,
+    insert_face_embeddings as load_face_embeddings,
+)
+from tests.unit.test_data.s3.build_s3 import (
+    ENDPOINT_URL as S3_ENDPOINT_URL,
+    upload_mock_s3,
+)
+from tests.unit.test_data.secret.insert_secret import (
+    DEFAULT_ENDPOINT_URL as SECRETS_MANAGER_ENDPOINT_URL,
+    DEFAULT_REGION as SECRETS_MANAGER_REGION_NAME,
+    load_secret_string,
+    upsert_secret,
+)
+from tests.unit.test_data.secret.insert_secret import DEFAULT_SECRET_FILE as SECRET_FILE_PATH
+from tests.unit.test_data.ssm.build_ssm import (
+    AWS_ACCESS_KEY_ID,
+    AWS_SECRET_ACCESS_KEY,
+    ENDPOINT_URL,
+    REGION_NAME,
+    put_mock_ssm_parameters,
+)
+
+
+AWS_MOCK_ENV = {
+    "AWS_ACCESS_KEY_ID": AWS_ACCESS_KEY_ID,
+    "AWS_SECRET_ACCESS_KEY": AWS_SECRET_ACCESS_KEY,
+    "AWS_REGION": REGION_NAME,
+    "SSM_ENDPOINT": ENDPOINT_URL,
+    "S3_ENDPOINT": S3_ENDPOINT_URL,
+    "SECRETS_MANAGER_ENDPOINT": SECRETS_MANAGER_ENDPOINT_URL,
+}
+
+
+@pytest.fixture(scope="session")
+def initialize_aws_env() -> bool:
+    os.environ.update(AWS_MOCK_ENV)
+    return True
+
+
+@pytest.fixture(scope="session")
+def initialize_ssm(initialize_aws_env: bool) -> None:
+    put_mock_ssm_parameters()
+    assert initialize_aws_env == True
+
+
+@pytest.fixture(scope="session")
+def initialize_s3(initialize_aws_env: bool) -> None:
+    upload_mock_s3()
+    assert initialize_aws_env == True
+
+
+@pytest.fixture(scope="session")
+def initialize_secret(initialize_aws_env: bool) -> None:
+    upsert_secret(
+        secret_name="secret",
+        secret_string=load_secret_string(SECRET_FILE_PATH.with_name("secret.sample.json")),
+        endpoint_url=SECRETS_MANAGER_ENDPOINT_URL,
+        region_name=SECRETS_MANAGER_REGION_NAME,
+    )
+    assert initialize_aws_env == True
 
 
 @pytest.fixture(scope="module")
@@ -49,8 +112,12 @@ def mysql_session(mysql_engine) -> Generator[Session, None, None]:
 
 @pytest.fixture(scope="module")
 def postgres_engine():
-    engine = create_engine("sqlite:///:memory:", echo=False, future=True)
-    PostgresBase.metadata.create_all(bind=engine, tables=[FaceEmbedding.__table__])
+    import_postgres_models()
+    engine = create_engine(build_postgres_database_url(), echo=False, future=True)
+    with engine.begin() as connection:
+        connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        PostgresBase.metadata.drop_all(bind=connection, tables=[FaceEmbedding.__table__])
+        PostgresBase.metadata.create_all(bind=connection, tables=[FaceEmbedding.__table__])
     yield engine
     engine.dispose()
 
@@ -110,3 +177,8 @@ def insert_payment_requests(mysql_engine) -> str:
     load_stores(mysql_engine)
     load_users(mysql_engine)
     return load_payment_requests(mysql_engine)
+
+
+@pytest.fixture()
+def insert_face_embeddings(postgres_engine) -> str:
+    return load_face_embeddings(postgres_engine)

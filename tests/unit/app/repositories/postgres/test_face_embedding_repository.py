@@ -1,3 +1,4 @@
+import pytest
 from sqlalchemy.orm import Session
 
 from app.models.postgres.face_embedding import FaceEmbedding
@@ -11,10 +12,9 @@ class TestCreateFaceEmbedding:
         self,
         postgres_session: Session,
     ) -> None:
-        """face_embedding を保存し、flush 済みの内容を取得できることを確認する。"""
+        """user_id の登録がない場合は face_embedding を新規保存することを確認する。"""
         repository = FaceEmbeddingRepository()
         face_embedding = FaceEmbedding(
-            face_embedding_id=1,
             user_id=101,
             embedding=[0.1] * 512,
         )
@@ -29,10 +29,121 @@ class TestCreateFaceEmbedding:
         )
 
         assert result is face_embedding
-        assert saved_face_embedding.face_embedding_id == 1
+        assert saved_face_embedding.face_embedding_id is not None
         assert saved_face_embedding.user_id == 101
         assert saved_face_embedding.embedding == [0.1] * 512
         assert saved_face_embedding.is_active is True
         assert saved_face_embedding.created_at is not None
         assert saved_face_embedding.updated_at is not None
         assert saved_face_embedding.deleted_at is None
+
+    def test_create_face_embedding_updates_existing_user_embedding(
+        self,
+        postgres_session: Session,
+    ) -> None:
+        """同じ user_id の登録がある場合は既存レコードを更新することを確認する。"""
+        repository = FaceEmbeddingRepository()
+        existing_face_embedding = FaceEmbedding(
+            user_id=201,
+            embedding=[0.1] * 512,
+            is_active=True,
+        )
+        postgres_session.add(existing_face_embedding)
+        postgres_session.flush()
+        existing_face_embedding_id = existing_face_embedding.face_embedding_id
+
+        result = repository.create_face_embedding(
+            postgres_session,
+            FaceEmbedding(
+                user_id=201,
+                embedding=[0.2] * 512,
+                is_active=True,
+            ),
+        )
+        postgres_session.expire_all()
+
+        saved_face_embeddings = (
+            postgres_session.query(FaceEmbedding)
+            .filter(FaceEmbedding.user_id == 201)
+            .all()
+        )
+
+        assert result.face_embedding_id == existing_face_embedding_id
+        assert len(saved_face_embeddings) == 1
+        assert saved_face_embeddings[0].face_embedding_id == existing_face_embedding_id
+        assert saved_face_embeddings[0].embedding == [0.2] * 512
+        assert saved_face_embeddings[0].is_active is True
+        assert saved_face_embeddings[0].deleted_at is None
+
+
+class TestGetNearestFaceEmbedding:
+    """get_nearest_face_embedding の単体テスト。"""
+
+    @pytest.mark.usefixtures("insert_face_embeddings")
+    def test_get_nearest_face_embedding_returns_first_matched_embedding(
+        self,
+        postgres_session: Session,
+    ) -> None:
+        """有効かつ未削除の候補から閾値内の最短ベクトルを取得することを確認する。"""
+        repository = FaceEmbeddingRepository()
+        query_embedding = [1.0] + [0.0] * 511
+
+        result = repository.get_nearest_face_embedding(
+            postgres_session=postgres_session,
+            embedding=query_embedding,
+            threshold=0.5,
+            exclusion_user_id=101,
+        )
+
+        assert result is not None
+        assert result.user_id == 102
+
+    @pytest.mark.usefixtures("insert_face_embeddings")
+    def test_get_nearest_face_embedding_returns_none_when_no_embedding_matches(
+        self,
+        postgres_session: Session,
+    ) -> None:
+        """閾値内の候補が存在しない場合は None を返すことを確認する。"""
+        repository = FaceEmbeddingRepository()
+
+        result = repository.get_nearest_face_embedding(
+            postgres_session=postgres_session,
+            embedding=[-1.0] + [0.0] * 511,
+            threshold=0.5,
+            exclusion_user_id=101,
+        )
+
+        assert result is None
+
+    @pytest.mark.usefixtures("insert_face_embeddings")
+    def test_get_nearest_face_embedding_excludes_specified_user_id(
+        self,
+        postgres_session: Session,
+    ) -> None:
+        """除外対象のユーザーIDに紐づく候補を検索対象外にすることを確認する。"""
+        repository = FaceEmbeddingRepository()
+
+        result = repository.get_nearest_face_embedding(
+            postgres_session=postgres_session,
+            embedding=[1.0] + [0.0] * 511,
+            threshold=0.5,
+            exclusion_user_id=102,
+        )
+
+        assert result is not None
+        assert result.user_id == 101
+
+    def test_get_nearest_face_embedding_rejects_invalid_embedding_dimensions(
+        self,
+        postgres_session: Session,
+    ) -> None:
+        """512 次元以外の embedding を受け取った場合は ValueError を送出する。"""
+        repository = FaceEmbeddingRepository()
+
+        with pytest.raises(ValueError, match="embedding は 512 次元である必要があります。"):
+            repository.get_nearest_face_embedding(
+                postgres_session=postgres_session,
+                embedding=[0.1] * 511,
+                threshold=0.7,
+                exclusion_user_id=101,
+            )

@@ -1,4 +1,3 @@
-from io import BytesIO
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -25,7 +24,7 @@ class TestFaceHelperGetFaceLandmark:
         mock_scrfd,
     ) -> None:
         """検出した顔のbboxで画像を切り出し、ランドマークを切り出し後の座標へ変換すること。"""
-        weight_bytes = BytesIO(b"onnx-weight")
+        weight_bytes = b"onnx-weight"
         image = Image.new("RGB", (100, 120), color=(255, 255, 255))
         face = Mock()
         scrfd = Mock()
@@ -44,9 +43,12 @@ class TestFaceHelperGetFaceLandmark:
         mock_scrfd.return_value = scrfd
         scrfd.get_face.return_value = face
 
-        result = FaceHelper().get_face_landmark(weight_bytes=weight_bytes, image=image)
+        result = FaceHelper.get_face_landmark(weight_bytes=weight_bytes, image=image)
 
-        mock_scrfd.assert_called_once_with(weight_bytes=weight_bytes)
+        mock_scrfd.assert_called_once_with(
+            weight_bytes=weight_bytes,
+            device="cuda",
+        )
         scrfd.get_face.assert_called_once_with(image=image)
         assert result.image.size == (81, 81)
         assert result.landmarks == (
@@ -55,6 +57,39 @@ class TestFaceHelperGetFaceLandmark:
             (43.0, 41.0),
             (25.0, 65.5),
             (62.5, 66.0),
+        )
+
+    @patch("app.helpers.face_helper.Scrfd")
+    def test_get_face_landmark_uses_cuda_device(
+        self,
+        mock_scrfd,
+    ) -> None:
+        weight_bytes = b"onnx-weight"
+        image = Image.new("RGB", (100, 120), color=(255, 255, 255))
+        face = Mock()
+        scrfd = Mock()
+        face.bbox = SimpleNamespace(
+            upper_left=_point(0, 0),
+            lower_right=_point(80, 90),
+        )
+        face.keypoints = SimpleNamespace(
+            left_eye=_point(20.5, 30.0),
+            right_eye=_point(60.0, 31.5),
+            nose=_point(43.0, 51.0),
+            left_mouth=_point(25.0, 75.5),
+            right_mouth=_point(62.5, 76.0),
+        )
+        mock_scrfd.return_value = scrfd
+        scrfd.get_face.return_value = face
+
+        FaceHelper.get_face_landmark(
+            weight_bytes=weight_bytes,
+            image=image,
+        )
+
+        mock_scrfd.assert_called_once_with(
+            weight_bytes=weight_bytes,
+            device="cuda",
         )
 
 
@@ -67,7 +102,7 @@ class TestFaceHelperAlignmentFace:
             landmarks=tuple(map(tuple, REFERENCE_FIVE_POINT_LANDMARKS)),
         )
 
-        result = FaceHelper().alignment_face(face_image=face_image)
+        result = FaceHelper.alignment_face(face_image=face_image)
 
         assert result.size == FACE_ALIGNMENT_SIZE
         assert result.mode == "RGB"
@@ -126,3 +161,19 @@ class TestFaceHelperEstimateAffineMatrix:
                 target_landmarks=target_landmarks,
             )
         assert str(exc_info.value) == expected_message
+
+
+class TestFaceHelperGetEmbedding:
+    @patch("app.helpers.face_helper.AdaFace")
+    def test_get_embedding_passes_weight_bytes(self, mock_adaface) -> None:
+        weight_bytes = b"adaface-weight"
+        face_image = Image.new("RGB", FACE_ALIGNMENT_SIZE, color=(255, 255, 255))
+        adaface = Mock()
+        adaface.get_embedding.return_value = [0.1, 0.2, 0.3]
+        mock_adaface.return_value = adaface
+
+        result = FaceHelper.get_embedding(weight_bytes=weight_bytes, face_image=face_image)
+
+        mock_adaface.assert_called_once_with(weight_bytes=weight_bytes, device="cuda")
+        adaface.get_embedding.assert_called_once_with(image=face_image)
+        assert result == [0.1, 0.2, 0.3]

@@ -80,6 +80,21 @@ services:
     networks:
       - teraid-pay-api-network
     restart: always
+  
+  minio-init:
+    image: minio/mc
+    depends_on:
+      - teraid-pay-api-s3
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "
+      until mc alias set local http://teraid-pay-api-s3:9000 dummy dummy123; do
+        sleep 1;
+      done;
+      exit 0;
+      "
+    networks:
+      - teraid-pay-api-network
 
   teraid-pay-api-phpmyadmin:
     image: phpmyadmin/phpmyadmin

@@ -10,5 +10,4 @@ httpx
 web3
 scrfd
 pillow
-onnxruntime
 numpy
