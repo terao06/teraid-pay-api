@@ -133,6 +133,29 @@ class TestGetNearestFaceEmbedding:
         assert result is not None
         assert result.user_id == 101
 
+    @pytest.mark.usefixtures("insert_face_embeddings")
+    def test_get_nearest_face_embedding_excludes_deleted_embedding(
+        self,
+        postgres_session: Session,
+    ) -> None:
+        """deleted_at が設定された候補を検索対象外にすることを確認する。"""
+        repository = FaceEmbeddingRepository()
+        deleted_face_embedding = (
+            postgres_session.query(FaceEmbedding)
+            .filter(FaceEmbedding.user_id == 106)
+            .one()
+        )
+
+        result = repository.get_nearest_face_embedding(
+            postgres_session=postgres_session,
+            embedding=deleted_face_embedding.embedding,
+            threshold=0.0,
+            exclusion_user_id=101,
+        )
+
+        assert deleted_face_embedding.deleted_at is not None
+        assert result is None
+
     def test_get_nearest_face_embedding_rejects_invalid_embedding_dimensions(
         self,
         postgres_session: Session,
