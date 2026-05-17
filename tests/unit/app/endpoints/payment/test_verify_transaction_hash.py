@@ -73,7 +73,7 @@ class TestVerifyTransactionHash:
         mock_http_provider_class,
         mock_web3_class,
         client_with_db,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         """DB 連携エンドポイントが receipt 未取得時に payment status を CONFIRMING に更新することを確認する。"""
         payment_request_id = 402
@@ -99,9 +99,9 @@ class TestVerifyTransactionHash:
         )
         mock_web3.eth.get_transaction.assert_not_called()
 
-        session.expire_all()
+        mysql_session.expire_all()
         saved_payment_request = (
-            session.query(PaymentRequest)
+            mysql_session.query(PaymentRequest)
             .filter(PaymentRequest.payment_request_id == payment_request_id)
             .one()
         )
@@ -117,7 +117,7 @@ class TestVerifyTransactionHash:
         mock_http_provider_class,
         mock_web3_class,
         client_with_db,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         """RPC で transaction が未検出の場合も 500 ではなく CONFIRMING を返すことを確認する。"""
         payment_request_id = 402
@@ -145,9 +145,9 @@ class TestVerifyTransactionHash:
         )
         mock_web3.eth.get_transaction.assert_not_called()
 
-        session.expire_all()
+        mysql_session.expire_all()
         saved_payment_request = (
-            session.query(PaymentRequest)
+            mysql_session.query(PaymentRequest)
             .filter(PaymentRequest.payment_request_id == payment_request_id)
             .one()
         )

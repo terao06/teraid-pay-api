@@ -97,7 +97,7 @@ class TestCreatePayment:
         self,
         mock_datetime,
         client_with_db,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         """DB 連携時に決済リクエストを作成し、保存内容とレスポンスが一致することを確認する。"""
         fixed_now = datetime(2026, 4, 12, 12, 0, 0, tzinfo=JST)
@@ -126,7 +126,7 @@ class TestCreatePayment:
             },
         }
 
-        saved_payment_request = session.query(PaymentRequest).one()
+        saved_payment_request = mysql_session.query(PaymentRequest).one()
         assert saved_payment_request.payment_request_id == 1
         assert saved_payment_request.store_id == 101
         assert saved_payment_request.user_id == 101

@@ -1,11 +1,14 @@
+import os
 from collections.abc import Generator
 
 import pytest
-from sqlalchemy import text
 from sqlalchemy import create_engine
+from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.models.mysql.base_model import Base
+from app.models.mysql.base_model import Base as MySQLBase
+from app.models.postgres.base_model import Base as PostgresBase
+from app.models.postgres.face_embedding import FaceEmbedding
 from tests.unit.test_data.mysql.build_local_db import (
     build_database_url,
     import_mysql_models,
@@ -19,25 +22,109 @@ from tests.unit.test_data.mysql.build_local_db import (
     insert_wallets as load_wallets,
     insert_store_wallets as load_store_wallets,
 )
+from tests.unit.test_data.postgres.build_local_db import (
+    build_database_url as build_postgres_database_url,
+    import_postgres_models,
+    insert_face_embeddings as load_face_embeddings,
+)
+from tests.unit.test_data.s3.build_s3 import (
+    ENDPOINT_URL as S3_ENDPOINT_URL,
+    upload_mock_s3,
+)
+from tests.unit.test_data.secret.insert_secret import (
+    DEFAULT_ENDPOINT_URL as SECRETS_MANAGER_ENDPOINT_URL,
+    DEFAULT_REGION as SECRETS_MANAGER_REGION_NAME,
+    load_secret_string,
+    upsert_secret,
+)
+from tests.unit.test_data.secret.insert_secret import DEFAULT_SECRET_FILE as SECRET_FILE_PATH
+from tests.unit.test_data.ssm.build_ssm import (
+    AWS_ACCESS_KEY_ID,
+    AWS_SECRET_ACCESS_KEY,
+    ENDPOINT_URL,
+    REGION_NAME,
+    put_mock_ssm_parameters,
+)
+
+
+AWS_MOCK_ENV = {
+    "AWS_ACCESS_KEY_ID": AWS_ACCESS_KEY_ID,
+    "AWS_SECRET_ACCESS_KEY": AWS_SECRET_ACCESS_KEY,
+    "AWS_REGION": REGION_NAME,
+    "SSM_ENDPOINT": ENDPOINT_URL,
+    "S3_ENDPOINT": S3_ENDPOINT_URL,
+    "SECRETS_MANAGER_ENDPOINT": SECRETS_MANAGER_ENDPOINT_URL,
+}
+
+
+@pytest.fixture(scope="session")
+def initialize_aws_env() -> bool:
+    os.environ.update(AWS_MOCK_ENV)
+    return True
+
+
+@pytest.fixture(scope="session")
+def initialize_ssm(initialize_aws_env: bool) -> None:
+    put_mock_ssm_parameters()
+    assert initialize_aws_env == True
+
+
+@pytest.fixture(scope="session")
+def initialize_s3(initialize_aws_env: bool) -> None:
+    upload_mock_s3()
+    assert initialize_aws_env == True
+
+
+@pytest.fixture(scope="session")
+def initialize_secret(initialize_aws_env: bool) -> None:
+    upsert_secret(
+        secret_name="secret",
+        secret_string=load_secret_string(SECRET_FILE_PATH.with_name("secret.sample.json")),
+        endpoint_url=SECRETS_MANAGER_ENDPOINT_URL,
+        region_name=SECRETS_MANAGER_REGION_NAME,
+    )
+    assert initialize_aws_env == True
 
 
 @pytest.fixture(scope="module")
-def engine():
+def mysql_engine():
     import_mysql_models()
     engine = create_engine(build_database_url(), echo=False, future=True)
     with engine.begin() as connection:
         connection.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
         connection.execute(text("DROP TABLE IF EXISTS store_wallet_nonces"))
         connection.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+    MySQLBase.metadata.drop_all(bind=engine)
+    MySQLBase.metadata.create_all(bind=engine)
     yield engine
     engine.dispose()
 
 
 @pytest.fixture()
-def session(engine) -> Generator[Session, None, None]:
-    session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+def mysql_session(mysql_engine) -> Generator[Session, None, None]:
+    session_factory = sessionmaker(bind=mysql_engine, autoflush=False, autocommit=False, future=True)
+    db_session = session_factory()
+    try:
+        yield db_session
+    finally:
+        db_session.close()
+
+
+@pytest.fixture(scope="module")
+def postgres_engine():
+    import_postgres_models()
+    engine = create_engine(build_postgres_database_url(), echo=False, future=True)
+    with engine.begin() as connection:
+        connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        PostgresBase.metadata.drop_all(bind=connection, tables=[FaceEmbedding.__table__])
+        PostgresBase.metadata.create_all(bind=connection, tables=[FaceEmbedding.__table__])
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture()
+def postgres_session(postgres_engine) -> Generator[Session, None, None]:
+    session_factory = sessionmaker(bind=postgres_engine, autoflush=False, autocommit=False, future=True)
     db_session = session_factory()
     try:
         yield db_session
@@ -46,47 +133,52 @@ def session(engine) -> Generator[Session, None, None]:
 
 
 @pytest.fixture()
-def insert_stores(engine) -> str:
-    return load_stores(engine)
+def insert_stores(mysql_engine) -> str:
+    return load_stores(mysql_engine)
 
 
 @pytest.fixture()
-def insert_store_wallets(engine) -> str:
-    return load_store_wallets(engine)
+def insert_store_wallets(mysql_engine) -> str:
+    return load_store_wallets(mysql_engine)
 
 
 @pytest.fixture()
-def insert_wallets(engine) -> str:
-    return load_wallets(engine)
+def insert_wallets(mysql_engine) -> str:
+    return load_wallets(mysql_engine)
 
 
 @pytest.fixture()
-def insert_users(engine) -> str:
-    return load_users(engine)
+def insert_users(mysql_engine) -> str:
+    return load_users(mysql_engine)
 
 
 @pytest.fixture()
-def insert_user_wallets(engine) -> str:
-    return load_user_wallets(engine)
+def insert_user_wallets(mysql_engine) -> str:
+    return load_user_wallets(mysql_engine)
 
 
 @pytest.fixture()
-def insert_nonces(engine) -> str:
-    return load_nonces(engine)
+def insert_nonces(mysql_engine) -> str:
+    return load_nonces(mysql_engine)
 
 
 @pytest.fixture()
-def insert_user_nonces(engine) -> str:
-    return load_user_nonces(engine)
+def insert_user_nonces(mysql_engine) -> str:
+    return load_user_nonces(mysql_engine)
 
 
 @pytest.fixture()
-def insert_store_nonces(engine) -> str:
-    return load_store_nonces(engine)
+def insert_store_nonces(mysql_engine) -> str:
+    return load_store_nonces(mysql_engine)
 
 
 @pytest.fixture()
-def insert_payment_requests(engine) -> str:
-    load_stores(engine)
-    load_users(engine)
-    return load_payment_requests(engine)
+def insert_payment_requests(mysql_engine) -> str:
+    load_stores(mysql_engine)
+    load_users(mysql_engine)
+    return load_payment_requests(mysql_engine)
+
+
+@pytest.fixture()
+def insert_face_embeddings(postgres_engine) -> str:
+    return load_face_embeddings(postgres_engine)

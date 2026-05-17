@@ -195,25 +195,25 @@ class TestUpdateWalletApprovalState:
     @pytest.mark.usefixtures("insert_wallets")
     def test_with_db(
         self,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         wallet_id = 301
-        before_wallet = session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
+        before_wallet = mysql_session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
         before_wallet.is_approval = False
-        session.flush()
-        session.expire_all()
+        mysql_session.flush()
+        mysql_session.expire_all()
 
-        before_wallet = session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
+        before_wallet = mysql_session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
         assert before_wallet.is_approval is False
 
         result = UserService().update_wallet_approval_state(
-            session=session,
+            session=mysql_session,
             wallet_id=wallet_id,
         )
-        session.flush()
-        session.expire_all()
+        mysql_session.flush()
+        mysql_session.expire_all()
 
-        after_wallet = session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
+        after_wallet = mysql_session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
         assert after_wallet.is_approval is True
         assert result is None
 

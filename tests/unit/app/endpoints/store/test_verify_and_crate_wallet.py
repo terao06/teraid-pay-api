@@ -119,7 +119,7 @@ class TestVerifyAndCreateWallet:
         self,
         mock_datetime,
         client_with_db,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         """DB 連携で nonce 検証から wallet 作成、nonce 使用済み化まで行うことを検証する。"""
         fixed_now = datetime(2026, 4, 13, 12, 0, 0)
@@ -153,7 +153,7 @@ class TestVerifyAndCreateWallet:
             },
         }
         created_wallet = (
-            session.query(Wallet)
+            mysql_session.query(Wallet)
             .join(StoreWallet, Wallet.wallet_id == StoreWallet.wallet_id)
             .filter(
                 StoreWallet.store_id == 101,
@@ -171,14 +171,14 @@ class TestVerifyAndCreateWallet:
         assert created_wallet.verified_at == fixed_now
 
         updated_nonce = (
-            session.query(Nonce)
+            mysql_session.query(Nonce)
             .filter(Nonce.nonce_id == 7)
             .one()
         )
         assert updated_nonce.used_at == fixed_now
 
         existing_store_wallet = (
-            session.query(StoreWallet)
+            mysql_session.query(StoreWallet)
             .filter(StoreWallet.store_wallet_id == 201)
             .one()
         )

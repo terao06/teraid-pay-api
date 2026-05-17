@@ -4,13 +4,13 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.models.mysql.nonce import Nonce
-from app.repositories.nonce_repository import NonceRepository
+from app.repositories.mysql.nonce_repository import NonceRepository
 
 
 class TestCreateNonce:
     def test_create_nonce(
         self,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         repository = NonceRepository()
         nonce = Nonce(
@@ -21,8 +21,8 @@ class TestCreateNonce:
             expires_at=datetime(2026, 4, 13, 12, 0, 0),
         )
 
-        saved_nonce = repository.create_nonce(session, nonce)
-        session.flush()
+        saved_nonce = repository.create_nonce(mysql_session, nonce)
+        mysql_session.flush()
 
         assert saved_nonce.nonce_id is not None
         assert saved_nonce.wallet_address == "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -37,23 +37,23 @@ class TestCreateNonce:
 class TestUpdateNonce:
     def test_update_nonce(
         self,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         repository = NonceRepository()
         nonce = (
-            session.query(Nonce)
+            mysql_session.query(Nonce)
             .filter(Nonce.nonce_id == 2)
             .one()
         )
         used_at = datetime(2026, 4, 13, 11, 30, 0)
 
         nonce.used_at = used_at
-        repository.update_nonce(session, nonce)
-        session.flush()
-        session.expire_all()
+        repository.update_nonce(mysql_session, nonce)
+        mysql_session.flush()
+        mysql_session.expire_all()
 
         saved_nonce = (
-            session.query(Nonce)
+            mysql_session.query(Nonce)
             .filter(Nonce.nonce_id == 2)
             .one()
         )

@@ -59,14 +59,14 @@ class TestDeleteWallet:
     def test_with_db(
         self,
         client_with_db,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         """DB 連携で wallet と store_wallet の論理削除が行われることを検証する。"""
         wallet_id = 301
 
-        before_wallet = session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
+        before_wallet = mysql_session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
         before_store_wallet = (
-            session.query(StoreWallet)
+            mysql_session.query(StoreWallet)
             .filter(StoreWallet.wallet_id == wallet_id)
             .one()
         )
@@ -83,12 +83,12 @@ class TestDeleteWallet:
             "data": None,
         }
 
-        session.rollback()
-        session.expire_all()
+        mysql_session.rollback()
+        mysql_session.expire_all()
 
-        after_wallet = session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
+        after_wallet = mysql_session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
         after_store_wallet = (
-            session.query(StoreWallet)
+            mysql_session.query(StoreWallet)
             .filter(StoreWallet.wallet_id == wallet_id)
             .one()
         )

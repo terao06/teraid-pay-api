@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from app.middlewares.transaction import transaction
+from app.middlewares.transaction import mysql_transaction
 from app.models.requests.wallet_nonce_create_request import WalletNonceCreateRequest
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
@@ -14,7 +14,7 @@ from app.core.exceptions.custom_exception import CustomHttpException, StoreNotFo
 class StoreController:
     """店舗ウォレット取得 API のリクエストを処理するコントローラーです。"""
 
-    @transaction
+    @mysql_transaction
     def get_store_wallet(self, session: Session, store_id: int) -> WalletResponse | None:
         """リクエスト条件に一致する店舗ウォレットを取得します。
 
@@ -36,7 +36,7 @@ class StoreController:
                 status_code=500,
                 message=SERVER_ERROR)
 
-    @transaction
+    @mysql_transaction
     def create_wallet_nonce(
         self,
         session: Session,
@@ -79,7 +79,7 @@ class StoreController:
                 status_code=500,
                 message=SERVER_ERROR)
     
-    @transaction
+    @mysql_transaction
     def verify_and_create_wallet_nonce(
         self,
         session: Session,
@@ -135,7 +135,7 @@ class StoreController:
                 status_code=500,
                 message=SERVER_ERROR)
 
-    @transaction
+    @mysql_transaction
     def delete_wallet(self, session: Session, wallet_id: int) -> None:
         """登録済みウォレットの削除を行う。
         Args:

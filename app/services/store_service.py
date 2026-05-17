@@ -18,10 +18,10 @@ from app.models.mysql.wallet import Wallet
 from app.models.responses.wallet_response import WalletResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
-from app.repositories.nonce_repository import NonceRepository
-from app.repositories.store_repository import StoreRepository
+from app.repositories.mysql.nonce_repository import NonceRepository
+from app.repositories.mysql.store_repository import StoreRepository
 from app.core.utils.datetime import JST
-from app.repositories.wallet_repository import WalletRepository
+from app.repositories.mysql.wallet_repository import WalletRepository
 
 
 class StoreService:
