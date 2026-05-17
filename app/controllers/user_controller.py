@@ -1,16 +1,29 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.core.exceptions.custom_exception import CustomHttpException, UnauthorizedException, UserNotFoundException, WalletConflictException, WalletNotFoundException
+from app.core.exceptions.custom_exception import (
+    CustomHttpException,
+    UnauthorizedException,
+    UserNotFoundException,
+    WalletConflictException,
+    WalletNotFoundException
+)
+from app.core.exceptions.message import (
+    SERVER_ERROR,
+    USER_NOT_FOUND_ERROR,
+    VERIFY_ERROR,
+    WALLET_CONFLICT_ERROR,
+    WALLET_IS_ALREADY_EXIST,
+    WALLET_NOT_FOUND_ERROR
+)
 from app.middlewares.transaction import mysql_transaction
 from app.models.requests.wallet_nonce_create_request import WalletNonceCreateRequest
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
 from app.models.responses.wallet_approval_response import WalletApprovalResponse
-from app.services.user_service import UserService
 from app.models.responses.wallet_response import WalletResponse
-from app.core.exceptions.message import SERVER_ERROR, USER_NOT_FOUND_ERROR, VERIFY_ERROR, WALLET_CONFLICT_ERROR, WALLET_IS_ALREADY_EXIST, WALLET_NOT_FOUND_ERROR
+from app.services.user_service import UserService
 
 
 class UserController:
