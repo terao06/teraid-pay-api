@@ -4,7 +4,9 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from PIL import Image
+import pytest
 
+from app.core.exceptions.custom_exception import UserNotFoundException
 from app.models.requests.face_register_request import ExtensionType
 from app.services.face_service import FaceService
 
@@ -26,6 +28,7 @@ class TestRegisterFace:
         mock_repository_class,
     ) -> None:
         postgres_session = Mock()
+        mysql_session = Mock()
         user_id = 101
         content = self._build_base64_image(format="PNG")
         ssm_params = SimpleNamespace(
@@ -55,14 +58,22 @@ class TestRegisterFace:
         mock_repository = mock_repository_class.return_value
         mock_repository.get_nearest_face_embedding.return_value = None
 
-        result = FaceService().register_face(
+        service = FaceService()
+        service.is_register_user = Mock(return_value=True)
+
+        result = service.register_face(
             postgres_session=postgres_session,
+            mysql_session=mysql_session,
             user_id=user_id,
             content=content,
             extension_type=ExtensionType.PNG,
         )
 
         assert result is None
+        service.is_register_user.assert_called_once_with(
+            mysql_session=mysql_session,
+            user_id=user_id,
+        )
         mock_ssm_client_class.assert_called_once_with()
         mock_s3_client_class.assert_called_once_with(s3_endpoint="http://s3.local")
         assert s3_client.get_object.call_args_list[0].kwargs == {
@@ -111,9 +122,77 @@ class TestRegisterFace:
         assert uploaded_image.mode == "RGB"
         assert uploaded_image.size == (112, 112)
 
+    def test_register_face_raises_user_not_found_when_user_does_not_exist(self) -> None:
+        postgres_session = Mock()
+        mysql_session = Mock()
+        user_id = 999
+        service = FaceService()
+        service.is_register_user = Mock(return_value=False)
+
+        with pytest.raises(UserNotFoundException, match="ユーザーが存在しません。"):
+            service.register_face(
+                postgres_session=postgres_session,
+                mysql_session=mysql_session,
+                user_id=user_id,
+                content=self._build_base64_image(format="PNG"),
+                extension_type=ExtensionType.PNG,
+            )
+
+        service.is_register_user.assert_called_once_with(
+            mysql_session=mysql_session,
+            user_id=user_id,
+        )
+
     @staticmethod
     def _build_base64_image(format: str) -> str:
         image = Image.new("RGB", (112, 112), color=(255, 0, 0))
         with BytesIO() as buffer:
             image.save(buffer, format=format)
             return base64.b64encode(buffer.getvalue()).decode("ascii")
+
+
+class TestIsRegisterUser:
+    @patch("app.services.face_service.UserRepository")
+    def test_is_register_user_returns_true_when_user_exists(
+        self,
+        mock_repository_class,
+    ) -> None:
+        mysql_session = Mock()
+        user_id = 101
+        user = Mock()
+        mock_repository = mock_repository_class.return_value
+        mock_repository.get_user_by_id.return_value = user
+
+        result = FaceService().is_register_user(
+            mysql_session=mysql_session,
+            user_id=user_id,
+        )
+
+        assert result is True
+        mock_repository_class.assert_called_once_with()
+        mock_repository.get_user_by_id.assert_called_once_with(
+            mysql_session=mysql_session,
+            user_id=user_id,
+        )
+
+    @patch("app.services.face_service.UserRepository")
+    def test_is_register_user_returns_false_when_user_does_not_exist(
+        self,
+        mock_repository_class,
+    ) -> None:
+        mysql_session = Mock()
+        user_id = 999
+        mock_repository = mock_repository_class.return_value
+        mock_repository.get_user_by_id.return_value = None
+
+        result = FaceService().is_register_user(
+            mysql_session=mysql_session,
+            user_id=user_id,
+        )
+
+        assert result is False
+        mock_repository_class.assert_called_once_with()
+        mock_repository.get_user_by_id.assert_called_once_with(
+            mysql_session=mysql_session,
+            user_id=user_id,
+        )
