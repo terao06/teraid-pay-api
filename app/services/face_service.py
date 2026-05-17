@@ -5,18 +5,20 @@ from sqlalchemy.orm import Session
 
 from app.core.aws.s3_client import S3Client
 from app.core.aws.ssm_manager import SsmClient
-from app.core.exceptions.custom_exception import FaceConflictException
+from app.core.exceptions.custom_exception import FaceConflictException, UserNotFoundException
 from app.core.utils.logging import TeraidPayApiLog
 from app.helpers.face_helper import FaceHelper
 from app.models.postgres.face_embedding import FaceEmbedding
 from app.models.requests.face_register_request import ExtensionType
 from app.repositories.postgres.face_embedding_repository import FaceEmbeddingRepository
+from app.repositories.mysql.user_repository import UserRepository
 
 
 class FaceService:
     def register_face(
         self,
         postgres_session: Session,
+        mysql_session: Session,
         user_id: int,
         content: str, 
         extension_type: ExtensionType,
@@ -24,7 +26,8 @@ class FaceService:
         """認証用顔画像を登録する
 
         Args:
-            session: SQLAlchemy のセッション。
+            postgres_session: SQLAlchemy のセッション。
+            mysql_session: SQLAlchemy のセッション。
             user_id: 顔画像に紐づけるユーザーID
             content: 顔画像
             extension_type: 顔画像の拡張子
@@ -32,6 +35,10 @@ class FaceService:
         Returns:
             None
         """
+        if self.is_register_user(mysql_session=mysql_session, user_id=user_id) is False:
+            TeraidPayApiLog.warning(f"対象のユーザーは存在しません。 user_id: {user_id}")
+            raise UserNotFoundException("ユーザーが存在しません。")
+
         image_bytes = base64.b64decode(content)
 
         # NOTE: resizeすることでAIモデルの入力サイズに合わせる
@@ -80,3 +87,19 @@ class FaceService:
                 file=buffer,
                 filename=f"{user_id}.{extension_type.value}",
             )
+
+    def is_register_user(self, mysql_session: Session, user_id: int) -> bool:
+        """user_idを持つユーザーが存在するか検証する
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            user_id: 顔画像に紐づけるユーザーID
+
+        Returns:
+            bool: ユーザーの有無
+        """
+        user = UserRepository().get_user_by_id(mysql_session=mysql_session, user_id=user_id)
+        if user:
+            return True
+        else:
+            return False
