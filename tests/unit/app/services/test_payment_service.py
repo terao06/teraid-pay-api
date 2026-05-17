@@ -29,7 +29,7 @@ class TestCreatePaymentRequest:
         mock_payment_repository_class,
     ) -> None:
         """wallet 情報から決済リクエストを作成し、repository に保存できることを検証する。"""
-        session = Mock()
+        mysql_session = Mock()
         store_id = 101
         user_id = 102
         amount = 1500
@@ -54,31 +54,31 @@ class TestCreatePaymentRequest:
         mock_payment_repository = mock_payment_repository_class.return_value
         saved_payment_request_id = 501
 
-        def create_payment_request(session, payment_request):
+        def create_payment_request(mysql_session, payment_request):
             payment_request.payment_request_id = saved_payment_request_id
             return payment_request
 
         mock_payment_repository.create_payment_request.side_effect = create_payment_request
 
         result = PaymentService().create_payment_request(
-            session=session,
+            mysql_session=mysql_session,
             store_id=store_id,
             user_id=user_id,
             amount=amount,
         )
 
         mock_store_repository.get_store_wallet.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             store_id=store_id,
         )
         mock_user_repository.get_user_wallet.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id,
         )
         mock_payment_repository.create_payment_request.assert_called_once()
 
         payment_request_kwargs = mock_payment_repository.create_payment_request.call_args.kwargs
-        assert payment_request_kwargs["session"] is session
+        assert payment_request_kwargs["mysql_session"] is mysql_session
         created_payment_request = payment_request_kwargs["payment_request"]
         assert isinstance(created_payment_request, PaymentRequest)
         assert created_payment_request.store_id == store_id
@@ -136,7 +136,7 @@ class TestCreatePaymentRequest:
         user_wallet,
     ) -> None:
         """store/user の wallet が取得できない場合は WalletNotFoundException を送出する。"""
-        session = Mock()
+        mysql_session = Mock()
 
         mock_store_repository = mock_store_repository_class.return_value
         mock_store_repository.get_store_wallet.return_value = store_wallet
@@ -145,21 +145,21 @@ class TestCreatePaymentRequest:
 
         with pytest.raises(WalletNotFoundException):
             PaymentService().create_payment_request(
-                session=session,
+                mysql_session=mysql_session,
                 store_id=101,
                 user_id=102,
                 amount=1500,
             )
 
         mock_store_repository.get_store_wallet.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             store_id=101,
         )
         if store_wallet is None:
             mock_user_repository.get_user_wallet.assert_not_called()
         else:
             mock_user_repository.get_user_wallet.assert_called_once_with(
-                session=session,
+                mysql_session=mysql_session,
                 user_id=102,
             )
         mock_payment_repository_class.assert_not_called()
@@ -193,7 +193,7 @@ class TestCreatePaymentRequest:
         user_wallet,
     ) -> None:
         """store/user の token または chain が一致しない場合は ValueError を送出する。"""
-        session = Mock()
+        mysql_session = Mock()
         store_wallet = SimpleNamespace(
             wallet_address="0x1111111111111111111111111111111111111111",
             token_symbol="JPYC",
@@ -207,18 +207,18 @@ class TestCreatePaymentRequest:
 
         with pytest.raises(ValueError):
             PaymentService().create_payment_request(
-                session=session,
+                mysql_session=mysql_session,
                 store_id=101,
                 user_id=102,
                 amount=1500,
             )
 
         mock_store_repository.get_store_wallet.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             store_id=101,
         )
         mock_user_repository.get_user_wallet.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             user_id=102,
         )
         mock_payment_repository_class.assert_not_called()
@@ -233,7 +233,7 @@ class TestCreatePaymentRequest:
         mock_payment_repository_class,
     ) -> None:
         """user wallet が未承認の場合は payment request を作成しないことを検証する。"""
-        session = Mock()
+        mysql_session = Mock()
         store_wallet = SimpleNamespace(
             wallet_address="0x1111111111111111111111111111111111111111",
             token_symbol="JPYC",
@@ -253,18 +253,18 @@ class TestCreatePaymentRequest:
 
         with pytest.raises(WalletNotApprovedException):
             PaymentService().create_payment_request(
-                session=session,
+                mysql_session=mysql_session,
                 store_id=101,
                 user_id=102,
                 amount=1500,
             )
 
         mock_store_repository.get_store_wallet.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             store_id=101,
         )
         mock_user_repository.get_user_wallet.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             user_id=102,
         )
         mock_payment_repository_class.assert_not_called()
@@ -285,7 +285,7 @@ class TestExecutePayment:
                              mock_http_provider_class,
                              mock_web3_class) -> None:
         """REQUESTED の payment を PaymentProcessor で実行し、transaction_hash を保存することを検証する。"""
-        session = Mock()
+        mysql_session = Mock()
         payment_request_id = 501
         transaction_hash = "0xabcdef1234567890"
         target_payment_request = SimpleNamespace(
@@ -325,12 +325,12 @@ class TestExecutePayment:
         mock_web3.eth.contract.return_value = mock_payment_processor
 
         result = PaymentService().execute_payment(
-            session=session,
+            mysql_session=mysql_session,
             payment_request_id=payment_request_id,
         )
 
         mock_payment_repository.get_payment_by_id.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             payment_request_id=payment_request_id,
             status=PaymentStatus.REQUESTED,
         )
@@ -353,7 +353,7 @@ class TestExecutePayment:
         })
         mock_web3.eth.send_raw_transaction.assert_called_once_with(b"signed")
         mock_payment_repository.update_payment_request.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             payment_request=target_payment_request,
         )
         assert target_payment_request.transaction_hash == transaction_hash
@@ -368,19 +368,19 @@ class TestExecutePayment:
         mock_payment_repository_class,
     ) -> None:
         """REQUESTED の payment が取得できない場合は PaymentRequestNotFoundException を送出する。"""
-        session = Mock()
+        mysql_session = Mock()
         payment_request_id = 501
         mock_payment_repository = mock_payment_repository_class.return_value
         mock_payment_repository.get_payment_by_id.return_value = None
 
         with pytest.raises(PaymentRequestNotFoundException):
             PaymentService().execute_payment(
-                session=session,
+                mysql_session=mysql_session,
                 payment_request_id=payment_request_id,
             )
 
         mock_payment_repository.get_payment_by_id.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             payment_request_id=payment_request_id,
             status=PaymentStatus.REQUESTED,
         )
@@ -402,7 +402,7 @@ class TestVerifyTransactionHash:
         mock_web3_class,
     ) -> None:
         """receipt が取得できない場合は CONFIRMING に更新することを検証する。"""
-        session = Mock()
+        mysql_session = Mock()
         payment_request_id = 501
         transaction_hash = "0xabcdef1234567890"
         target_payment_request = SimpleNamespace(
@@ -423,12 +423,12 @@ class TestVerifyTransactionHash:
         mock_web3.eth.get_transaction_receipt.return_value = None
 
         result = PaymentService().verify_transaction_hash(
-            session=session,
+            mysql_session=mysql_session,
             payment_request_id=payment_request_id,
         )
 
         mock_payment_repository.get_payment_by_id.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             payment_request_id=payment_request_id,
         )
         mock_get_chain_config.assert_called_once_with(chain_id=target_payment_request.chain_id)
@@ -439,7 +439,7 @@ class TestVerifyTransactionHash:
         )
         mock_web3.eth.get_transaction.assert_not_called()
         mock_payment_repository.update_payment_request.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             payment_request=target_payment_request,
         )
         assert target_payment_request.status == PaymentStatus.CONFIRMING
@@ -460,7 +460,7 @@ class TestVerifyTransactionHash:
         mock_web3_class,
     ) -> None:
         """transaction がまだ RPC で見つからない場合は CONFIRMING に更新することを検証する。"""
-        session = Mock()
+        mysql_session = Mock()
         payment_request_id = 501
         transaction_hash = "0xabcdef1234567890"
         target_payment_request = SimpleNamespace(
@@ -483,12 +483,12 @@ class TestVerifyTransactionHash:
         )
 
         result = PaymentService().verify_transaction_hash(
-            session=session,
+            mysql_session=mysql_session,
             payment_request_id=payment_request_id,
         )
 
         mock_payment_repository.get_payment_by_id.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             payment_request_id=payment_request_id,
         )
         mock_get_chain_config.assert_called_once_with(chain_id=target_payment_request.chain_id)
@@ -499,7 +499,7 @@ class TestVerifyTransactionHash:
         )
         mock_web3.eth.get_transaction.assert_not_called()
         mock_payment_repository.update_payment_request.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             payment_request=target_payment_request,
         )
         assert target_payment_request.status == PaymentStatus.CONFIRMING
@@ -520,7 +520,7 @@ class TestVerifyTransactionHash:
         mock_web3_class,
     ) -> None:
         """receipt.status が 0 の場合は TX_FAILED に更新することを検証する。"""
-        session = Mock()
+        mysql_session = Mock()
         payment_request_id = 501
         transaction_hash = "0xabcdef1234567890"
         target_payment_request = SimpleNamespace(
@@ -539,7 +539,7 @@ class TestVerifyTransactionHash:
         mock_web3.eth.get_transaction_receipt.return_value = SimpleNamespace(status=0)
 
         result = PaymentService().verify_transaction_hash(
-            session=session,
+            mysql_session=mysql_session,
             payment_request_id=payment_request_id,
         )
 
@@ -548,7 +548,7 @@ class TestVerifyTransactionHash:
         )
         mock_web3.eth.get_transaction.assert_not_called()
         mock_payment_repository.update_payment_request.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             payment_request=target_payment_request,
         )
         assert target_payment_request.status == PaymentStatus.TX_FAILED
@@ -584,7 +584,7 @@ class TestVerifyTransactionHash:
         expected_status,
     ) -> None:
         """transaction の検証結果に応じて PAID/VERIFY_FAILED に更新することを検証する。"""
-        session = Mock()
+        mysql_session = Mock()
         payment_request_id = 501
         transaction_hash = "0xabcdef1234567890"
         target_payment_request = SimpleNamespace(
@@ -616,7 +616,7 @@ class TestVerifyTransactionHash:
         mock_validate_payment_processed_event.return_value = is_validate
 
         result = PaymentService().verify_transaction_hash(
-            session=session,
+            mysql_session=mysql_session,
             payment_request_id=payment_request_id,
         )
 
@@ -633,7 +633,7 @@ class TestVerifyTransactionHash:
             token_contract_address="0x1111111111111111111111111111111111111111",
         )
         mock_payment_repository.update_payment_request.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             payment_request=target_payment_request,
         )
         assert target_payment_request.status == expected_status
@@ -675,19 +675,19 @@ class TestVerifyTransactionHash:
         target_payment_request,
     ) -> None:
         """payment または transaction_hash が取得できない場合は例外を送出する。"""
-        session = Mock()
+        mysql_session = Mock()
         payment_request_id = 501
         mock_payment_repository = mock_payment_repository_class.return_value
         mock_payment_repository.get_payment_by_id.return_value = target_payment_request
 
         with pytest.raises(PaymentRequestNotFoundException):
             PaymentService().verify_transaction_hash(
-                session=session,
+                mysql_session=mysql_session,
                 payment_request_id=payment_request_id,
             )
 
         mock_payment_repository.get_payment_by_id.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             payment_request_id=payment_request_id,
         )
         mock_payment_repository.update_payment_request.assert_not_called()

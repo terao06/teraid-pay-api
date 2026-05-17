@@ -154,7 +154,7 @@ class TestGetWalletByUserId:
         repository = UserRepository()
 
         result = repository.get_wallet_by_user_id(
-            session=mysql_session,
+            mysql_session=mysql_session,
             user_id=user_id,
             chain_type=chain_type,
             network_name=network_name,
@@ -184,7 +184,7 @@ class TestGetLatestAvailableNonce:
         repository = UserRepository()
 
         result = repository.get_latest_available_nonce(
-            session=mysql_session,
+            mysql_session=mysql_session,
             user_id=101,
             wallet_address="0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             chain_type="ethereum",
@@ -206,7 +206,7 @@ class TestGetLatestAvailableNonce:
         repository = UserRepository()
 
         result = repository.get_latest_available_nonce(
-            session=mysql_session,
+            mysql_session=mysql_session,
             user_id=102,
             wallet_address="0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             chain_type="ethereum",

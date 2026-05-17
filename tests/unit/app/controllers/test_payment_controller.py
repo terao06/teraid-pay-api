@@ -19,7 +19,7 @@ class TestCreatePaymentRequest:
     def test_create_payment_request(self, mock_service_class) -> None:
         """service の戻り値をそのまま返し、引数を正しく引き渡すことを確認する。"""
 
-        session = Mock()
+        mysql_session = Mock()
         request = PaymentCreateRequest(
             store_id=101,
             user_id=201,
@@ -39,12 +39,12 @@ class TestCreatePaymentRequest:
 
         result = PaymentController.create_payment_request.__wrapped__(
             PaymentController(),
-            session=session,
+            mysql_session=mysql_session,
             request=request,
         )
 
         mock_service.create_payment_request.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             store_id=request.store_id,
             user_id=request.user_id,
             amount=request.amount,
@@ -70,7 +70,7 @@ class TestCreatePaymentRequest:
     ) -> None:
         """各例外が期待する HTTPException に変換されることを確認する。"""
 
-        session = Mock()
+        mysql_session = Mock()
         request = PaymentCreateRequest(
             store_id=101,
             user_id=201,
@@ -82,7 +82,7 @@ class TestCreatePaymentRequest:
         with pytest.raises(HTTPException) as exc_info:
             PaymentController.create_payment_request.__wrapped__(
                 PaymentController(),
-                session=session,
+                mysql_session=mysql_session,
                 request=request,
             )
 
@@ -100,7 +100,7 @@ class TestExecutePayment:
     def test_execute_payment(self, mock_service_class) -> None:
         """サービスの戻り値を返し、リクエスト値をサービスへ渡すことを確認する。"""
 
-        session = Mock()
+        mysql_session = Mock()
         payment_request_id = 501
         transaction_hash = "0xabcdef1234567890"
         expected = PaymentTransactionHashResponse(
@@ -112,12 +112,12 @@ class TestExecutePayment:
 
         result = PaymentController.execute_payment.__wrapped__(
             PaymentController(),
-            session=session,
+            mysql_session=mysql_session,
             payment_request_id=payment_request_id,
         )
 
         mock_service.execute_payment.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             payment_request_id=payment_request_id,
         )
         assert result == expected
@@ -139,7 +139,7 @@ class TestExecutePayment:
     ) -> None:
         """サービス例外が HTTPException レスポンスに変換されることを確認する。"""
 
-        session = Mock()
+        mysql_session = Mock()
         payment_request_id = 501
         mock_service = mock_service_class.return_value
         mock_service.execute_payment.side_effect = side_effect
@@ -147,7 +147,7 @@ class TestExecutePayment:
         with pytest.raises(HTTPException) as exc_info:
             PaymentController.execute_payment.__wrapped__(
                 PaymentController(),
-                session=session,
+                mysql_session=mysql_session,
                 payment_request_id=payment_request_id,
             )
 
@@ -165,7 +165,7 @@ class TestVerifyTransactionHash:
     def test_verify_transaction_hash(self, mock_service_class) -> None:
         """サービスの戻り値を返し、payment_request_id をサービスへ渡すことを確認する。"""
 
-        session = Mock()
+        mysql_session = Mock()
         payment_request_id = 501
         expected = PaymentVerifyResponse(
             payment_request_id=payment_request_id,
@@ -176,12 +176,12 @@ class TestVerifyTransactionHash:
 
         result = PaymentController.verify_transaction_hash.__wrapped__(
             PaymentController(),
-            session=session,
+            mysql_session=mysql_session,
             payment_request_id=payment_request_id,
         )
 
         mock_service.verify_transaction_hash.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             payment_request_id=payment_request_id,
         )
         assert result == expected
@@ -203,7 +203,7 @@ class TestVerifyTransactionHash:
     ) -> None:
         """サービス例外が HTTPException レスポンスに変換されることを確認する。"""
 
-        session = Mock()
+        mysql_session = Mock()
         payment_request_id = 501
         mock_service = mock_service_class.return_value
         mock_service.verify_transaction_hash.side_effect = side_effect
@@ -211,7 +211,7 @@ class TestVerifyTransactionHash:
         with pytest.raises(HTTPException) as exc_info:
             PaymentController.verify_transaction_hash.__wrapped__(
                 PaymentController(),
-                session=session,
+                mysql_session=mysql_session,
                 payment_request_id=payment_request_id,
             )
 

@@ -29,18 +29,18 @@ from app.repositories.mysql.wallet_repository import WalletRepository
 class UserService:
     """ユーザーウォレット関連処理を担当するサービス。"""
 
-    def get_user_wallet(self, session: Session, user_id: int) -> WalletResponse | None:
+    def get_user_wallet(self, mysql_session: Session, user_id: int) -> WalletResponse | None:
         """ユーザー ID に紐づくウォレット情報を取得する。
 
         Args:
-            session: SQLAlchemy のセッション。
+            mysql_session: SQLAlchemy のセッション。
             user_id: 対象ユーザーの ID。
 
         Returns:
             ユーザーウォレットのレスポンス。存在しない場合は None。
         """
         wallet_info = UserRepository().get_user_wallet(
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id
         )
 
@@ -61,9 +61,9 @@ class UserService:
             updated_at=DateTimeUtil.change_datetime_to_string(wallet_info.updated_at)
         )
 
-    def get_user_wallet_approval(self, session: Session, user_id: int) -> WalletApprovalResponse | None:
+    def get_user_wallet_approval(self, mysql_session: Session, user_id: int) -> WalletApprovalResponse | None:
         wallet_info = UserRepository().get_user_wallet(
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id
         )
 
@@ -80,21 +80,21 @@ class UserService:
             spender_address=approval_config.spender_address,
         )
     
-    def update_wallet_approval_state(self, session: Session, wallet_id: int) -> None:
+    def update_wallet_approval_state(self, mysql_session: Session, wallet_id: int) -> None:
         wallet_repository = WalletRepository()
         wallet_info = wallet_repository.get_wallet_by_id(
-            session=session,
+            mysql_session=mysql_session,
             wallet_id=wallet_id)
         if not wallet_info:
             raise WalletNotFoundException(f"対象のウォレットは存在しません。 wallet_id={wallet_id}")
         wallet_info.is_approval = True
 
-        wallet_repository.update_wallet(session=session, wallet=wallet_info)
+        wallet_repository.update_wallet(mysql_session=mysql_session, wallet=wallet_info)
         return None
 
     def create_wallet_nonce(
         self,
-        session: Session,
+        mysql_session: Session,
         user_id: int,
         wallet_address: str,
         chain_type: str,
@@ -103,7 +103,7 @@ class UserService:
         """ウォレット署名に使用する nonce を生成する。
 
         Args:
-            session: SQLAlchemy のセッション。
+            mysql_session: SQLAlchemy のセッション。
             user_id: 対象ユーザーの ID。
             wallet_address: 対象ウォレットアドレス。
             chain_type: チェーン種別。
@@ -117,14 +117,14 @@ class UserService:
         wallet_repository = WalletRepository()
 
         user = user_repository.get_user_by_id(
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id
         )
         if not user:
             raise UserNotFoundException(f"対象のユーザーは存在しません. user_id={user_id}")
         
         exist_wallet = wallet_repository.get_wallet_by_address(
-            session=session,
+            mysql_session=mysql_session,
             wallet_address=wallet_address)
 
         if exist_wallet is not None:
@@ -142,14 +142,14 @@ class UserService:
             nonce=nonce_str,
             expires_at=expires_at,
         )
-        saved_nonce = nonce_repository.create_nonce(session=session, nonce=nonce)
+        saved_nonce = nonce_repository.create_nonce(mysql_session=mysql_session, nonce=nonce)
 
         user_nonce = UserNonce(
             user_id=user_id,
             nonce_id=saved_nonce.nonce_id
         )
         user_repository.create_user_nonce(
-            session=session,
+            mysql_session=mysql_session,
             user_nonce=user_nonce
         )
 
@@ -160,7 +160,7 @@ class UserService:
 
     def verify_wallet_nonce(
         self,
-        session: Session,
+        mysql_session: Session,
         user_id: int,
         wallet_address: str,
         signature: str,
@@ -168,7 +168,7 @@ class UserService:
         network_name: str) -> Nonce:
         """署名済み nonce を検証し、利用可能な nonce エンティティを返す。
         Args:
-            session: SQLAlchemy のセッション。
+            mysql_session: SQLAlchemy のセッション。
             user_id: 対象ユーザーの ID。
             wallet_address: 検証対象のウォレットアドレス。
             signature: 署名文字列。
@@ -181,12 +181,12 @@ class UserService:
 
         normalized_wallet_address = WalletUtil.normalize_wallet_address(wallet_address)
 
-        user = user_repository.get_user_by_id(session=session, user_id=user_id)
+        user = user_repository.get_user_by_id(mysql_session=mysql_session, user_id=user_id)
         if user is None:
             raise UserNotFoundException(f"対象のユーザーは存在しません. user_id={user_id}")
 
         user_nonce_entity = user_repository.get_latest_available_nonce(
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id,
             wallet_address=normalized_wallet_address,
             chain_type=chain_type,
@@ -210,7 +210,7 @@ class UserService:
     
     def create_user_wallet(
         self,
-        session: Session,
+        mysql_session: Session,
         user_id: int,
         wallet_address: str,
         chain_type: str,
@@ -221,7 +221,7 @@ class UserService:
         """店舗ウォレットを登録する。
 
         Args:
-            session: SQLAlchemy のセッション。
+            mysql_session: SQLAlchemy のセッション。
             user_id: 対象ユーザーの ID。
             wallet_address: 登録対象のウォレットアドレス。
             signature: 署名値。
@@ -239,7 +239,7 @@ class UserService:
         normalized_wallet_address = WalletUtil.normalize_wallet_address(wallet_address)
 
         existing_wallet = user_repository.get_wallet_by_user_id(
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id,
             chain_type=chain_type,
             network_name=network_name,
@@ -261,7 +261,7 @@ class UserService:
             is_approval=False,
         )
         saved_wallet = wallet_repository.create_wallet(
-            session=session,
+            mysql_session=mysql_session,
             wallet=new_wallet
         )
 
@@ -270,16 +270,16 @@ class UserService:
             wallet_id=saved_wallet.wallet_id
         )
         user_repository.create_user_wallet(
-            session=session,
+            mysql_session=mysql_session,
             user_wallet=new_user_wallet)
 
         nonce_entity.used_at = datetime.now()
         nonce_repository.update_nonce(
-            session=session,
+            mysql_session=mysql_session,
             nonce=nonce_entity
         )
         user_repository.delete_user_nonce_by_nonce_id(
-            session=session,
+            mysql_session=mysql_session,
             nonce_id=nonce_entity.nonce_id
         )
 
@@ -296,15 +296,15 @@ class UserService:
             ),
         )
 
-    def delete_wallet(self, session: Session, wallet_id: int) -> None:
+    def delete_wallet(self, mysql_session: Session, wallet_id: int) -> None:
         """ウォレットを登録から削除する。
 
         Args:
-            session: SQLAlchemy のセッション。
+            mysql_session: SQLAlchemy のセッション。
             wallet_id: 削除対象のウォレットID。
 
         Returns:
             なし。
         """
-        WalletRepository().delete_wallet_by_wallet_id(session=session, wallet_id=wallet_id)
-        UserRepository().delete_user_wallet_by_wallet_id(session=session, wallet_id=wallet_id)
+        WalletRepository().delete_wallet_by_wallet_id(mysql_session=mysql_session, wallet_id=wallet_id)
+        UserRepository().delete_user_wallet_by_wallet_id(mysql_session=mysql_session, wallet_id=wallet_id)

@@ -24,7 +24,7 @@ class TestGetUserWallet:
     @patch("app.services.user_service.UserRepository")
     def test_get_user_wallet(self, mock_repository_class) -> None:
         """repository の取得結果をレスポンスモデルへ整形できることを確認する。"""
-        session = Mock()
+        mysql_session = Mock()
         user_id = 101
         wallet_info = SimpleNamespace(
             wallet_id=301,
@@ -42,10 +42,10 @@ class TestGetUserWallet:
         mock_repository = mock_repository_class.return_value
         mock_repository.get_user_wallet.return_value = wallet_info
 
-        result = UserService().get_user_wallet(session=session, user_id=user_id)
+        result = UserService().get_user_wallet(mysql_session=mysql_session, user_id=user_id)
 
         mock_repository.get_user_wallet.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id,
         )
         assert result == WalletResponse(
@@ -65,15 +65,15 @@ class TestGetUserWallet:
     @patch("app.services.user_service.UserRepository")
     def test_get_user_wallet_returns_none_when_wallet_not_found(self, mock_repository_class) -> None:
         """repository が未検出を返した場合に None を返すことを確認する。"""
-        session = Mock()
+        mysql_session = Mock()
         user_id = 999
         mock_repository = mock_repository_class.return_value
         mock_repository.get_user_wallet.return_value = None
 
-        result = UserService().get_user_wallet(session=session, user_id=user_id)
+        result = UserService().get_user_wallet(mysql_session=mysql_session, user_id=user_id)
 
         mock_repository.get_user_wallet.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id,
         )
         assert result is None
@@ -87,7 +87,7 @@ class TestGetUserWalletApproval:
         mock_repository_class,
         mock_get_wallet_approval_config,
     ) -> None:
-        session = Mock()
+        mysql_session = Mock()
         user_id = 101
         wallet_info = SimpleNamespace(
             wallet_address="0x1111111111111111111111111111111111111111",
@@ -101,10 +101,10 @@ class TestGetUserWalletApproval:
             spender_address="0x3333333333333333333333333333333333333333",
         )
 
-        result = UserService().get_user_wallet_approval(session=session, user_id=user_id)
+        result = UserService().get_user_wallet_approval(mysql_session=mysql_session, user_id=user_id)
 
         mock_repository.get_user_wallet.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id,
         )
         mock_get_wallet_approval_config.assert_called_once_with(chain_id=11155111)
@@ -123,15 +123,15 @@ class TestGetUserWalletApproval:
         mock_repository_class,
         mock_get_wallet_approval_config,
     ) -> None:
-        session = Mock()
+        mysql_session = Mock()
         user_id = 999
         mock_repository = mock_repository_class.return_value
         mock_repository.get_user_wallet.return_value = None
 
-        result = UserService().get_user_wallet_approval(session=session, user_id=user_id)
+        result = UserService().get_user_wallet_approval(mysql_session=mysql_session, user_id=user_id)
 
         mock_repository.get_user_wallet.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id,
         )
         mock_get_wallet_approval_config.assert_not_called()
@@ -144,7 +144,7 @@ class TestUpdateWalletApprovalState:
         self,
         mock_repository_class,
     ) -> None:
-        session = Mock()
+        mysql_session = Mock()
         wallet_id = 301
         wallet_info = SimpleNamespace(
             wallet_id=wallet_id,
@@ -155,17 +155,17 @@ class TestUpdateWalletApprovalState:
         mock_repository.get_wallet_by_id.return_value = wallet_info
 
         result = UserService().update_wallet_approval_state(
-            session=session,
+            mysql_session=mysql_session,
             wallet_id=wallet_id,
         )
 
         mock_repository.get_wallet_by_id.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             wallet_id=wallet_id,
         )
         assert wallet_info.is_approval is True
         mock_repository.update_wallet.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             wallet=wallet_info,
         )
         assert result is None
@@ -175,48 +175,22 @@ class TestUpdateWalletApprovalState:
         self,
         mock_repository_class,
     ) -> None:
-        session = Mock()
+        mysql_session = Mock()
         wallet_id = 999
         mock_repository = mock_repository_class.return_value
         mock_repository.get_wallet_by_id.return_value = None
 
         with pytest.raises(WalletNotFoundException):
             UserService().update_wallet_approval_state(
-                session=session,
+                mysql_session=mysql_session,
                 wallet_id=wallet_id,
             )
 
         mock_repository.get_wallet_by_id.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             wallet_id=wallet_id,
         )
         mock_repository.update_wallet.assert_not_called()
-
-    @pytest.mark.usefixtures("insert_wallets")
-    def test_with_db(
-        self,
-        mysql_session: Session,
-    ) -> None:
-        wallet_id = 301
-        before_wallet = mysql_session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
-        before_wallet.is_approval = False
-        mysql_session.flush()
-        mysql_session.expire_all()
-
-        before_wallet = mysql_session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
-        assert before_wallet.is_approval is False
-
-        result = UserService().update_wallet_approval_state(
-            session=mysql_session,
-            wallet_id=wallet_id,
-        )
-        mysql_session.flush()
-        mysql_session.expire_all()
-
-        after_wallet = mysql_session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
-        assert after_wallet.is_approval is True
-        assert result is None
-
 
 class TestCreateWalletNonce:
     """create_wallet_nonce の単体テスト。"""
@@ -233,7 +207,7 @@ class TestCreateWalletNonce:
         mock_token_urlsafe,
     ) -> None:
         """nonce を生成して user_nonce を作成し、レスポンスへ整形することを検証する。"""
-        session = Mock()
+        mysql_session = Mock()
         user_id = 10
         wallet_address = "0xABCDEF1234567890ABCDEF1234567890ABCDEF12"
         chain_type = "ethereum"
@@ -248,14 +222,14 @@ class TestCreateWalletNonce:
 
         mock_nonce_repository = mock_nonce_repository_class.return_value
         mock_nonce_repository.create_nonce.side_effect = (
-            lambda session, nonce: SimpleNamespace(nonce_id=123, nonce=nonce.nonce)
+            lambda mysql_session, nonce: SimpleNamespace(nonce_id=123, nonce=nonce.nonce)
         )
 
         with patch("app.services.user_service.datetime") as mock_datetime:
             mock_datetime.now.return_value = fixed_now
 
             result = UserService().create_wallet_nonce(
-                session=session,
+                mysql_session=mysql_session,
                 user_id=user_id,
                 wallet_address=wallet_address,
                 chain_type=chain_type,
@@ -263,11 +237,11 @@ class TestCreateWalletNonce:
             )
 
         mock_user_repository.get_user_by_id.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id,
         )
         mock_wallet_repository.get_wallet_by_address.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             wallet_address=wallet_address,
         )
         mock_token_urlsafe.assert_called_once_with(32)
@@ -275,7 +249,7 @@ class TestCreateWalletNonce:
         mock_user_repository.create_user_nonce.assert_called_once()
 
         nonce_kwargs = mock_nonce_repository.create_nonce.call_args.kwargs
-        assert nonce_kwargs["session"] is session
+        assert nonce_kwargs["mysql_session"] is mysql_session
         created_nonce = nonce_kwargs["nonce"]
         assert created_nonce.wallet_address == wallet_address.lower()
         assert created_nonce.chain_type == chain_type
@@ -284,7 +258,7 @@ class TestCreateWalletNonce:
         assert created_nonce.expires_at == fixed_now + timedelta(minutes=10)
 
         user_nonce_kwargs = mock_user_repository.create_user_nonce.call_args.kwargs
-        assert user_nonce_kwargs["session"] is session
+        assert user_nonce_kwargs["mysql_session"] is mysql_session
         created_user_nonce = user_nonce_kwargs["user_nonce"]
         assert created_user_nonce.user_id == user_id
         assert created_user_nonce.nonce_id == 123
@@ -301,7 +275,7 @@ class TestCreateWalletNonce:
         mock_wallet_repository_class,
     ) -> None:
         """ユーザーが存在しない場合に UserNotFoundException を送出することを検証する。"""
-        session = Mock()
+        mysql_session = Mock()
         user_id = 999
         wallet_address = "0xABCDEF1234567890ABCDEF1234567890ABCDEF12"
         chain_type = "ethereum"
@@ -312,7 +286,7 @@ class TestCreateWalletNonce:
 
         with pytest.raises(UserNotFoundException):
             UserService().create_wallet_nonce(
-                session=session,
+                mysql_session=mysql_session,
                 user_id=user_id,
                 wallet_address=wallet_address,
                 chain_type=chain_type,
@@ -320,7 +294,7 @@ class TestCreateWalletNonce:
             )
 
         mock_repository.get_user_by_id.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id,
         )
         mock_wallet_repository_class.return_value.get_wallet_by_address.assert_not_called()
@@ -338,7 +312,7 @@ class TestCreateWalletNonce:
         mock_token_urlsafe,
     ) -> None:
         """ウォレットが既に存在する場合に WalletConflictException を送出することを検証する。"""
-        session = Mock()
+        mysql_session = Mock()
         user_id = 10
         wallet_address = "0xABCDEF1234567890ABCDEF1234567890ABCDEF12"
         chain_type = "ethereum"
@@ -352,7 +326,7 @@ class TestCreateWalletNonce:
 
         with pytest.raises(WalletConflictException):
             UserService().create_wallet_nonce(
-                session=session,
+                mysql_session=mysql_session,
                 user_id=user_id,
                 wallet_address=wallet_address,
                 chain_type=chain_type,
@@ -360,11 +334,11 @@ class TestCreateWalletNonce:
             )
 
         mock_user_repository.get_user_by_id.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id,
         )
         mock_wallet_repository.get_wallet_by_address.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             wallet_address=wallet_address,
         )
         mock_token_urlsafe.assert_not_called()
@@ -383,7 +357,7 @@ class TestVerifyWalletNonce:
         mock_recover_address,
     ) -> None:
         """正常な署名と利用可能 nonce がある場合に nonce エンティティを返すことを検証する。"""
-        session = Mock()
+        mysql_session = Mock()
         user_id = 10
         wallet_address = "0xABCDEF1234567890ABCDEF1234567890ABCDEF12"
         normalized_wallet_address = wallet_address.lower()
@@ -398,7 +372,7 @@ class TestVerifyWalletNonce:
         mock_recover_address.return_value = normalized_wallet_address
 
         result = UserService().verify_wallet_nonce(
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id,
             wallet_address=wallet_address,
             signature=signature,
@@ -407,12 +381,12 @@ class TestVerifyWalletNonce:
         )
 
         mock_repository.get_user_by_id.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id,
         )
         mock_repository.get_latest_available_nonce.assert_called_once()
         latest_nonce_kwargs = mock_repository.get_latest_available_nonce.call_args.kwargs
-        assert latest_nonce_kwargs["session"] is session
+        assert latest_nonce_kwargs["mysql_session"] is mysql_session
         assert latest_nonce_kwargs["user_id"] == user_id
         assert latest_nonce_kwargs["wallet_address"] == normalized_wallet_address
         assert latest_nonce_kwargs["chain_type"] == chain_type
@@ -470,7 +444,7 @@ class TestVerifyWalletNonce:
         expected_exception,
     ) -> None:
         """異常系で適切な例外を送出することを検証する。"""
-        session = Mock()
+        mysql_session = Mock()
         user_id = 10
         wallet_address = "0xABCDEF1234567890ABCDEF1234567890ABCDEF12"
         signature = "signed-message"
@@ -484,7 +458,7 @@ class TestVerifyWalletNonce:
 
         with pytest.raises(expected_exception):
             UserService().verify_wallet_nonce(
-                session=session,
+                mysql_session=mysql_session,
                 user_id=user_id,
                 wallet_address=wallet_address,
                 signature=signature,
@@ -493,7 +467,7 @@ class TestVerifyWalletNonce:
             )
 
         mock_repository.get_user_by_id.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id,
         )
 

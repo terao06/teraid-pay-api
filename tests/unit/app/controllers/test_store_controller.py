@@ -29,7 +29,7 @@ class TestGetStoreWallet:
     def test_get_store_wallet(self, mock_service_class) -> None:
         """サービスの戻り値をそのまま返し、引数を正しく引き渡すことを確認する。"""
 
-        session = Mock()
+        mysql_session = Mock()
         store_id = 10
         expected = WalletResponse(
             wallet_id=1,
@@ -49,12 +49,12 @@ class TestGetStoreWallet:
 
         result = StoreController.get_store_wallet.__wrapped__(
             StoreController(),
-            session=session,
+            mysql_session=mysql_session,
             store_id=store_id,
         )
 
         mock_service.get_store_wallet.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             store_id=store_id,
         )
         assert result == expected
@@ -66,7 +66,7 @@ class TestGetStoreWallet:
     ) -> None:
         """想定外例外がサーバーエラーの HTTPException に変換されることを確認する。"""
 
-        session = Mock()
+        mysql_session = Mock()
         store_id = 10
         mock_service = mock_service_class.return_value
         mock_service.get_store_wallet.side_effect = Exception("unexpected error")
@@ -74,7 +74,7 @@ class TestGetStoreWallet:
         with pytest.raises(HTTPException) as exc_info:
             StoreController.get_store_wallet.__wrapped__(
                 StoreController(),
-                session=session,
+                mysql_session=mysql_session,
                 store_id=store_id,
             )
 
@@ -89,7 +89,7 @@ class TestCreateWalletNonce:
     def test_create_wallet_nonce(self, mock_service_class) -> None:
         """nonce 作成処理がサービスに正しく委譲されることを確認する。"""
 
-        session = Mock()
+        mysql_session = Mock()
         store_id = 10
         request = WalletNonceCreateRequest(
             wallet_address="0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
@@ -105,13 +105,13 @@ class TestCreateWalletNonce:
 
         result = StoreController.create_wallet_nonce.__wrapped__(
             StoreController(),
-            session=session,
+            mysql_session=mysql_session,
             store_id=store_id,
             request=request,
         )
 
         mock_service.create_wallet_nonce.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             store_id=store_id,
             wallet_address=request.wallet_address,
             chain_type=request.chain_type,
@@ -130,7 +130,7 @@ class TestCreateWalletNonce:
     ) -> None:
         """店舗が見つからない場合に 404 の HTTPException へ変換されることを確認する。"""
 
-        session = Mock()
+        mysql_session = Mock()
         store_id = 999
         request = WalletNonceCreateRequest(
             wallet_address="0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
@@ -143,7 +143,7 @@ class TestCreateWalletNonce:
         with pytest.raises(HTTPException) as exc_info:
             StoreController.create_wallet_nonce.__wrapped__(
                 StoreController(),
-                session=session,
+                mysql_session=mysql_session,
                 store_id=store_id,
                 request=request,
             )
@@ -161,7 +161,7 @@ class TestCreateWalletNonce:
     ) -> None:
         """予期しない例外が発生した場合に 500 の HTTPException へ変換されることを確認する。"""
 
-        session = Mock()
+        mysql_session = Mock()
         store_id = 10
         request = WalletNonceCreateRequest(
             wallet_address="0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
@@ -174,7 +174,7 @@ class TestCreateWalletNonce:
         with pytest.raises(HTTPException) as exc_info:
             StoreController.create_wallet_nonce.__wrapped__(
                 StoreController(),
-                session=session,
+                mysql_session=mysql_session,
                 store_id=store_id,
                 request=request,
             )
@@ -193,7 +193,7 @@ class TestVerifyAndCreateWalletNonce:
     def test_verify_and_create_wallet_nonce(self, mock_service_class) -> None:
         """nonce 検証成功後にウォレット作成結果を返すことを確認する。"""
 
-        session = Mock()
+        mysql_session = Mock()
         store_id = 10
         request = WalletVerifyRequest(
             wallet_address="0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
@@ -220,13 +220,13 @@ class TestVerifyAndCreateWalletNonce:
 
         result = StoreController.verify_and_create_wallet_nonce.__wrapped__(
             StoreController(),
-            session=session,
+            mysql_session=mysql_session,
             store_id=store_id,
             request=request,
         )
 
         mock_service.verify_wallet_nonce.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             store_id=store_id,
             wallet_address=request.wallet_address,
             signature=request.signature,
@@ -234,7 +234,7 @@ class TestVerifyAndCreateWalletNonce:
             network_name=request.network_name,
         )
         mock_service.create_store_wallet.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             store_id=store_id,
             wallet_address=request.wallet_address,
             chain_type=request.chain_type,
@@ -264,7 +264,7 @@ class TestVerifyAndCreateWalletNonce:
     ) -> None:
         """各例外が期待する HTTPException に変換されることを確認する。"""
 
-        session = Mock()
+        mysql_session = Mock()
         store_id = 10
         request = WalletVerifyRequest(
             wallet_address="0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
@@ -283,7 +283,7 @@ class TestVerifyAndCreateWalletNonce:
         with pytest.raises(HTTPException) as exc_info:
             StoreController.verify_and_create_wallet_nonce.__wrapped__(
                 StoreController(),
-                session=session,
+                mysql_session=mysql_session,
                 store_id=store_id,
                 request=request,
             )
@@ -302,18 +302,18 @@ class TestDeleteWallet:
     def test_delete_wallet(self, mock_service_class) -> None:
         """削除処理がサービスへ正しく委譲されることを確認する。"""
 
-        session = Mock()
+        mysql_session = Mock()
         wallet_id = 42
         mock_service = mock_service_class.return_value
 
         result = StoreController.delete_wallet.__wrapped__(
             StoreController(),
-            session=session,
+            mysql_session=mysql_session,
             wallet_id=wallet_id,
         )
 
         mock_service.delete_wallet.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             wallet_id=wallet_id,
         )
         assert result is None
@@ -325,7 +325,7 @@ class TestDeleteWallet:
     ) -> None:
         """想定外例外がサーバーエラーの HTTPException に変換されることを確認する。"""
 
-        session = Mock()
+        mysql_session = Mock()
         wallet_id = 42
         mock_service = mock_service_class.return_value
         mock_service.delete_wallet.side_effect = Exception("unexpected error")
@@ -333,7 +333,7 @@ class TestDeleteWallet:
         with pytest.raises(HTTPException) as exc_info:
             StoreController.delete_wallet.__wrapped__(
                 StoreController(),
-                session=session,
+                mysql_session=mysql_session,
                 wallet_id=wallet_id,
             )
 
