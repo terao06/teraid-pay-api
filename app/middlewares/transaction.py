@@ -51,7 +51,7 @@ def mysql_transaction(func):
         """
         with get_mysql_db().get_session() as session:
             try:
-                kwargs['session'] = session
+                kwargs['mysql_session'] = session
                 result = func(*args, **kwargs)
                 session.commit()
                 return result

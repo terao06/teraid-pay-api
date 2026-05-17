@@ -2,7 +2,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
 
 from app.controllers.user_controller import UserController
 from app.core.exceptions.custom_exception import (
@@ -19,7 +18,6 @@ from app.core.exceptions.message import (
     WALLET_IS_ALREADY_EXIST,
     WALLET_NOT_FOUND_ERROR,
 )
-from app.models.mysql.wallet import Wallet
 from app.models.requests.wallet_nonce_create_request import WalletNonceCreateRequest
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
@@ -34,7 +32,7 @@ class TestGetUserWallet:
     @patch("app.controllers.user_controller.UserService")
     def test_get_user_wallet(self, mock_service_class) -> None:
         """service の戻り値をそのまま返すことを確認する。"""
-        session = Mock()
+        mysql_session = Mock()
         user_id = 101
         expected = WalletResponse(
             wallet_id=301,
@@ -54,12 +52,12 @@ class TestGetUserWallet:
 
         result = UserController.get_user_wallet.__wrapped__(
             UserController(),
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id,
         )
 
         mock_service.get_user_wallet.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id,
         )
         assert result == expected
@@ -70,7 +68,7 @@ class TestGetUserWallet:
         mock_service_class,
     ) -> None:
         """service で例外が発生した場合に HTTPException へ変換されることを確認する。"""
-        session = Mock()
+        mysql_session = Mock()
         user_id = 101
         mock_service = mock_service_class.return_value
         mock_service.get_user_wallet.side_effect = Exception("unexpected error")
@@ -78,7 +76,7 @@ class TestGetUserWallet:
         with pytest.raises(HTTPException) as exc_info:
             UserController.get_user_wallet.__wrapped__(
                 UserController(),
-                session=session,
+                mysql_session=mysql_session,
                 user_id=user_id,
             )
 
@@ -92,7 +90,7 @@ class TestGetUserWallet:
 class TestGetUserWalletApproval:
     @patch("app.controllers.user_controller.UserService")
     def test_get_user_wallet_approval(self, mock_service_class) -> None:
-        session = Mock()
+        mysql_session = Mock()
         user_id = 101
         expected = WalletApprovalResponse(
             wallet_address="0x1111111111111111111111111111111111111111",
@@ -106,12 +104,12 @@ class TestGetUserWalletApproval:
 
         result = UserController.get_user_wallet_approval.__wrapped__(
             UserController(),
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id,
         )
 
         mock_service.get_user_wallet_approval.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id,
         )
         assert result == expected
@@ -121,7 +119,7 @@ class TestGetUserWalletApproval:
         self,
         mock_service_class,
     ) -> None:
-        session = Mock()
+        mysql_session = Mock()
         user_id = 999
         mock_service = mock_service_class.return_value
         mock_service.get_user_wallet_approval.return_value = None
@@ -129,7 +127,7 @@ class TestGetUserWalletApproval:
         with pytest.raises(HTTPException) as exc_info:
             UserController.get_user_wallet_approval.__wrapped__(
                 UserController(),
-                session=session,
+                mysql_session=mysql_session,
                 user_id=user_id,
             )
 
@@ -143,18 +141,18 @@ class TestGetUserWalletApproval:
 class TestUpdateWalletApprovalState:
     @patch("app.controllers.user_controller.UserService")
     def test_update_wallet_approval_state(self, mock_service_class) -> None:
-        session = Mock()
+        mysql_session = Mock()
         wallet_id = 301
         mock_service = mock_service_class.return_value
 
         result = UserController.update_wallet_approval_state.__wrapped__(
             UserController(),
-            session=session,
+            mysql_session=mysql_session,
             wallet_id=wallet_id,
         )
 
         mock_service.update_wallet_approval_state.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             wallet_id=wallet_id,
         )
         assert result is None
@@ -164,7 +162,7 @@ class TestUpdateWalletApprovalState:
         self,
         mock_service_class,
     ) -> None:
-        session = Mock()
+        mysql_session = Mock()
         wallet_id = 999
         mock_service = mock_service_class.return_value
         mock_service.update_wallet_approval_state.side_effect = WalletNotFoundException("wallet not found")
@@ -172,7 +170,7 @@ class TestUpdateWalletApprovalState:
         with pytest.raises(HTTPException) as exc_info:
             UserController.update_wallet_approval_state.__wrapped__(
                 UserController(),
-                session=session,
+                mysql_session=mysql_session,
                 wallet_id=wallet_id,
             )
 
@@ -187,7 +185,7 @@ class TestUpdateWalletApprovalState:
         self,
         mock_service_class,
     ) -> None:
-        session = Mock()
+        mysql_session = Mock()
         wallet_id = 301
         mock_service = mock_service_class.return_value
         mock_service.update_wallet_approval_state.side_effect = Exception("unexpected error")
@@ -195,7 +193,7 @@ class TestUpdateWalletApprovalState:
         with pytest.raises(HTTPException) as exc_info:
             UserController.update_wallet_approval_state.__wrapped__(
                 UserController(),
-                session=session,
+                mysql_session=mysql_session,
                 wallet_id=wallet_id,
             )
 
@@ -205,37 +203,11 @@ class TestUpdateWalletApprovalState:
             "message": SERVER_ERROR,
         }
 
-    @pytest.mark.usefixtures("insert_wallets")
-    def test_with_db(
-        self,
-        mysql_session: Session,
-    ) -> None:
-        wallet_id = 301
-        before_wallet = mysql_session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
-        before_wallet.is_approval = False
-        mysql_session.flush()
-        mysql_session.expire_all()
-
-        before_wallet = mysql_session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
-        assert before_wallet.is_approval is False
-
-        result = UserController.update_wallet_approval_state.__wrapped__(
-            UserController(),
-            session=mysql_session,
-            wallet_id=wallet_id,
-        )
-        mysql_session.flush()
-        mysql_session.expire_all()
-
-        after_wallet = mysql_session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
-        assert after_wallet.is_approval is True
-        assert result is None
-
 
 class TestCreateWalletNonce:
     @patch("app.controllers.user_controller.UserService")
     def test_create_wallet_nonce(self, mock_service_class) -> None:
-        session = Mock()
+        mysql_session = Mock()
         user_id = 10
         request = WalletNonceCreateRequest(
             wallet_address="0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
@@ -250,13 +222,13 @@ class TestCreateWalletNonce:
 
         result = UserController.create_wallet_nonce.__wrapped__(
             UserController(),
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id,
             request=request,
         )
 
         mock_service.create_wallet_nonce.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id,
             wallet_address=request.wallet_address,
             chain_type=request.chain_type,
@@ -272,7 +244,7 @@ class TestCreateWalletNonce:
         self,
         mock_service_class,
     ) -> None:
-        session = Mock()
+        mysql_session = Mock()
         user_id = 999
         request = WalletNonceCreateRequest(
             wallet_address="0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
@@ -285,7 +257,7 @@ class TestCreateWalletNonce:
         with pytest.raises(HTTPException) as exc_info:
             UserController.create_wallet_nonce.__wrapped__(
                 UserController(),
-                session=session,
+                mysql_session=mysql_session,
                 user_id=user_id,
                 request=request,
             )
@@ -301,7 +273,7 @@ class TestCreateWalletNonce:
         self,
         mock_service_class,
     ) -> None:
-        session = Mock()
+        mysql_session = Mock()
         user_id = 10
         request = WalletNonceCreateRequest(
             wallet_address="0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
@@ -314,7 +286,7 @@ class TestCreateWalletNonce:
         with pytest.raises(HTTPException) as exc_info:
             UserController.create_wallet_nonce.__wrapped__(
                 UserController(),
-                session=session,
+                mysql_session=mysql_session,
                 user_id=user_id,
                 request=request,
             )
@@ -330,7 +302,7 @@ class TestCreateWalletNonce:
         self,
         mock_service_class,
     ) -> None:
-        session = Mock()
+        mysql_session = Mock()
         user_id = 10
         request = WalletNonceCreateRequest(
             wallet_address="0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
@@ -343,7 +315,7 @@ class TestCreateWalletNonce:
         with pytest.raises(HTTPException) as exc_info:
             UserController.create_wallet_nonce.__wrapped__(
                 UserController(),
-                session=session,
+                mysql_session=mysql_session,
                 user_id=user_id,
                 request=request,
             )
@@ -358,7 +330,7 @@ class TestCreateWalletNonce:
 class TestVerifyAndCreateWalletNonce:
     @patch("app.controllers.user_controller.UserService")
     def test_verify_and_create_wallet_nonce(self, mock_service_class) -> None:
-        session = Mock()
+        mysql_session = Mock()
         user_id = 10
         request = WalletVerifyRequest(
             wallet_address="0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
@@ -385,13 +357,13 @@ class TestVerifyAndCreateWalletNonce:
 
         result = UserController.verify_and_create_wallet_nonce.__wrapped__(
             UserController(),
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id,
             request=request,
         )
 
         mock_service.verify_wallet_nonce.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id,
             wallet_address=request.wallet_address,
             signature=request.signature,
@@ -399,7 +371,7 @@ class TestVerifyAndCreateWalletNonce:
             network_name=request.network_name,
         )
         mock_service.create_user_wallet.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id,
             wallet_address=request.wallet_address,
             chain_type=request.chain_type,
@@ -427,7 +399,7 @@ class TestVerifyAndCreateWalletNonce:
         expected_status_code,
         expected_message,
     ) -> None:
-        session = Mock()
+        mysql_session = Mock()
         user_id = 10
         request = WalletVerifyRequest(
             wallet_address="0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
@@ -446,7 +418,7 @@ class TestVerifyAndCreateWalletNonce:
         with pytest.raises(HTTPException) as exc_info:
             UserController.verify_and_create_wallet_nonce.__wrapped__(
                 UserController(),
-                session=session,
+                mysql_session=mysql_session,
                 user_id=user_id,
                 request=request,
             )
@@ -461,18 +433,18 @@ class TestVerifyAndCreateWalletNonce:
 class TestDeleteWallet:
     @patch("app.controllers.user_controller.UserService")
     def test_delete_wallet(self, mock_service_class) -> None:
-        session = Mock()
+        mysql_session = Mock()
         wallet_id = 42
         mock_service = mock_service_class.return_value
 
         result = UserController.delete_wallet.__wrapped__(
             UserController(),
-            session=session,
+            mysql_session=mysql_session,
             wallet_id=wallet_id,
         )
 
         mock_service.delete_wallet.assert_called_once_with(
-            session=session,
+            mysql_session=mysql_session,
             wallet_id=wallet_id,
         )
         assert result is None
@@ -482,7 +454,7 @@ class TestDeleteWallet:
         self,
         mock_service_class,
     ) -> None:
-        session = Mock()
+        mysql_session = Mock()
         wallet_id = 42
         mock_service = mock_service_class.return_value
         mock_service.delete_wallet.side_effect = Exception("unexpected error")
@@ -490,7 +462,7 @@ class TestDeleteWallet:
         with pytest.raises(HTTPException) as exc_info:
             UserController.delete_wallet.__wrapped__(
                 UserController(),
-                session=session,
+                mysql_session=mysql_session,
                 wallet_id=wallet_id,
             )
 

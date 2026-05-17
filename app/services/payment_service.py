@@ -52,14 +52,14 @@ class PaymentService:
     """決済関連処理を担当するサービス。"""
     def create_payment_request(
             self,
-            session: Session,
+            mysql_session: Session,
             store_id: int,
             user_id: int,
             amount: int) -> PaymentCreateResponse:
         """決済リクエスト情報を作成する。
 
         Args:
-            session: SQLAlchemy のセッション。
+            mysql_session: SQLAlchemy のセッション。
             store_id: 送金先店舗のID
             user_id: 送金元ユーザーのID
             amount: 送金額
@@ -71,14 +71,14 @@ class PaymentService:
         user_repository = UserRepository()
 
         store_wallet = store_repository.get_store_wallet(
-            session=session,
+            mysql_session=mysql_session,
             store_id=store_id
         )
         if not store_wallet:
             raise WalletNotFoundException(f"店舗に紐づくウォレットが存在しません。 store_id={store_id}")
 
         user_wallet = user_repository.get_user_wallet(
-            session=session,
+            mysql_session=mysql_session,
             user_id=user_id
         )
         if not user_wallet:
@@ -104,7 +104,7 @@ class PaymentService:
             expires_at=expires_at
         )
         saved_payment_request = payment_repository.create_payment_request(
-            session=session,
+            mysql_session=mysql_session,
             payment_request=payment_request
         )
         return PaymentCreateResponse(
@@ -119,12 +119,12 @@ class PaymentService:
 
     def execute_payment(
             self,
-            session: Session,
+            mysql_session: Session,
             payment_request_id: int) -> PaymentTransactionHashResponse:
         """決済リクエスト情報を作成する。
 
         Args:
-            session: SQLAlchemy のセッション。
+            mysql_session: SQLAlchemy のセッション。
             payment_request_id: 送金リクエストID
             transaction_hash: 送金ハッシュ
 
@@ -134,7 +134,7 @@ class PaymentService:
 
         payment_repository = PaymentRepository()
         target_payment_request = payment_repository.get_payment_by_id(
-            session=session,
+            mysql_session=mysql_session,
             payment_request_id=payment_request_id,
             status=PaymentStatus.REQUESTED
         )
@@ -175,18 +175,18 @@ class PaymentService:
         target_payment_request.status = PaymentStatus.SUBMITTED
 
         updated_payment_request = payment_repository.update_payment_request(
-            session=session,
+            mysql_session=mysql_session,
             payment_request=target_payment_request)
         return PaymentTransactionHashResponse(
             payment_request_id=updated_payment_request.payment_request_id,
             transaction_hash=updated_payment_request.transaction_hash,
         )
 
-    def verify_transaction_hash(self, session: Session, payment_request_id: int) -> PaymentVerifyResponse:
+    def verify_transaction_hash(self, mysql_session: Session, payment_request_id: int) -> PaymentVerifyResponse:
         """決済状況を確認する。
 
         Args:
-            session: SQLAlchemy のセッション。
+            mysql_session: SQLAlchemy のセッション。
             payment_request_id: 送金リクエストID。
 
         Returns:
@@ -195,7 +195,7 @@ class PaymentService:
 
         payment_repository = PaymentRepository()
         target_payment_request = payment_repository.get_payment_by_id(
-            session=session,
+            mysql_session=mysql_session,
             payment_request_id=payment_request_id,
         )
         if not target_payment_request:
@@ -212,7 +212,7 @@ class PaymentService:
                 transaction_hash=target_payment_request.transaction_hash)
         except TransactionNotFound:
             target_payment_request.status = PaymentStatus.CONFIRMING
-            payment_repository.update_payment_request(session=session, payment_request=target_payment_request)
+            payment_repository.update_payment_request(mysql_session=mysql_session, payment_request=target_payment_request)
 
             return PaymentVerifyResponse(
                 payment_request_id=payment_request_id,
@@ -221,7 +221,7 @@ class PaymentService:
 
         if receipt is None:
             target_payment_request.status = PaymentStatus.CONFIRMING
-            payment_repository.update_payment_request(session=session, payment_request=target_payment_request)
+            payment_repository.update_payment_request(mysql_session=mysql_session, payment_request=target_payment_request)
 
             return PaymentVerifyResponse(
                 payment_request_id=payment_request_id,
@@ -230,7 +230,7 @@ class PaymentService:
 
         if receipt.status == 0:
             target_payment_request.status = PaymentStatus.TX_FAILED
-            payment_repository.update_payment_request(session=session, payment_request=target_payment_request)
+            payment_repository.update_payment_request(mysql_session=mysql_session, payment_request=target_payment_request)
 
             return PaymentVerifyResponse(
                 payment_request_id=payment_request_id,
@@ -252,7 +252,7 @@ class PaymentService:
 
         if not is_validate:
             target_payment_request.status = PaymentStatus.VERIFY_FAILED
-            payment_repository.update_payment_request(session=session, payment_request=target_payment_request)
+            payment_repository.update_payment_request(mysql_session=mysql_session, payment_request=target_payment_request)
 
             return PaymentVerifyResponse(
                 payment_request_id=payment_request_id,
@@ -260,7 +260,7 @@ class PaymentService:
             )
 
         target_payment_request.status = PaymentStatus.PAID
-        payment_repository.update_payment_request(session=session, payment_request=target_payment_request)
+        payment_repository.update_payment_request(mysql_session=mysql_session, payment_request=target_payment_request)
 
         return PaymentVerifyResponse(
             payment_request_id=payment_request_id,
