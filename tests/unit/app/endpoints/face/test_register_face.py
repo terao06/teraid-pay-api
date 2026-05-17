@@ -99,14 +99,14 @@ class TestRegisterFace:
     @pytest.mark.usefixtures("postgres_engine", "mysql_engine", "insert_users", "initialize_s3", "initialize_ssm")
     def test_with_db(
         self,
-        client_with_mysql_postgres_db,
+        client_with_db,
         postgres_session,
     ) -> None:
         """DB 連携で顔画像を登録し、保存内容とレスポンスが一致することを確認する。"""
         self._put_ssm_parameter("s3_endpoint", S3_ENDPOINT_URL)
         user_id = 101
 
-        response = client_with_mysql_postgres_db.post(
+        response = client_with_db.post(
             "/face/",
             json={
                 "user_id": user_id,
