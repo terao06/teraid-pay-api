@@ -54,8 +54,10 @@ def client_with_db(
             "sepolia_infra_api_key": "hogehoge",
             "chain_1_jpyc_token_address": "0x2222222222222222222222222222222222222222",
             "chain_1_payment_processor_address": "0x3333333333333333333333333333333333333333",
+            "chain_1_payment_operator_private_key": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "chain_11155111_jpyc_token_address": "0x4444444444444444444444444444444444444444",
             "chain_11155111_payment_processor_address": "0x5555555555555555555555555555555555555555",
+            "chain_11155111_payment_operator_private_key": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         },
     ):
         with TestClient(app) as test_client:

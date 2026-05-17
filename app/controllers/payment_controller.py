@@ -14,12 +14,12 @@ class PaymentController:
     @mysql_transaction
     def create_payment_request(
         self,
-        session: Session,
+        mysql_session: Session,
         request: PaymentCreateRequest) -> PaymentCreateResponse:
         """決済情報を作成する。
 
         Args:
-            session: SQLAlchemy のセッション。
+            mysql_session: SQLAlchemy のセッション。
             store_id: 対象店舗の ID。
             request: nonce 発行に必要なウォレット情報。
 
@@ -28,7 +28,7 @@ class PaymentController:
         """
         try:
             return PaymentService().create_payment_request(
-                session=session,
+                mysql_session=mysql_session,
                 store_id=request.store_id,
                 user_id=request.user_id,
                 amount=request.amount
@@ -57,12 +57,12 @@ class PaymentController:
     @mysql_transaction
     def execute_payment(
         self,
-        session: Session,
+        mysql_session: Session,
         payment_request_id: int) -> PaymentTransactionHashResponse:
 
         try:
             return PaymentService().execute_payment(
-                session=session,
+                mysql_session=mysql_session,
                 payment_request_id=payment_request_id,
             )
 
@@ -79,12 +79,12 @@ class PaymentController:
     @mysql_transaction
     def verify_transaction_hash(
         self,
-        session: Session,
+        mysql_session: Session,
         payment_request_id: int) -> PaymentVerifyResponse:
 
         try:
             return PaymentService().verify_transaction_hash(
-                session=session,
+                mysql_session=mysql_session,
                 payment_request_id=payment_request_id,
             )
 

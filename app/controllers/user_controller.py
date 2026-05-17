@@ -17,11 +17,11 @@ class UserController:
     """ユーザーウォレット取得 API のリクエストを処理するコントローラーです。"""
 
     @mysql_transaction
-    def get_user_wallet(self, session: Session, user_id: int) -> WalletResponse | None:
+    def get_user_wallet(self, mysql_session: Session, user_id: int) -> WalletResponse | None:
         """リクエスト条件に一致するユーザーウォレットを取得します。
 
         Args:
-            session: SQLAlchemy のセッションです。
+            mysql_session: SQLAlchemy のセッションです。
             user_id: 取得対象のユーザーIDです。
 
         Returns:
@@ -30,7 +30,7 @@ class UserController:
         try:
             store_service = UserService()
             return store_service.get_user_wallet(
-                session=session,
+                mysql_session=mysql_session,
                 user_id=user_id
             )
         except Exception:
@@ -39,10 +39,10 @@ class UserController:
                 message=SERVER_ERROR)
 
     @mysql_transaction
-    def get_user_wallet_approval(self, session: Session, user_id: int) -> WalletApprovalResponse:
+    def get_user_wallet_approval(self, mysql_session: Session, user_id: int) -> WalletApprovalResponse:
         try:
             approval = UserService().get_user_wallet_approval(
-                session=session,
+                mysql_session=mysql_session,
                 user_id=user_id
             )
             if approval is None:
@@ -59,10 +59,10 @@ class UserController:
                 message=SERVER_ERROR)
 
     @mysql_transaction
-    def update_wallet_approval_state(self, session: Session, wallet_id: int) -> None:
+    def update_wallet_approval_state(self, mysql_session: Session, wallet_id: int) -> None:
         try:
             UserService().update_wallet_approval_state(
-                session=session,
+                mysql_session=mysql_session,
                 wallet_id=wallet_id
             )
         except WalletNotFoundException:
@@ -78,14 +78,14 @@ class UserController:
     @mysql_transaction
     def create_wallet_nonce(
         self,
-        session: Session,
+        mysql_session: Session,
         user_id: int,
         request: WalletNonceCreateRequest,
     ) -> WalletNonceCreateResponse:
         """ウォレット署名用の nonce を発行する。
 
         Args:
-            session: SQLAlchemy のセッション。
+            mysql_session: SQLAlchemy のセッション。
             user_id: 対象ユーザーの ID。
             request: nonce 発行に必要なウォレット情報。
 
@@ -95,7 +95,7 @@ class UserController:
         try:
             store_service = UserService()
             return store_service.create_wallet_nonce(
-                session=session,
+                mysql_session=mysql_session,
                 user_id=user_id,
                 wallet_address=request.wallet_address,
                 chain_type=request.chain_type,
@@ -122,12 +122,12 @@ class UserController:
     @mysql_transaction
     def verify_and_create_wallet_nonce(
         self,
-        session: Session,
+        mysql_session: Session,
         user_id: int,
         request: WalletVerifyRequest) -> WalletVerifyResponse:
         """署名済み nonce を検証し、店舗ウォレットを作成する。
         Args:
-            session: SQLAlchemy のセッション。
+            mysql_session: SQLAlchemy のセッション。
             user_id: ユーザーID
             request: ウォレットアドレス、署名、チェーン種別、ネットワーク名を含む検証リクエスト。
         Returns:
@@ -136,7 +136,7 @@ class UserController:
         try:
             user_service = UserService()
             nonce_entity = user_service.verify_wallet_nonce(
-                session=session,
+                mysql_session=mysql_session,
                 user_id=user_id,
                 wallet_address=request.wallet_address,
                 signature=request.signature,
@@ -144,7 +144,7 @@ class UserController:
                 network_name=request.network_name
             )
             return user_service.create_user_wallet(
-                session=session,
+                mysql_session=mysql_session,
                 user_id=user_id,
                 wallet_address=request.wallet_address,
                 chain_type=request.chain_type,
@@ -177,17 +177,17 @@ class UserController:
                 message=SERVER_ERROR)
 
     @mysql_transaction
-    def delete_wallet(self, session: Session, wallet_id: int) -> None:
+    def delete_wallet(self, mysql_session: Session, wallet_id: int) -> None:
         """登録済みウォレットの削除を行う。
         Args:
-            session: SQLAlchemy のセッション。
+            mysql_session: SQLAlchemy のセッション。
             wallet_id: ウォレットID。
         Returns:
             なし。
         """
         try:
             UserService().delete_wallet(
-                session=session,
+                mysql_session=mysql_session,
                 wallet_id=wallet_id
             )
 

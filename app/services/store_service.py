@@ -27,18 +27,18 @@ from app.repositories.mysql.wallet_repository import WalletRepository
 class StoreService:
     """店舗ウォレット関連処理を担当するサービス。"""
 
-    def get_store_wallet(self, session: Session, store_id: int) -> WalletResponse | None:
+    def get_store_wallet(self, mysql_session: Session, store_id: int) -> WalletResponse | None:
         """店舗 ID に紐づくウォレット情報を取得する。
 
         Args:
-            session: SQLAlchemy のセッション。
+            mysql_session: SQLAlchemy のセッション。
             store_id: 対象店舗の ID。
 
         Returns:
             店舗ウォレットのレスポンス。存在しない場合は None。
         """
         wallet_info = StoreRepository().get_store_wallet(
-            session=session,
+            mysql_session=mysql_session,
             store_id=store_id
         )
 
@@ -61,7 +61,7 @@ class StoreService:
 
     def create_wallet_nonce(
         self,
-        session: Session,
+        mysql_session: Session,
         store_id: int,
         wallet_address: str,
         chain_type: str,
@@ -70,7 +70,7 @@ class StoreService:
         """ウォレット署名に使用する nonce を生成する。
 
         Args:
-            session: SQLAlchemy のセッション。
+            mysql_session: SQLAlchemy のセッション。
             store_id: 対象店舗の ID。
             wallet_address: 対象ウォレットアドレス。
             chain_type: チェーン種別。
@@ -84,14 +84,14 @@ class StoreService:
         wallet_repository = WalletRepository()
 
         store = store_repository.get_store_by_id(
-            session=session,
+            mysql_session=mysql_session,
             store_id=store_id
         )
         if not store:
             raise StoreNotFoundException(f"対象の店舗は存在しません. store_id={store_id}")
         
         exist_wallet = wallet_repository.get_wallet_by_address(
-            session=session,
+            mysql_session=mysql_session,
             wallet_address=wallet_address)
 
         if exist_wallet is not None:
@@ -108,14 +108,14 @@ class StoreService:
             nonce=nonce_str,
             expires_at=expires_at,
         )
-        saved_nonce = nonce_repository.create_nonce(session=session, nonce=nonce)
+        saved_nonce = nonce_repository.create_nonce(mysql_session=mysql_session, nonce=nonce)
         
         store_nonce = StoreNonce(
             store_id=store_id,
             nonce_id=saved_nonce.nonce_id
         )
         store_repository.create_store_nonce(
-            session=session,
+            mysql_session=mysql_session,
             store_nonce=store_nonce
         )
 
@@ -126,7 +126,7 @@ class StoreService:
 
     def verify_wallet_nonce(
         self,
-        session: Session,
+        mysql_session: Session,
         store_id: int,
         wallet_address: str,
         signature: str,
@@ -134,7 +134,7 @@ class StoreService:
         network_name: str) -> Nonce:
         """署名済み nonce を検証し、利用可能な nonce エンティティを返す。
         Args:
-            session: SQLAlchemy のセッション。
+            mysql_session: SQLAlchemy のセッション。
             store_id: 対象店舗の ID。
             wallet_address: 検証対象のウォレットアドレス。
             signature: 署名文字列。
@@ -146,12 +146,12 @@ class StoreService:
         store_repository = StoreRepository()
 
         normalized_wallet_address = WalletUtil.normalize_wallet_address(wallet_address)
-        store = store_repository.get_store_by_id(session=session, store_id=store_id)
+        store = store_repository.get_store_by_id(mysql_session=mysql_session, store_id=store_id)
         if store is None:
             raise StoreNotFoundException(f"対象の店舗は存在しません. store_id={store_id}")
 
         stor_nonce_entity = store_repository.get_latest_available_nonce(
-            session=session,
+            mysql_session=mysql_session,
             store_id=store_id,
             wallet_address=normalized_wallet_address,
             chain_type=chain_type,
@@ -175,7 +175,7 @@ class StoreService:
 
     def create_store_wallet(
         self,
-        session: Session,
+        mysql_session: Session,
         store_id: int,
         wallet_address: str,
         chain_type: str,
@@ -186,7 +186,7 @@ class StoreService:
         """店舗ウォレットを登録する。
 
         Args:
-            session: SQLAlchemy のセッション。
+            mysql_session: SQLAlchemy のセッション。
             store_id: 対象店舗の ID。
             wallet_address: 登録対象のウォレットアドレス。
             signature: 署名値。
@@ -204,7 +204,7 @@ class StoreService:
         normalized_wallet_address = WalletUtil.normalize_wallet_address(wallet_address)
 
         existing_wallet = store_repository.get_wallet_by_store_id(
-            session=session,
+            mysql_session=mysql_session,
             store_id=store_id,
             chain_type=chain_type,
             network_name=network_name,
@@ -227,7 +227,7 @@ class StoreService:
             is_approval=True,
         )
         saved_wallet = wallet_repository.create_wallet(
-            session=session,
+            mysql_session=mysql_session,
             wallet=new_wallet
         )
 
@@ -236,16 +236,16 @@ class StoreService:
             wallet_id=saved_wallet.wallet_id
         )
         store_repository.create_store_wallet(
-            session=session,
+            mysql_session=mysql_session,
             store_wallet=new_store_wallet)
 
         nonce_entity.used_at = datetime.now()
         nonce_repository.update_nonce(
-            session=session,
+            mysql_session=mysql_session,
             nonce=nonce_entity
         )
         store_repository.delete_store_nonce_by_nonce_id(
-            session=session,
+            mysql_session=mysql_session,
             nonce_id=nonce_entity.nonce_id
         )
 
@@ -262,15 +262,15 @@ class StoreService:
             ),
         )
 
-    def delete_wallet(self, session: Session, wallet_id: int) -> None:
+    def delete_wallet(self, mysql_session: Session, wallet_id: int) -> None:
         """ウォレットを登録から削除する。
 
         Args:
-            session: SQLAlchemy のセッション。
+            mysql_session: SQLAlchemy のセッション。
             wallet_id: 削除対象のウォレットID。
 
         Returns:
             なし。
         """
-        WalletRepository().delete_wallet_by_wallet_id(session=session, wallet_id=wallet_id)
-        StoreRepository().delete_store_wallet_by_wallet_id(session=session, wallet_id=wallet_id)
+        WalletRepository().delete_wallet_by_wallet_id(mysql_session=mysql_session, wallet_id=wallet_id)
+        StoreRepository().delete_store_wallet_by_wallet_id(mysql_session=mysql_session, wallet_id=wallet_id)

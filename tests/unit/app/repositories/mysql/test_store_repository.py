@@ -127,7 +127,7 @@ class TestGetWalletByStoreId:
         repository = StoreRepository()
 
         result = repository.get_wallet_by_store_id(
-            session=mysql_session,
+            mysql_session=mysql_session,
             store_id=store_id,
             chain_type=chain_type,
             network_name=network_name,
@@ -229,7 +229,7 @@ class TestGetLatestAvailableNonce:
         base_expires_at = datetime(2026, 4, 13, 12, 0, 0)
 
         result = repository.get_latest_available_nonce(
-            session=mysql_session,
+            mysql_session=mysql_session,
             store_id=101,
             wallet_address="0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             chain_type="ethereum",
@@ -249,7 +249,7 @@ class TestGetLatestAvailableNonce:
         repository = StoreRepository()
 
         result = repository.get_latest_available_nonce(
-            session=mysql_session,
+            mysql_session=mysql_session,
             store_id=102,
             wallet_address="0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             chain_type="ethereum",
