@@ -97,3 +97,43 @@ def client_with_postgres_db(
         yield test_client
 
     get_postgres_db.cache_clear()
+
+
+@pytest.fixture()
+def client_with_mysql_postgres_db(
+    initialize_aws_env: bool,
+) -> Generator[TestClient, None, None]:
+    assert initialize_aws_env == True
+    get_mysql_db.cache_clear()
+    get_postgres_db.cache_clear()
+    upsert_secret(
+        secret_name="secret",
+        secret_string=json.dumps(
+            {
+                "mysql_user": "teraid_pay_admin_user",
+                "mysql_password": "password",
+                "mysql_host": "127.0.0.1",
+                "mysql_port": "3307",
+                "mysql_database": "db_local",
+                "postgres_database": "vector_db",
+                "postgres_user": "vector_user",
+                "postgres_password": "vector_password",
+                "postgres_host": "127.0.0.1",
+                "postgres_port": 5432,
+            }
+        ),
+        endpoint_url=SECRETS_MANAGER_ENDPOINT_URL,
+        region_name=SECRETS_MANAGER_REGION_NAME,
+    )
+
+    app = FastAPI()
+    app.include_router(payment_router, prefix="/payment")
+    app.include_router(store_router, prefix="/store")
+    app.include_router(user_router, prefix="/user")
+    app.include_router(face_router, prefix="/face")
+
+    with TestClient(app) as test_client:
+        yield test_client
+
+    get_mysql_db.cache_clear()
+    get_postgres_db.cache_clear()

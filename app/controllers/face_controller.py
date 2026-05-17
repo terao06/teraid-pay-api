@@ -4,16 +4,18 @@ from app.core.exceptions.custom_exception import (
     CustomHttpException,
     FaceConflictException,
     FaceNotFoundException,
-    SameFaceFoundException
+    SameFaceFoundException,
+    UserNotFoundException
 )
 from app.core.exceptions.message import (
     FACE_ALREADY_REGISTERED_ERROR,
     FACE_NOTE_FOUND_ERROR,
     REGISTER_FACE_ERROR,
     SAME_FACE_FOUND_ERROR,
-    SERVER_ERROR
+    SERVER_ERROR,
+    USER_NOT_FOUND_ERROR
 )
-from app.middlewares.transaction import postgres_transaction
+from app.middlewares.transaction import postgres_transaction, mysql_transaction
 from app.models.requests.face_register_request import FaceImageProcessingRequest
 from app.services.face_service import FaceService
 
@@ -22,7 +24,8 @@ class faceController:
     """顔認証 API のリクエストを処理するコントローラーです。"""
 
     @postgres_transaction
-    def register_face(self, postgres_session: Session, request: FaceImageProcessingRequest) -> None:
+    @mysql_transaction
+    def register_face(self, postgres_session: Session, mysql_session: Session, request: FaceImageProcessingRequest) -> None:
         """顔画像を登録する
 
         Args:
@@ -35,15 +38,21 @@ class faceController:
         try:
             return FaceService().register_face(
                 postgres_session=postgres_session,
+                mysql_session=mysql_session,
                 user_id=request.user_id,
                 content=request.content,
                 extension_type=request.extension_type)
-        
+
+        except UserNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=404,
+                message=USER_NOT_FOUND_ERROR)
+
         except FaceNotFoundException:
             raise CustomHttpException.get_http_exception(
                 status_code=400,
                 message=FACE_NOTE_FOUND_ERROR)
-        
+
         except SameFaceFoundException:
             raise CustomHttpException.get_http_exception(
                 status_code=400,
