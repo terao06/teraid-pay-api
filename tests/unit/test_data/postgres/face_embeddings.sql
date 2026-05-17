@@ -15,4 +15,4 @@ VALUES
   -- nearest face 検索 fixture で閾値内検索に一致しない遠い有効候補として使用
   (105, ('[' || array_to_string(ARRAY[0.0, 1.0] || array_fill(0.0, ARRAY[510]), ',') || ']')::vector, TRUE, NULL),
   -- build_local_db.py で test_face.png から生成した embedding に更新するユーザー
-  (107, ('[' || array_to_string(ARRAY[0.0] || array_fill(0.0, ARRAY[511]), ',') || ']')::vector, TRUE, '2026-01-01 00:00:00');
+  (107, ('[' || array_to_string(ARRAY[0.0] || array_fill(0.0, ARRAY[511]), ',') || ']')::vector, TRUE, NULL);

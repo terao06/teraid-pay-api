@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.core.aws.secret_manager import SecretManager
-from app.endpoints.face import payment_router as face_router
+from app.endpoints.face import face_router
 from app.endpoints.payment import payment_router
 from app.endpoints.store import store_router
 from app.endpoints.user import user_router

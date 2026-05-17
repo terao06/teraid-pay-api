@@ -4,6 +4,7 @@ services:
     image: teraid-pay-api-app:local
     container_name: teraid-pay-api-app
     platform: linux/amd64
+    gpus: all
     build:
       context: .
       dockerfile: ./docker/local/Dockerfile
