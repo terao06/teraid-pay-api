@@ -10,9 +10,9 @@ from app.core.utils.datetime import JST, DateTimeUtil
 from app.core.config.blockchain import get_chain_config
 from app.core.config.payment_processor import get_payment_processor_config
 from app.models.responses.payment_transaction_hash_response import PaymentTransactionHashResponse
-from app.repositories.store_repository import StoreRepository
-from app.repositories.user_repository import UserRepository
-from app.repositories.payment_repository import PaymentRepository
+from app.repositories.mysql.store_repository import StoreRepository
+from app.repositories.mysql.user_repository import UserRepository
+from app.repositories.mysql.payment_repository import PaymentRepository
 from app.models.mysql.payment_request import PaymentRequest, PaymentStatus
 from app.models.responses.payment_create_response import PaymentCreateResponse
 from app.models.responses.payment_verify_response import PaymentVerifyResponse

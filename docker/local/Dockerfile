@@ -40,7 +40,17 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --upgrade pip setuptools wheel
 
 RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+
+RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -v -r requirements.txt
+
+RUN pip install onnxruntime-gpu -i https://pypi.org/simple \
+    --trusted-host pypi.org \
+    --trusted-host files.pythonhosted.org \
+    --timeout 300 \
+    --retries 10 \
+    --no-cache-dir
 
 # アプリケーションコードのコピー
 COPY . .

@@ -60,15 +60,15 @@ class TestUpdateWalletApprovalState:
     def test_with_db(
         self,
         client_with_db,
-        session: Session,
+        mysql_session: Session,
     ) -> None:
         wallet_id = 301
-        before_wallet = session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
+        before_wallet = mysql_session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
         before_wallet.is_approval = False
-        session.commit()
-        session.expire_all()
+        mysql_session.commit()
+        mysql_session.expire_all()
 
-        before_wallet = session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
+        before_wallet = mysql_session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
         assert before_wallet.is_approval is False
 
         response = client_with_db.post(
@@ -81,8 +81,8 @@ class TestUpdateWalletApprovalState:
             "data": None,
         }
 
-        session.rollback()
-        session.expire_all()
+        mysql_session.rollback()
+        mysql_session.expire_all()
 
-        after_wallet = session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
+        after_wallet = mysql_session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
         assert after_wallet.is_approval is True

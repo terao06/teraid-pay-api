@@ -29,6 +29,18 @@ class PaymentRequestNotFoundException(Exception):
     pass
 
 
+class FaceNotFoundException(Exception):
+    pass
+
+
+class SameFaceFoundException(Exception):
+    pass
+
+
+class FaceConflictException(Exception):
+    pass
+
+
 class CustomHttpException:
     @staticmethod
     def get_http_exception(status_code: int, message: str) -> HTTPException:
