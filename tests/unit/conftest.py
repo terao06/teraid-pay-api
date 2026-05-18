@@ -1,6 +1,8 @@
 import os
 from collections.abc import Generator
+from collections.abc import Callable
 
+import boto3
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy import text
@@ -67,6 +69,36 @@ def initialize_aws_env() -> bool:
 def initialize_ssm(initialize_aws_env: bool) -> None:
     put_mock_ssm_parameters()
     assert initialize_aws_env == True
+
+
+@pytest.fixture()
+def put_ssm_parameter(initialize_aws_env: bool) -> Callable[[str, str], None]:
+    def _put_ssm_parameter(name: str, value: str) -> None:
+        ssm_client = boto3.client(
+            "ssm",
+            endpoint_url=ENDPOINT_URL,
+            region_name=REGION_NAME,
+            aws_access_key_id=AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+        )
+        ssm_client.put_parameter(
+            Name=name,
+            Value=value,
+            Type="String",
+            Overwrite=True,
+        )
+
+    assert initialize_aws_env == True
+    return _put_ssm_parameter
+
+
+@pytest.fixture()
+def use_local_s3_endpoint(
+    put_ssm_parameter: Callable[[str, str], None],
+) -> Generator[None, None, None]:
+    put_ssm_parameter("s3_endpoint", S3_ENDPOINT_URL)
+    yield
+    put_mock_ssm_parameters()
 
 
 @pytest.fixture(scope="session")

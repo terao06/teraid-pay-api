@@ -27,7 +27,6 @@ class FaceEmbeddingRepository:
         """
         return (
             postgres_session.query(FaceEmbedding)
-            .filter(FaceEmbedding.deleted_at.is_(None))
             .filter(FaceEmbedding.user_id == user_id)
             .first()
         )
@@ -50,7 +49,6 @@ class FaceEmbeddingRepository:
         if existing_face_embedding is not None:
             existing_face_embedding.embedding = face_embedding.embedding
             existing_face_embedding.is_active = face_embedding.is_active
-            existing_face_embedding.deleted_at = face_embedding.deleted_at
             postgres_session.flush()
             return existing_face_embedding
 
@@ -58,8 +56,12 @@ class FaceEmbeddingRepository:
         postgres_session.flush()
         return face_embedding
 
-    def delete_face_embedding(self, postgres_session: Session, face_embedding: FaceEmbedding) -> FaceEmbedding:
-        """顔画像から取得したベクトルデータを削除する。
+    def delete_face_embedding(
+        self,
+        postgres_session: Session,
+        face_embedding: FaceEmbedding
+    ) -> None:
+        """顔画像から取得したベクトルデータを物理削除する。
 
         Args:
             postgres_session: SQLAlchemy のセッション。
@@ -69,13 +71,7 @@ class FaceEmbeddingRepository:
             face_embedding: 削除した顔画像ベクトル情報。
         """
 
-        now = datetime.now(JST)
-        face_embedding.is_active = False
-        face_embedding.deleted_at = now
-        face_embedding.updated_at = now
-
-        postgres_session.add(face_embedding)
-        return face_embedding
+        postgres_session.delete(face_embedding)
 
     def get_nearest_face_embedding(
         self,
@@ -110,7 +106,6 @@ class FaceEmbeddingRepository:
         result = (
             postgres_session.query(FaceEmbedding, distance.label("distance"))
             .filter(FaceEmbedding.is_active.is_(True))
-            .filter(FaceEmbedding.deleted_at.is_(None))
             .filter(FaceEmbedding.user_id != exclusion_user_id)
             .filter(distance <= threshold)
             .order_by(distance)

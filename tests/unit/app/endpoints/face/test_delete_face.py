@@ -76,14 +76,22 @@ class TestDeleteFace:
             }
         }
 
-    @pytest.mark.usefixtures("postgres_engine", "mysql_engine", "insert_users", "insert_face_embeddings")
+    @pytest.mark.usefixtures(
+        "initialize_s3",
+        "initialize_ssm",
+        "use_local_s3_endpoint",
+        "postgres_engine",
+        "mysql_engine",
+        "insert_users",
+        "insert_face_embeddings",
+    )
     def test_with_db(
         self,
         client_with_db,
         postgres_session,
     ) -> None:
         """DB 連携で顔特徴量が論理削除されることを確認する。"""
-        user_id = 101
+        user_id = 109
 
         before_face_embedding = (
             postgres_session.query(FaceEmbedding)
@@ -91,8 +99,6 @@ class TestDeleteFace:
             .one()
         )
         assert before_face_embedding.is_active is True
-        assert before_face_embedding.deleted_at is None
-        before_updated_at = before_face_embedding.updated_at
 
         response = client_with_db.request(
             "DELETE",
@@ -114,10 +120,6 @@ class TestDeleteFace:
         after_face_embedding = (
             postgres_session.query(FaceEmbedding)
             .filter(FaceEmbedding.user_id == user_id)
-            .one()
+            .one_or_none()
         )
-        assert after_face_embedding.is_active is False
-        assert after_face_embedding.deleted_at is not None
-        assert after_face_embedding.updated_at is not None
-        assert after_face_embedding.updated_at > before_updated_at
-        assert after_face_embedding.updated_at == after_face_embedding.deleted_at
+        assert after_face_embedding is None

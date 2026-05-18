@@ -1,7 +1,24 @@
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, func, text
+from enum import Enum
+
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    Column,
+    DateTime,
+    func,
+    text,
+    Column,
+    Enum as SQLEnum
+)
 
 from .base_model import Base
 from .vector import Vector
+
+
+class ExtensionType(Enum):
+    JPEG = "jpeg"
+    PNG = "png"
+    JPG = "jpg"
 
 
 class FaceEmbedding(Base):
@@ -25,6 +42,15 @@ class FaceEmbedding(Base):
         nullable=False,
         comment="512次元の顔特徴量ベクトル",
     )
+    extension_type = Column(
+        SQLEnum(
+            ExtensionType,
+            values_callable=lambda enum_cls: [e.value for e in enum_cls],
+            name="extension_type",
+        ),
+        nullable=False,
+        comment="画像の拡張子",
+    )
     is_active = Column(
         Boolean,
         nullable=False,
@@ -46,9 +72,4 @@ class FaceEmbedding(Base):
         server_default=func.current_timestamp(),
         onupdate=func.current_timestamp(),
         comment="更新日時",
-    )
-    deleted_at = Column(
-        DateTime,
-        nullable=True,
-        comment="削除日時",
     )

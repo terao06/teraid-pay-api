@@ -1,10 +1,7 @@
 from enum import Enum
 from pydantic import BaseModel, Field
+from app.models.postgres.face_embedding import ExtensionType
 
-
-class ExtensionType(Enum):
-    JPEG = "jpeg"
-    PNG = "png"
 
 class FaceRegisterRequest(BaseModel):
     user_id: int = Field(..., description="登録対象ユーザーID")
