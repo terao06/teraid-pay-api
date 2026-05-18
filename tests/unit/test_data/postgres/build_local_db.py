@@ -4,7 +4,9 @@ import pkgutil
 import re
 import sys
 import time
+from functools import lru_cache
 from pathlib import Path
+from PIL import Image
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
@@ -18,6 +20,14 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from app.models.postgres.base_model import Base
+from app.helpers.face_helper import FaceHelper
+
+
+TEST_DATA_DIR = ROOT_DIR / "tests" / "unit" / "test_data"
+ADAFACE_WEIGHT_PATH = TEST_DATA_DIR / "s3" / "buckets" / "weights" / "adaface" / "adaface_ir50_ms1mv2.ckpt"
+SCRFD_WEIGHT_PATH = TEST_DATA_DIR / "s3" / "buckets" / "weights" / "scrfd" / "scrfd.onnx"
+TEST_FACE_PATH = TEST_DATA_DIR / "images" / "scrfd" / "one_face.png"
+TEST_FACE_EMBEDDING_USER_ID = 107
 
 
 def import_postgres_models() -> None:
@@ -106,8 +116,45 @@ def _execute_sql_file(engine, sql_file_name: str) -> str:
     return sql_file_name
 
 
+@lru_cache(maxsize=1)
+def _build_test_face_embedding() -> list[float]:
+
+    scrfd_weight_bytes = SCRFD_WEIGHT_PATH.read_bytes()
+    image = Image.open(TEST_FACE_PATH).convert("RGB")
+    face_image = FaceHelper.get_face_landmark(weight_bytes=scrfd_weight_bytes, image=image)
+    alignment_face = FaceHelper.alignment_face(face_image=face_image)
+
+    adaface_weight_bytes = ADAFACE_WEIGHT_PATH.read_bytes()
+    embedding = FaceHelper.get_embedding(weight_bytes=adaface_weight_bytes, face_image=alignment_face)
+    if len(embedding) != 512:
+        raise ValueError(f"test_face.png の embedding は 512 次元である必要があります: {len(embedding)}")
+    return embedding
+
+
+def _update_test_face_embedding(engine) -> None:
+    vector_literal = "[" + ",".join(str(float(value)) for value in _build_test_face_embedding()) + "]"
+    with engine.begin() as connection:
+        result = connection.execute(
+            text(
+                """
+                UPDATE face_embeddings
+                SET embedding = CAST(:embedding AS vector)
+                WHERE user_id = :user_id
+                """
+            ),
+            {
+                "embedding": vector_literal,
+                "user_id": TEST_FACE_EMBEDDING_USER_ID,
+            },
+        )
+        if result.rowcount != 1:
+            raise RuntimeError(f"user_id={TEST_FACE_EMBEDDING_USER_ID} の face_embedding が存在しません。")
+
+
 def insert_face_embeddings(engine) -> str:
-    return _execute_sql_file(engine, "face_embeddings.sql")
+    executed_file = _execute_sql_file(engine, "face_embeddings.sql")
+    _update_test_face_embedding(engine)
+    return executed_file
 
 
 def insert_sample_data(engine) -> list[str]:
@@ -136,7 +183,7 @@ def wait_for_database(engine, retries: int = 30, delay_seconds: int = 2) -> None
 
     raise SystemExit(f"Failed to connect to PostgreSQL after {retries} attempts: {last_error}")
 
-                          
+
 def main() -> None:
     import_postgres_models()
 

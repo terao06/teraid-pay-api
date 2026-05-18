@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 from PIL import Image
 import pytest
 
-from app.core.exceptions.custom_exception import UserNotFoundException
+from app.core.exceptions.custom_exception import FaceConflictException, UserNotFoundException
 from app.models.requests.face_register_request import ExtensionType
 from app.services.face_service import FaceService
 
@@ -89,7 +89,7 @@ class TestRegisterFace:
         face_landmark_kwargs = mock_get_face_landmark.call_args.kwargs
         assert face_landmark_kwargs["weight_bytes"] == b"scrfd-weight"
         assert face_landmark_kwargs["image"].mode == "RGB"
-        assert face_landmark_kwargs["image"].size == (112, 112)
+        assert face_landmark_kwargs["image"].size == (160, 120)
 
         mock_alignment_face.assert_called_once_with(face_image=face_image)
         mock_get_embedding.assert_called_once_with(
@@ -120,7 +120,71 @@ class TestRegisterFace:
         uploaded_image = Image.open(uploaded_body)
         assert uploaded_image.format == "PNG"
         assert uploaded_image.mode == "RGB"
-        assert uploaded_image.size == (112, 112)
+        assert uploaded_image.size == (160, 120)
+
+    @patch("app.services.face_service.TeraidPayApiLog.warning")
+    @patch("app.services.face_service.FaceEmbeddingRepository")
+    @patch("app.services.face_service.FaceHelper.get_embedding")
+    @patch("app.services.face_service.FaceHelper.alignment_face")
+    @patch("app.services.face_service.FaceHelper.get_face_landmark")
+    @patch("app.services.face_service.S3Client")
+    @patch("app.services.face_service.SsmClient")
+    def test_register_face_logs_distance_when_same_face_exists(
+        self,
+        mock_ssm_client_class,
+        mock_s3_client_class,
+        mock_get_face_landmark,
+        mock_alignment_face,
+        mock_get_embedding,
+        mock_repository_class,
+        mock_warning,
+    ) -> None:
+        postgres_session = Mock()
+        mysql_session = Mock()
+        user_id = 101
+        content = self._build_base64_image(format="PNG")
+        ssm_params = SimpleNamespace(
+            s3_endpoint="http://s3.local",
+            llm_weight_bucket="weights",
+            scrfd_weight="scrfd/model.onnx",
+            adaface_weight="adaface/model.ckpt",
+            face_image_bucket="faces",
+        )
+        s3_client = Mock()
+        face_image = Mock()
+        alignment_face = Image.new("RGB", (112, 112), color=(10, 20, 30))
+        embedding = [0.1] * 512
+        nearest_face = SimpleNamespace(
+            face_embedding=SimpleNamespace(user_id=202),
+            distance=0.1234,
+        )
+
+        mock_ssm_client_class.return_value = ssm_params
+        mock_s3_client_class.return_value = s3_client
+        s3_client.get_object.side_effect = [b"scrfd-weight", b"adaface-weight"]
+        mock_get_face_landmark.return_value = face_image
+        mock_alignment_face.return_value = alignment_face
+        mock_get_embedding.return_value = embedding
+        mock_repository = mock_repository_class.return_value
+        mock_repository.get_nearest_face_embedding.return_value = nearest_face
+
+        service = FaceService()
+        service.is_register_user = Mock(return_value=True)
+
+        with pytest.raises(FaceConflictException, match="この顔画像は既に登録されています。"):
+            service.register_face(
+                postgres_session=postgres_session,
+                mysql_session=mysql_session,
+                user_id=user_id,
+                content=content,
+                extension_type=ExtensionType.PNG,
+            )
+
+        mock_warning.assert_called_once_with(
+            "この顔画像は既に登録されています。 user_id: 202, distance: 0.1234"
+        )
+        mock_repository.create_face_embedding.assert_not_called()
+        s3_client.upload_object.assert_not_called()
 
     def test_register_face_raises_user_not_found_when_user_does_not_exist(self) -> None:
         postgres_session = Mock()
@@ -145,7 +209,7 @@ class TestRegisterFace:
 
     @staticmethod
     def _build_base64_image(format: str) -> str:
-        image = Image.new("RGB", (112, 112), color=(255, 0, 0))
+        image = Image.new("RGB", (160, 120), color=(255, 0, 0))
         with BytesIO() as buffer:
             image.save(buffer, format=format)
             return base64.b64encode(buffer.getvalue()).decode("ascii")

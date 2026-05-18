@@ -61,3 +61,51 @@ INSERT INTO users (
     '2024-03-02 00:00:00',
     NULL
 );
+
+INSERT INTO users (
+    user_id,
+    first_name,
+    last_name,
+    created_at,
+    updated_at,
+    deleted_at
+) VALUES (
+    105,
+    'Ichiro',
+    'Terao',
+    '2024-03-01 00:00:00',
+    '2024-03-02 00:00:00',
+    NULL
+);
+
+INSERT INTO users (
+    user_id,
+    first_name,
+    last_name,
+    created_at,
+    updated_at,
+    deleted_at
+) VALUES (
+    107,
+    'Shiro',
+    'Terao',
+    '2024-03-01 00:00:00',
+    '2024-03-02 00:00:00',
+    NULL
+);
+
+INSERT INTO users (
+    user_id,
+    first_name,
+    last_name,
+    created_at,
+    updated_at,
+    deleted_at
+) VALUES (
+    106,
+    'Saburo',
+    'Terao',
+    '2024-03-01 00:00:00',
+    '2024-03-02 00:00:00',
+    NULL
+);
