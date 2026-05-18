@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 from PIL import Image
 import pytest
 
-from app.core.exceptions.custom_exception import FaceConflictException, UserNotFoundException
+from app.core.exceptions.custom_exception import FaceConflictException, FaceEmbeddingNotFoundException, UserNotFoundException
 from app.models.requests.face_register_request import ExtensionType
 from app.services.face_service import FaceService
 
@@ -213,6 +213,98 @@ class TestRegisterFace:
         with BytesIO() as buffer:
             image.save(buffer, format=format)
             return base64.b64encode(buffer.getvalue()).decode("ascii")
+
+
+class TestDeleteFace:
+    @patch("app.services.face_service.FaceEmbeddingRepository")
+    def test_delete_face_deletes_existing_face_embedding(
+        self,
+        mock_repository_class,
+    ) -> None:
+        postgres_session = Mock()
+        mysql_session = Mock()
+        user_id = 101
+        target_embedding = Mock()
+        mock_repository = mock_repository_class.return_value
+        mock_repository.get_face_embedding_by_id.return_value = target_embedding
+        service = FaceService()
+        service.is_register_user = Mock(return_value=True)
+
+        result = service.delete_face(
+            postgres_session=postgres_session,
+            mysql_session=mysql_session,
+            user_id=user_id,
+        )
+
+        assert result is None
+        service.is_register_user.assert_called_once_with(
+            mysql_session=mysql_session,
+            user_id=user_id,
+        )
+        mock_repository_class.assert_called_once_with()
+        mock_repository.get_face_embedding_by_id.assert_called_once_with(
+            postgres_session=postgres_session,
+            user_id=user_id,
+        )
+        mock_repository.delete_face_embedding.assert_called_once_with(
+            postgres_session=postgres_session,
+            face_embedding=target_embedding,
+        )
+
+    def test_delete_face_raises_user_not_found_when_user_does_not_exist(self) -> None:
+        postgres_session = Mock()
+        mysql_session = Mock()
+        user_id = 999
+        service = FaceService()
+        service.is_register_user = Mock(return_value=False)
+
+        with pytest.raises(UserNotFoundException, match="ユーザーが存在しません。"):
+            service.delete_face(
+                postgres_session=postgres_session,
+                mysql_session=mysql_session,
+                user_id=user_id,
+            )
+
+        service.is_register_user.assert_called_once_with(
+            mysql_session=mysql_session,
+            user_id=user_id,
+        )
+
+    @patch("app.services.face_service.TeraidPayApiLog.warning")
+    @patch("app.services.face_service.FaceEmbeddingRepository")
+    def test_delete_face_raises_face_embedding_not_found_when_face_is_not_registered(
+        self,
+        mock_repository_class,
+        mock_warning,
+    ) -> None:
+        postgres_session = Mock()
+        mysql_session = Mock()
+        user_id = 101
+        mock_repository = mock_repository_class.return_value
+        mock_repository.get_face_embedding_by_id.return_value = None
+        service = FaceService()
+        service.is_register_user = Mock(return_value=True)
+
+        with pytest.raises(FaceEmbeddingNotFoundException, match="顔画像が登録されていません。"):
+            service.delete_face(
+                postgres_session=postgres_session,
+                mysql_session=mysql_session,
+                user_id=user_id,
+            )
+
+        service.is_register_user.assert_called_once_with(
+            mysql_session=mysql_session,
+            user_id=user_id,
+        )
+        mock_repository_class.assert_called_once_with()
+        mock_repository.get_face_embedding_by_id.assert_called_once_with(
+            postgres_session=postgres_session,
+            user_id=user_id,
+        )
+        mock_warning.assert_called_once_with(
+            "対象のユーザーIDに顔画像は登録されていません。 user_id: 101"
+        )
+        mock_repository.delete_face_embedding.assert_not_called()
 
 
 class TestIsRegisterUser:

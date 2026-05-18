@@ -9,6 +9,10 @@ class UserNotFoundException(Exception):
     pass
 
 
+class FaceEmbeddingNotFoundException(Exception):
+    pass
+
+
 class WalletConflictException(Exception):
     pass
 
