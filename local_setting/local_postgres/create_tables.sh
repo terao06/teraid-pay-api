@@ -20,11 +20,14 @@ psql -v ON_ERROR_STOP=1 \
         -- 512次元 embedding
         embedding VECTOR(512) NOT NULL,
 
+        -- 画像の拡張子
+        extension_type VARCHAR(10) NOT NULL
+            CHECK (extension_type IN ('jpeg', 'png', 'jpg')),
+
         is_active BOOLEAN NOT NULL DEFAULT TRUE,
 
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        deleted_at TIMESTAMP NULL
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
     -- ==========================================
