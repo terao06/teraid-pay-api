@@ -20,12 +20,13 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from app.models.postgres.base_model import Base
-from app.ml.adaface import AdaFace
+from app.helpers.face_helper import FaceHelper
 
 
 TEST_DATA_DIR = ROOT_DIR / "tests" / "unit" / "test_data"
 ADAFACE_WEIGHT_PATH = TEST_DATA_DIR / "s3" / "buckets" / "weights" / "adaface" / "adaface_ir50_ms1mv2.ckpt"
-TEST_FACE_PATH = TEST_DATA_DIR / "images" / "adaface" / "test_face.png"
+SCRFD_WEIGHT_PATH = TEST_DATA_DIR / "s3" / "buckets" / "weights" / "scrfd" / "scrfd.onnx"
+TEST_FACE_PATH = TEST_DATA_DIR / "images" / "scrfd" / "one_face.png"
 TEST_FACE_EMBEDDING_USER_ID = 107
 
 
@@ -118,9 +119,13 @@ def _execute_sql_file(engine, sql_file_name: str) -> str:
 @lru_cache(maxsize=1)
 def _build_test_face_embedding() -> list[float]:
 
-    weight_bytes = ADAFACE_WEIGHT_PATH.read_bytes()
-    image = Image.open(TEST_FACE_PATH).convert("RGB").resize((112, 112))
-    embedding = AdaFace(weight_bytes=weight_bytes).get_embedding(image=image)
+    scrfd_weight_bytes = SCRFD_WEIGHT_PATH.read_bytes()
+    image = Image.open(TEST_FACE_PATH).convert("RGB")
+    face_image = FaceHelper.get_face_landmark(weight_bytes=scrfd_weight_bytes, image=image)
+    alignment_face = FaceHelper.alignment_face(face_image=face_image)
+
+    adaface_weight_bytes = ADAFACE_WEIGHT_PATH.read_bytes()
+    embedding = FaceHelper.get_embedding(weight_bytes=adaface_weight_bytes, face_image=alignment_face)
     if len(embedding) != 512:
         raise ValueError(f"test_face.png の embedding は 512 次元である必要があります: {len(embedding)}")
     return embedding

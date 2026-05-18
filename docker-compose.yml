@@ -4,6 +4,7 @@ services:
     image: teraid-pay-api-app:local
     container_name: teraid-pay-api-app
     platform: linux/amd64
+    gpus: all
     build:
       context: .
       dockerfile: ./docker/local/Dockerfile
@@ -77,6 +78,11 @@ services:
       - MINIO_ROOT_USER=dummy
       - MINIO_ROOT_PASSWORD=dummy123
     command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     networks:
       - teraid-pay-api-network
     restart: always
@@ -84,7 +90,8 @@ services:
   minio-init:
     image: minio/mc
     depends_on:
-      - teraid-pay-api-s3
+      teraid-pay-api-s3:
+        condition: service_healthy
     entrypoint: ["/bin/sh", "-c"]
     command: >
       "

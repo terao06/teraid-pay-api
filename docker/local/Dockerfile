@@ -45,7 +45,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -v -r requirements.txt
 
-RUN pip install onnxruntime-gpu -i https://pypi.org/simple \
+RUN pip install onnxruntime-gpu==1.23.2 -i https://pypi.org/simple \
     --trusted-host pypi.org \
     --trusted-host files.pythonhosted.org \
     --timeout 300 \

@@ -4,10 +4,10 @@ from app.middlewares.request_wrapper import request_rapper
 from app.middlewares.response_wrapper import response_rapper
 from app.models.requests.face_register_request import FaceImageProcessingRequest
 
-payment_router = APIRouter()
+face_router = APIRouter()
 
 
-@payment_router.post("/")
+@face_router.post("/")
 @response_rapper()
 @request_rapper()
 def register_face(request: FaceImageProcessingRequest):

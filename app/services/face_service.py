@@ -41,8 +41,7 @@ class FaceService:
 
         image_bytes = base64.b64decode(content)
 
-        # NOTE: resizeすることでAIモデルの入力サイズに合わせる
-        target_image = Image.open(BytesIO(image_bytes)).convert("RGB").resize((112, 112))
+        target_image = Image.open(BytesIO(image_bytes)).convert("RGB")
         ssm_params = SsmClient()
         s3_client = S3Client(s3_endpoint=ssm_params.s3_endpoint)
         face_embedding_repository = FaceEmbeddingRepository()
@@ -67,7 +66,10 @@ class FaceService:
             exclusion_user_id=user_id,
         )
         if face is not None:
-            TeraidPayApiLog.warning(f"この顔画像は既に登録されています。 user_id: {face.user_id}")
+            TeraidPayApiLog.warning(
+                f"この顔画像は既に登録されています。 "
+                f"user_id: {face.face_embedding.user_id}, distance: {face.distance}"
+            )
             raise FaceConflictException("この顔画像は既に登録されています。")
 
         embedding_info = FaceEmbedding(

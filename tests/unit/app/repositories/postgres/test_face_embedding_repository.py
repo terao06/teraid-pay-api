@@ -96,7 +96,8 @@ class TestGetNearestFaceEmbedding:
         )
 
         assert result is not None
-        assert result.user_id == 102
+        assert result.face_embedding.user_id == 102
+        assert result.distance == pytest.approx(0.0)
 
     @pytest.mark.usefixtures("insert_face_embeddings")
     def test_get_nearest_face_embedding_returns_none_when_no_embedding_matches(
@@ -131,7 +132,8 @@ class TestGetNearestFaceEmbedding:
         )
 
         assert result is not None
-        assert result.user_id == 101
+        assert result.face_embedding.user_id == 101
+        assert result.distance == pytest.approx(0.2)
 
     @pytest.mark.usefixtures("insert_face_embeddings")
     def test_get_nearest_face_embedding_excludes_deleted_embedding(

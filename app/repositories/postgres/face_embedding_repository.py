@@ -1,7 +1,15 @@
+from dataclasses import dataclass
+
 from sqlalchemy import Float, bindparam, cast
 from sqlalchemy.orm import Session
 
 from app.models.postgres.face_embedding import FaceEmbedding
+
+
+@dataclass(frozen=True)
+class NearestFaceEmbedding:
+    face_embedding: FaceEmbedding
+    distance: float
 
 
 class FaceEmbeddingRepository:
@@ -37,7 +45,7 @@ class FaceEmbeddingRepository:
         embedding: list[float],
         threshold: float,
         exclusion_user_id: int,
-    ) -> FaceEmbedding | None:
+    ) -> NearestFaceEmbedding | None:
         """指定したベクトルに最も近い有効な顔特徴量を取得する。
 
         Args:
@@ -47,7 +55,7 @@ class FaceEmbeddingRepository:
             exclusion_user_id: 検索対象から除外するユーザーID。
 
         Returns:
-            face_embedding: 最も近い顔特徴量。該当がない場合は None。
+            nearest_face_embedding: 最も近い顔特徴量と距離。該当がない場合は None。
         """
         embedding_values = self._validate_embedding(embedding)
         distance = FaceEmbedding.embedding.op("<->", return_type=Float)(
@@ -61,14 +69,22 @@ class FaceEmbeddingRepository:
             )
         )
 
-        return (
-            postgres_session.query(FaceEmbedding)
+        result = (
+            postgres_session.query(FaceEmbedding, distance.label("distance"))
             .filter(FaceEmbedding.is_active.is_(True))
             .filter(FaceEmbedding.deleted_at.is_(None))
             .filter(FaceEmbedding.user_id != exclusion_user_id)
             .filter(distance <= threshold)
             .order_by(distance)
             .first()
+        )
+        if result is None:
+            return None
+
+        face_embedding, nearest_distance = result
+        return NearestFaceEmbedding(
+            face_embedding=face_embedding,
+            distance=float(nearest_distance),
         )
 
     def _validate_embedding(self, embedding: list[float]) -> list[float]:
