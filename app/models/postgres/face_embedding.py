@@ -47,8 +47,3 @@ class FaceEmbedding(Base):
         onupdate=func.current_timestamp(),
         comment="更新日時",
     )
-    deleted_at = Column(
-        DateTime,
-        nullable=True,
-        comment="削除日時",
-    )

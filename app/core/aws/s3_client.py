@@ -49,3 +49,24 @@ class S3Client:
         except ClientError as e:
             print(f"Error uploading file: {e}")
             raise
+    
+    def delete_object(self, bucket_name: str, file_name: str) -> None:
+        """
+        S3のファイルを削除
+
+        Args:
+            bucket_name: bucket名
+            file_name: ファイル名（S3キー）
+
+        Returns:
+            None
+        """
+        try:
+            self.client.delete_object(
+                Bucket=bucket_name,
+                Key=file_name
+            )
+
+        except ClientError as e:
+            print(f"Error deleting file: {e}")
+            raise

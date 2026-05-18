@@ -7,13 +7,14 @@ from app.core.aws.s3_client import S3Client
 from tests.unit.test_data.s3.build_s3 import ENDPOINT_URL
 
 
-@pytest.mark.usefixtures("initialize_s3")
 class TestS3Client:
+    @pytest.mark.usefixtures("initialize_s3")
     def test_init(self) -> None:
         s3_client = S3Client()
 
         assert s3_client.client.meta.endpoint_url == ENDPOINT_URL
 
+    @pytest.mark.usefixtures("initialize_s3")
     def test_get_object(self) -> None:
         s3_client = S3Client()
 
@@ -21,6 +22,7 @@ class TestS3Client:
 
         assert content.startswith(b"# SCRFD weight")
 
+    @pytest.mark.usefixtures("initialize_s3")
     def test_get_object_with_missing_key(self) -> None:
         s3_client = S3Client()
 
@@ -29,6 +31,7 @@ class TestS3Client:
 
         assert exc_info.value.response["Error"]["Code"] == "NoSuchKey"
 
+    @pytest.mark.usefixtures("initialize_s3")
     def test_upload_object(self) -> None:
         s3_client = S3Client()
         content = b"%PDF-1.4\nupload test\n"
@@ -45,6 +48,7 @@ class TestS3Client:
         assert response["Body"].read() == content
         assert response["ContentType"] == "application/pdf"
 
+    @pytest.mark.usefixtures("initialize_s3")
     def test_upload_object_with_missing_bucket(self) -> None:
         s3_client = S3Client()
 
@@ -53,6 +57,31 @@ class TestS3Client:
                 bucket_name="missing-bucket",
                 file=BytesIO(b"upload test"),
                 filename="uploads/missing_bucket.pdf",
+            )
+
+        assert exc_info.value.response["Error"]["Code"] == "NoSuchBucket"
+
+    @pytest.mark.usefixtures("initialize_s3")
+    def test_delete_object(self) -> None:
+        s3_client = S3Client()
+        filename = "101.png"
+
+        result = s3_client.delete_object(bucket_name="faces", file_name=filename)
+
+        assert result is None
+        with pytest.raises(ClientError) as exc_info:
+            s3_client.client.get_object(Bucket="faces", Key=filename)
+
+        assert exc_info.value.response["Error"]["Code"] == "NoSuchKey"
+
+    @pytest.mark.usefixtures("initialize_s3")
+    def test_delete_object_with_missing_bucket(self) -> None:
+        s3_client = S3Client()
+
+        with pytest.raises(ClientError) as exc_info:
+            s3_client.delete_object(
+                bucket_name="missing-bucket",
+                file_name="uploads/missing_bucket.pdf",
             )
 
         assert exc_info.value.response["Error"]["Code"] == "NoSuchBucket"

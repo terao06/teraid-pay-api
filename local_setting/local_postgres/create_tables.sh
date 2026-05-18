@@ -23,8 +23,7 @@ psql -v ON_ERROR_STOP=1 \
         is_active BOOLEAN NOT NULL DEFAULT TRUE,
 
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        deleted_at TIMESTAMP NULL
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
     -- ==========================================

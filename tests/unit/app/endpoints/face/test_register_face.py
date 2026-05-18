@@ -131,7 +131,6 @@ class TestRegisterFace:
         assert saved_face_embedding.is_active is True
         assert saved_face_embedding.created_at is not None
         assert saved_face_embedding.updated_at is not None
-        assert saved_face_embedding.deleted_at is None
 
         s3_client = boto3.client(
             "s3",
