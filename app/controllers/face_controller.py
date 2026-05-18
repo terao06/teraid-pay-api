@@ -104,10 +104,7 @@ class faceController:
                 status_code=400,
                 message=FACE_NOT_REGISTERED_ERROR)
 
-        except Exception as e:
-            print("####################")
-            print(e)
-            print("####################")
+        except Exception:
             raise CustomHttpException.get_http_exception(
                 status_code=500,
                 message=SERVER_ERROR)
