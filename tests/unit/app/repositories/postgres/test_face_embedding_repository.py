@@ -76,6 +76,98 @@ class TestCreateFaceEmbedding:
         assert saved_face_embeddings[0].deleted_at is None
 
 
+class TestGetFaceEmbeddingById:
+    """get_face_embedding_by_id の単体テスト。"""
+
+    @pytest.mark.usefixtures("insert_face_embeddings")
+    def test_get_face_embedding_by_id_returns_face_embedding(
+        self,
+        postgres_session: Session,
+    ) -> None:
+        """指定した user_id の未削除 face_embedding を取得することを確認する。"""
+        repository = FaceEmbeddingRepository()
+
+        result = repository.get_face_embedding_by_id(
+            postgres_session=postgres_session,
+            user_id=101,
+        )
+
+        assert result is not None
+        assert result.user_id == 101
+        assert result.embedding == [0.8] + [0.0] * 511
+        assert result.is_active is True
+        assert result.deleted_at is None
+
+    @pytest.mark.usefixtures("insert_face_embeddings")
+    def test_get_face_embedding_by_id_returns_none_when_user_does_not_exist(
+        self,
+        postgres_session: Session,
+    ) -> None:
+        """指定した user_id の face_embedding が存在しない場合は None を返すことを確認する。"""
+        repository = FaceEmbeddingRepository()
+
+        result = repository.get_face_embedding_by_id(
+            postgres_session=postgres_session,
+            user_id=999,
+        )
+
+        assert result is None
+
+    @pytest.mark.usefixtures("insert_face_embeddings")
+    def test_get_face_embedding_by_id_returns_none_when_embedding_is_deleted(
+        self,
+        postgres_session: Session,
+    ) -> None:
+        """指定した user_id の face_embedding が削除済みの場合は None を返すことを確認する。"""
+        repository = FaceEmbeddingRepository()
+
+        result = repository.get_face_embedding_by_id(
+            postgres_session=postgres_session,
+            user_id=104,
+        )
+
+        assert result is None
+
+
+class TestDeleteFaceEmbedding:
+    """delete_face_embedding の単体テスト。"""
+
+    @pytest.mark.usefixtures("insert_face_embeddings")
+    def test_delete_face_embedding_sets_deleted_at_and_updated_at(
+        self,
+        postgres_session: Session,
+    ) -> None:
+        """face_embedding を物理削除せず、削除日時と更新日時を設定することを確認する。"""
+        repository = FaceEmbeddingRepository()
+        face_embedding = (
+            postgres_session.query(FaceEmbedding)
+            .filter(FaceEmbedding.user_id == 108)
+            .one()
+        )
+        face_embedding_id = face_embedding.face_embedding_id
+        created_at = face_embedding.created_at
+        embedding = face_embedding.embedding
+
+        result = repository.delete_face_embedding(postgres_session, face_embedding)
+        postgres_session.flush()
+        postgres_session.expire_all()
+
+        saved_face_embedding = (
+            postgres_session.query(FaceEmbedding)
+            .filter(FaceEmbedding.face_embedding_id == face_embedding_id)
+            .one()
+        )
+
+        assert result is face_embedding
+        assert saved_face_embedding.face_embedding_id == face_embedding_id
+        assert saved_face_embedding.user_id == 108
+        assert saved_face_embedding.embedding == embedding
+        assert saved_face_embedding.is_active is False
+        assert saved_face_embedding.created_at == created_at
+        assert saved_face_embedding.deleted_at is not None
+        assert saved_face_embedding.updated_at == saved_face_embedding.deleted_at
+
+
 class TestGetNearestFaceEmbedding:
     """get_nearest_face_embedding の単体テスト。"""
 

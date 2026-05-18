@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.aws.s3_client import S3Client
 from app.core.aws.ssm_manager import SsmClient
-from app.core.exceptions.custom_exception import FaceConflictException, UserNotFoundException
+from app.core.exceptions.custom_exception import FaceConflictException, FaceEmbeddingNotFoundException, UserNotFoundException
 from app.core.utils.logging import TeraidPayApiLog
 from app.helpers.face_helper import FaceHelper
 from app.models.postgres.face_embedding import FaceEmbedding
@@ -89,6 +89,25 @@ class FaceService:
                 file=buffer,
                 filename=f"{user_id}.{extension_type.value}",
             )
+    
+    def delete_face(self, postgres_session: Session, mysql_session: Session, user_id: int) -> None:
+        if self.is_register_user(mysql_session=mysql_session, user_id=user_id) is False:
+            TeraidPayApiLog.warning(f"対象のユーザーは存在しません。 user_id: {user_id}")
+            raise UserNotFoundException("ユーザーが存在しません。")
+
+        face_embedding_repository = FaceEmbeddingRepository()
+        target_embedding = face_embedding_repository.get_face_embedding_by_id(
+            postgres_session=postgres_session,
+            user_id=user_id
+        )
+        if not target_embedding:
+            TeraidPayApiLog.warning(f"対象のユーザーIDに顔画像は登録されていません。 user_id: {user_id}")
+            raise FaceEmbeddingNotFoundException("顔画像が登録されていません。")
+
+        face_embedding_repository.delete_face_embedding(
+            postgres_session=postgres_session,
+            face_embedding=target_embedding
+        )
 
     def is_register_user(self, mysql_session: Session, user_id: int) -> bool:
         """user_idを持つユーザーが存在するか検証する

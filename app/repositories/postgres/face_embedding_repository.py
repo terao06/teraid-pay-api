@@ -1,8 +1,10 @@
 from dataclasses import dataclass
+from datetime import datetime
 
 from sqlalchemy import Float, bindparam, cast
 from sqlalchemy.orm import Session
 
+from app.core.utils.datetime import JST
 from app.models.postgres.face_embedding import FaceEmbedding
 
 
@@ -13,6 +15,23 @@ class NearestFaceEmbedding:
 
 
 class FaceEmbeddingRepository:
+    def get_face_embedding_by_id(self, postgres_session: Session, user_id: int) -> FaceEmbedding | None:
+        """指定したuser_idの顔特徴量を取得する。
+
+        Args:
+            postgres_session: SQLAlchemy のセッション。
+            user_id: 検索対象のユーザーID。
+
+        Returns:
+            face_embedding: 対象ユーザーの顔特徴データ。該当がない場合は None。
+        """
+        return (
+            postgres_session.query(FaceEmbedding)
+            .filter(FaceEmbedding.deleted_at.is_(None))
+            .filter(FaceEmbedding.user_id == user_id)
+            .first()
+        )
+
     def create_face_embedding(self, postgres_session: Session, face_embedding: FaceEmbedding) -> FaceEmbedding:
         """顔画像から取得したベクトルデータを登録または更新する。
 
@@ -37,6 +56,25 @@ class FaceEmbeddingRepository:
 
         postgres_session.add(face_embedding)
         postgres_session.flush()
+        return face_embedding
+
+    def delete_face_embedding(self, postgres_session: Session, face_embedding: FaceEmbedding) -> FaceEmbedding:
+        """顔画像から取得したベクトルデータを削除する。
+
+        Args:
+            postgres_session: SQLAlchemy のセッション。
+            face_embedding: 削除する顔画像ベクトル情報。
+
+        Returns:
+            face_embedding: 削除した顔画像ベクトル情報。
+        """
+
+        now = datetime.now(JST)
+        face_embedding.is_active = False
+        face_embedding.deleted_at = now
+        face_embedding.updated_at = now
+
+        postgres_session.add(face_embedding)
         return face_embedding
 
     def get_nearest_face_embedding(

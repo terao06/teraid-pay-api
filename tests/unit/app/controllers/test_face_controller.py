@@ -6,21 +6,24 @@ from fastapi import HTTPException
 from app.controllers.face_controller import faceController
 from app.core.exceptions.custom_exception import (
     FaceConflictException,
+    FaceEmbeddingNotFoundException,
     FaceNotFoundException,
     SameFaceFoundException,
     UserNotFoundException,
 )
 from app.core.exceptions.message import (
     FACE_ALREADY_REGISTERED_ERROR,
+    FACE_NOT_REGISTERED_ERROR,
     FACE_NOTE_FOUND_ERROR,
     REGISTER_FACE_ERROR,
     SAME_FACE_FOUND_ERROR,
     SERVER_ERROR,
     USER_NOT_FOUND_ERROR,
 )
+from app.models.requests.face_delete_request import FaceDeleteRequest
 from app.models.requests.face_register_request import (
     ExtensionType,
-    FaceImageProcessingRequest,
+    FaceRegisterRequest,
 )
 
 
@@ -29,7 +32,7 @@ class TestRegisterFace:
     def test_register_face(self, mock_service_class) -> None:
         postgres_session = Mock()
         mysql_session = Mock()
-        request = FaceImageProcessingRequest(
+        request = FaceRegisterRequest(
             user_id=101,
             content="base64-encoded-image",
             extension_type=ExtensionType.PNG,
@@ -78,7 +81,7 @@ class TestRegisterFace:
     ) -> None:
         postgres_session = Mock()
         mysql_session = Mock()
-        request = FaceImageProcessingRequest(
+        request = FaceRegisterRequest(
             user_id=101,
             content="base64-encoded-image",
             extension_type=ExtensionType.PNG,
@@ -88,6 +91,70 @@ class TestRegisterFace:
 
         with pytest.raises(HTTPException) as exc_info:
             faceController.register_face.__wrapped__.__wrapped__(
+                faceController(),
+                postgres_session=postgres_session,
+                mysql_session=mysql_session,
+                request=request,
+            )
+
+        assert exc_info.value.status_code == expected_status_code
+        assert exc_info.value.detail == {
+            "status": "error",
+            "message": expected_message,
+        }
+
+
+class TestDeleteFace:
+    @patch("app.controllers.face_controller.FaceService")
+    def test_delete_face(self, mock_service_class) -> None:
+        postgres_session = Mock()
+        mysql_session = Mock()
+        request = FaceDeleteRequest(user_id=101)
+        mock_service = mock_service_class.return_value
+        mock_service.delete_face.return_value = None
+
+        result = faceController.delete_face.__wrapped__.__wrapped__(
+            faceController(),
+            postgres_session=postgres_session,
+            mysql_session=mysql_session,
+            request=request,
+        )
+
+        mock_service.delete_face.assert_called_once_with(
+            postgres_session=postgres_session,
+            mysql_session=mysql_session,
+            user_id=request.user_id,
+        )
+        assert result is None
+
+    @patch("app.controllers.face_controller.FaceService")
+    @pytest.mark.parametrize(
+        ("side_effect", "expected_status_code", "expected_message"),
+        [
+            (UserNotFoundException("user not found"), 404, USER_NOT_FOUND_ERROR),
+            (
+                FaceEmbeddingNotFoundException("face embedding not found"),
+                400,
+                FACE_NOT_REGISTERED_ERROR,
+            ),
+            (Exception("unexpected error"), 500, SERVER_ERROR),
+        ],
+    )
+    def test_delete_face_raise_http_exception(
+        self,
+        mock_service_class,
+        side_effect,
+        expected_status_code,
+        expected_message,
+    ) -> None:
+        postgres_session = Mock()
+        mysql_session = Mock()
+        request = FaceDeleteRequest(user_id=101)
+        mock_service = mock_service_class.return_value
+        mock_service.delete_face.side_effect = side_effect
+
+        with pytest.raises(HTTPException) as exc_info:
+            faceController.delete_face.__wrapped__.__wrapped__(
                 faceController(),
                 postgres_session=postgres_session,
                 mysql_session=mysql_session,
