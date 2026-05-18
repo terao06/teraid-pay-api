@@ -12,8 +12,6 @@ from tests.unit.test_data.s3.build_s3 import REGION_NAME as S3_REGION_NAME
 from tests.unit.test_data.ssm.build_ssm import (
     AWS_ACCESS_KEY_ID,
     AWS_SECRET_ACCESS_KEY,
-    ENDPOINT_URL as SSM_ENDPOINT_URL,
-    REGION_NAME as SSM_REGION_NAME,
 )
 
 torch = pytest.importorskip("torch")
@@ -96,14 +94,20 @@ class TestRegisterFace:
             }
         }
 
-    @pytest.mark.usefixtures("postgres_engine", "mysql_engine", "insert_users", "initialize_s3", "initialize_ssm")
+    @pytest.mark.usefixtures(
+        "postgres_engine",
+        "mysql_engine",
+        "insert_users",
+        "initialize_s3",
+        "initialize_ssm",
+        "use_local_s3_endpoint",
+    )
     def test_with_db(
         self,
         client_with_db,
         postgres_session,
     ) -> None:
         """DB 連携で顔画像を登録し、保存内容とレスポンスが一致することを確認する。"""
-        self._put_ssm_parameter("s3_endpoint", S3_ENDPOINT_URL)
         user_id = 101
 
         response = client_with_db.post(
@@ -141,19 +145,3 @@ class TestRegisterFace:
         )
         response = s3_client.get_object(Bucket="faces", Key=f"{user_id}.png")
         assert response["Body"].read() != b""
-
-    @staticmethod
-    def _put_ssm_parameter(name: str, value: str) -> None:
-        ssm_client = boto3.client(
-            "ssm",
-            endpoint_url=SSM_ENDPOINT_URL,
-            region_name=SSM_REGION_NAME,
-            aws_access_key_id=AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-        )
-        ssm_client.put_parameter(
-            Name=name,
-            Value=value,
-            Type="String",
-            Overwrite=True,
-        )

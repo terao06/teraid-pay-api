@@ -22,9 +22,9 @@ from app.core.exceptions.message import (
 )
 from app.models.requests.face_delete_request import FaceDeleteRequest
 from app.models.requests.face_register_request import (
-    ExtensionType,
     FaceRegisterRequest,
 )
+from app.models.postgres.face_embedding import ExtensionType
 
 
 class TestRegisterFace:

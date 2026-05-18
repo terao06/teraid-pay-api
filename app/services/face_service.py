@@ -8,8 +8,7 @@ from app.core.aws.ssm_manager import SsmClient
 from app.core.exceptions.custom_exception import FaceConflictException, FaceEmbeddingNotFoundException, UserNotFoundException
 from app.core.utils.logging import TeraidPayApiLog
 from app.helpers.face_helper import FaceHelper
-from app.models.postgres.face_embedding import FaceEmbedding
-from app.models.requests.face_register_request import ExtensionType
+from app.models.postgres.face_embedding import FaceEmbedding, ExtensionType
 from app.repositories.postgres.face_embedding_repository import FaceEmbeddingRepository
 from app.repositories.mysql.user_repository import UserRepository
 
@@ -75,6 +74,7 @@ class FaceService:
         embedding_info = FaceEmbedding(
             user_id=user_id,
             embedding=embedding,
+            extension_type=extension_type,
             is_active=True,
         )
 
@@ -87,9 +87,9 @@ class FaceService:
             s3_client.upload_object(
                 bucket_name=ssm_params.face_image_bucket,
                 file=buffer,
-                filename=f"{user_id}.{extension_type.value}",
+                file_name=f"{user_id}.{extension_type.value}",
             )
-    
+
     def delete_face(self, postgres_session: Session, mysql_session: Session, user_id: int) -> None:
         if self.is_register_user(mysql_session=mysql_session, user_id=user_id) is False:
             TeraidPayApiLog.warning(f"対象のユーザーは存在しません。 user_id: {user_id}")
@@ -108,6 +108,13 @@ class FaceService:
             postgres_session=postgres_session,
             face_embedding=target_embedding
         )
+
+        ssm_params = SsmClient()
+        s3_client = S3Client(s3_endpoint=ssm_params.s3_endpoint)
+        s3_client.delete_object(
+                bucket_name=ssm_params.face_image_bucket,
+                file_name=f"{user_id}.{target_embedding.extension_type.value}",
+            )
 
     def is_register_user(self, mysql_session: Session, user_id: int) -> bool:
         """user_idを持つユーザーが存在するか検証する

@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy.orm import Session
 
-from app.models.postgres.face_embedding import FaceEmbedding
+from app.models.postgres.face_embedding import FaceEmbedding, ExtensionType
 from app.repositories.postgres.face_embedding_repository import FaceEmbeddingRepository
 
 
@@ -17,6 +17,7 @@ class TestCreateFaceEmbedding:
         face_embedding = FaceEmbedding(
             user_id=101,
             embedding=[0.1] * 512,
+            extension_type=ExtensionType.JPEG
         )
 
         result = repository.create_face_embedding(postgres_session, face_embedding)
@@ -33,28 +34,28 @@ class TestCreateFaceEmbedding:
         assert saved_face_embedding.user_id == 101
         assert saved_face_embedding.embedding == [0.1] * 512
         assert saved_face_embedding.is_active is True
+        assert saved_face_embedding.extension_type == ExtensionType.JPEG
         assert saved_face_embedding.created_at is not None
         assert saved_face_embedding.updated_at is not None
 
+    @pytest.mark.usefixtures("insert_face_embeddings")
     def test_create_face_embedding_updates_existing_user_embedding(
         self,
         postgres_session: Session,
     ) -> None:
         """同じ user_id の登録がある場合は既存レコードを更新することを確認する。"""
         repository = FaceEmbeddingRepository()
-        existing_face_embedding = FaceEmbedding(
-            user_id=201,
-            embedding=[0.1] * 512,
-            is_active=True,
+        existing_face_embedding = (
+            postgres_session.query(FaceEmbedding)
+            .filter(FaceEmbedding.user_id == 101)
+            .one()
         )
-        postgres_session.add(existing_face_embedding)
-        postgres_session.flush()
         existing_face_embedding_id = existing_face_embedding.face_embedding_id
 
         result = repository.create_face_embedding(
             postgres_session,
             FaceEmbedding(
-                user_id=201,
+                user_id=101,
                 embedding=[0.2] * 512,
                 is_active=True,
             ),
@@ -63,7 +64,7 @@ class TestCreateFaceEmbedding:
 
         saved_face_embeddings = (
             postgres_session.query(FaceEmbedding)
-            .filter(FaceEmbedding.user_id == 201)
+            .filter(FaceEmbedding.user_id == 101)
             .all()
         )
 

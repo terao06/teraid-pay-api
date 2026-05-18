@@ -35,16 +35,16 @@ class TestS3Client:
     def test_upload_object(self) -> None:
         s3_client = S3Client()
         content = b"%PDF-1.4\nupload test\n"
-        filename = "uploads/test_upload_object.pdf"
+        file_name = "uploads/test_upload_object.pdf"
 
-        uploaded_filename = s3_client.upload_object(
+        uploaded_file_name = s3_client.upload_object(
             bucket_name="faces",
             file=BytesIO(content),
-            filename=filename,
+            file_name=file_name,
         )
-        response = s3_client.client.get_object(Bucket="faces", Key=filename)
+        response = s3_client.client.get_object(Bucket="faces", Key=file_name)
 
-        assert uploaded_filename == filename
+        assert uploaded_file_name == file_name
         assert response["Body"].read() == content
         assert response["ContentType"] == "application/pdf"
 
@@ -56,7 +56,7 @@ class TestS3Client:
             s3_client.upload_object(
                 bucket_name="missing-bucket",
                 file=BytesIO(b"upload test"),
-                filename="uploads/missing_bucket.pdf",
+                file_name="uploads/missing_bucket.pdf",
             )
 
         assert exc_info.value.response["Error"]["Code"] == "NoSuchBucket"
@@ -64,13 +64,13 @@ class TestS3Client:
     @pytest.mark.usefixtures("initialize_s3")
     def test_delete_object(self) -> None:
         s3_client = S3Client()
-        filename = "101.png"
+        file_name = "101.png"
 
-        result = s3_client.delete_object(bucket_name="faces", file_name=filename)
+        result = s3_client.delete_object(bucket_name="faces", file_name=file_name)
 
         assert result is None
         with pytest.raises(ClientError) as exc_info:
-            s3_client.client.get_object(Bucket="faces", Key=filename)
+            s3_client.client.get_object(Bucket="faces", Key=file_name)
 
         assert exc_info.value.response["Error"]["Code"] == "NoSuchKey"
 

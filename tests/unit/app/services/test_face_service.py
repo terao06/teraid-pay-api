@@ -7,7 +7,7 @@ from PIL import Image
 import pytest
 
 from app.core.exceptions.custom_exception import FaceConflictException, FaceEmbeddingNotFoundException, UserNotFoundException
-from app.models.requests.face_register_request import ExtensionType
+from app.models.postgres.face_embedding import ExtensionType
 from app.services.face_service import FaceService
 
 
@@ -48,7 +48,7 @@ class TestRegisterFace:
         s3_client.get_object.side_effect = [b"scrfd-weight", b"adaface-weight"]
         uploaded_body = BytesIO()
 
-        def capture_uploaded_file(bucket_name, file, filename) -> None:
+        def capture_uploaded_file(bucket_name, file, file_name) -> None:
             uploaded_body.write(file.read())
 
         s3_client.upload_object.side_effect = capture_uploaded_file
@@ -115,7 +115,7 @@ class TestRegisterFace:
         s3_client.upload_object.assert_called_once()
         upload_kwargs = s3_client.upload_object.call_args.kwargs
         assert upload_kwargs["bucket_name"] == "faces"
-        assert upload_kwargs["filename"] == "101.png"
+        assert upload_kwargs["file_name"] == "101.png"
         uploaded_body.seek(0)
         uploaded_image = Image.open(uploaded_body)
         assert uploaded_image.format == "PNG"
@@ -217,14 +217,25 @@ class TestRegisterFace:
 
 class TestDeleteFace:
     @patch("app.services.face_service.FaceEmbeddingRepository")
+    @patch("app.services.face_service.S3Client")
+    @patch("app.services.face_service.SsmClient")
     def test_delete_face_deletes_existing_face_embedding(
         self,
+        mock_ssm_client_class,
+        mock_s3_client_class,
         mock_repository_class,
     ) -> None:
         postgres_session = Mock()
         mysql_session = Mock()
         user_id = 101
         target_embedding = Mock()
+        target_embedding.extension_type = ExtensionType.PNG
+        ssm_params = SimpleNamespace(
+            s3_endpoint="http://s3.local",
+            face_image_bucket="faces",
+        )
+        mock_ssm_client_class.return_value = ssm_params
+        mock_s3_client = mock_s3_client_class.return_value
         mock_repository = mock_repository_class.return_value
         mock_repository.get_face_embedding_by_id.return_value = target_embedding
         service = FaceService()
@@ -249,6 +260,12 @@ class TestDeleteFace:
         mock_repository.delete_face_embedding.assert_called_once_with(
             postgres_session=postgres_session,
             face_embedding=target_embedding,
+        )
+        mock_ssm_client_class.assert_called_once_with()
+        mock_s3_client_class.assert_called_once_with(s3_endpoint="http://s3.local")
+        mock_s3_client.delete_object.assert_called_once_with(
+            bucket_name="faces",
+            file_name="101.png",
         )
 
     def test_delete_face_raises_user_not_found_when_user_does_not_exist(self) -> None:

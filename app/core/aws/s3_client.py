@@ -26,14 +26,14 @@ class S3Client:
         response = self.client.get_object(Bucket=bucket_name, Key=key)
         return response["Body"].read()
 
-    def upload_object(self, bucket_name: str, file: object, filename: str):
+    def upload_object(self, bucket_name: str, file: object, file_name: str):
         """
         ファイルをS3にアップロード
         
         Args:
             bucket_name: bucket名
             file: アップロード対象ファイルオブジェクト
-            filename: ファイル名
+            file_name: ファイル名
         
         Returns:
             str: S3内のファイルパス
@@ -42,10 +42,10 @@ class S3Client:
             self.client.upload_fileobj(
                 file,
                 bucket_name,
-                filename,
+                file_name,
                 ExtraArgs={'ContentType': 'application/pdf'}
             )
-            return filename
+            return file_name
         except ClientError as e:
             print(f"Error uploading file: {e}")
             raise
