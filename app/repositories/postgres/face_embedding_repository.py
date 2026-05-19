@@ -32,26 +32,29 @@ class FaceEmbeddingRepository:
         )
 
     def create_face_embedding(self, postgres_session: Session, face_embedding: FaceEmbedding) -> FaceEmbedding:
-        """顔画像から取得したベクトルデータを登録または更新する。
+        """顔画像から取得したベクトルデータを登録する。
 
         Args:
             postgres_session: SQLAlchemy のセッション。
             face_embedding: 保存する顔画像ベクトル情報。
 
         Returns:
-            face_embedding: 登録または更新した顔画像ベクトル情報。
+            face_embedding: 登録した顔画像ベクトル情報。
         """
-        existing_face_embedding = (
-            postgres_session.query(FaceEmbedding)
-            .filter(FaceEmbedding.user_id == face_embedding.user_id)
-            .first()
-        )
-        if existing_face_embedding is not None:
-            existing_face_embedding.embedding = face_embedding.embedding
-            existing_face_embedding.is_active = face_embedding.is_active
-            postgres_session.flush()
-            return existing_face_embedding
+        postgres_session.add(face_embedding)
+        postgres_session.flush()
+        return face_embedding
+    
+    def update_face_embedding(self, postgres_session: Session, face_embedding: FaceEmbedding) -> FaceEmbedding:
+        """顔画像から取得したベクトルデータを更新する。
 
+        Args:
+            postgres_session: SQLAlchemy のセッション。
+            face_embedding: 保存する顔画像ベクトル情報。
+
+        Returns:
+            face_embedding: 登録した顔画像ベクトル情報。
+        """
         postgres_session.add(face_embedding)
         postgres_session.flush()
         return face_embedding

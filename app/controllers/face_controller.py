@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.core.exceptions.custom_exception import (
     CustomHttpException,
     FaceConflictException,
+    FaceEmbeddingAlreadyRegisterException,
     FaceEmbeddingNotFoundException,
     FaceNotFoundException,
     SameFaceFoundException,
@@ -67,6 +68,11 @@ class faceController:
                 message=REGISTER_FACE_ERROR)
         
         except FaceConflictException:
+            raise CustomHttpException.get_http_exception(
+                status_code=409,
+                message=FACE_ALREADY_REGISTERED_ERROR)
+
+        except FaceEmbeddingAlreadyRegisterException:
             raise CustomHttpException.get_http_exception(
                 status_code=409,
                 message=FACE_ALREADY_REGISTERED_ERROR)

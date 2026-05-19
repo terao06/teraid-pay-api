@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from app.controllers.face_controller import faceController
 from app.core.exceptions.custom_exception import (
     FaceConflictException,
+    FaceEmbeddingAlreadyRegisterException,
     FaceEmbeddingNotFoundException,
     FaceNotFoundException,
     SameFaceFoundException,
@@ -66,6 +67,11 @@ class TestRegisterFace:
             (ValueError("invalid image"), 400, REGISTER_FACE_ERROR),
             (
                 FaceConflictException("face already registered"),
+                409,
+                FACE_ALREADY_REGISTERED_ERROR,
+            ),
+            (
+                FaceEmbeddingAlreadyRegisterException("face embedding already registered"),
                 409,
                 FACE_ALREADY_REGISTERED_ERROR,
             ),
