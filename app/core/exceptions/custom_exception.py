@@ -12,6 +12,9 @@ class UserNotFoundException(Exception):
 class FaceEmbeddingNotFoundException(Exception):
     pass
 
+class FaceEmbeddingAlreadyRegisterException(Exception):
+    pass
+
 
 class WalletConflictException(Exception):
     pass
