@@ -212,7 +212,7 @@ class FaceService:
                 f"user_id: {face.face_embedding.user_id}, distance: {face.distance}"
             )
             raise FaceConflictException("この顔画像は既に登録されています。")
-    
+
     def _get_embedding_from_image(self, image: Image) -> list[float]:
         """画像から顔のlandmarkを抽出する
 
