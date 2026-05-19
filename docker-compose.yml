@@ -83,6 +83,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 10s
     networks:
       - teraid-pay-api-network
     restart: always
@@ -102,6 +103,7 @@ services:
       "
     networks:
       - teraid-pay-api-network
+    restart: on-failure
 
   teraid-pay-api-phpmyadmin:
     image: phpmyadmin/phpmyadmin
