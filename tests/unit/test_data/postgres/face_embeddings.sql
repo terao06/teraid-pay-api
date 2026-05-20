@@ -12,7 +12,9 @@ VALUES
   (105, ('[' || array_to_string(ARRAY[0.0, 1.0] || array_fill(0.0, ARRAY[510]), ',') || ']')::vector, 'jpg', TRUE),
   -- test_delete_face_embedding_sets_deleted_at_and_updated_at で削除対象として使用
   (108, ('[' || array_to_string(ARRAY[0.0, 0.5] || array_fill(0.0, ARRAY[510]), ',') || ']')::vector, 'png', TRUE),
-  -- build_local_db.py で test_face.png から生成した embedding に更新するユーザー
+  -- build_local_db.py で test_face.png から生成した embedding に更新するユーザー(テストで使用不可)
   (107, ('[' || array_to_string(ARRAY[0.0] || array_fill(0.0, ARRAY[511]), ',') || ']')::vector, 'png', TRUE),
-  
+  -- Face Update API の test_with_db で顔特徴量を更新するユーザーとして使用
+  (106, ('[' || array_to_string(ARRAY[0.0, 0.6] || array_fill(0.0, ARRAY[510]), ',') || ']')::vector, 'jpg', TRUE),
+
   (109, ('[' || array_to_string(ARRAY[0.0, 0.5] || array_fill(0.0, ARRAY[510]), ',') || ']')::vector, 'png', TRUE);
