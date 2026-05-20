@@ -21,6 +21,7 @@ from app.core.exceptions.message import (
 from app.middlewares.transaction import postgres_transaction, mysql_transaction
 from app.models.requests.face_delete_request import FaceDeleteRequest
 from app.models.requests.face_register_request import FaceRegisterRequest
+from app.models.requests.face_update_request import FaceUpdateRequest
 from app.services.face_service import FaceService
 
 
@@ -76,6 +77,61 @@ class faceController:
             raise CustomHttpException.get_http_exception(
                 status_code=409,
                 message=FACE_ALREADY_REGISTERED_ERROR)
+
+        except Exception:
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR)
+
+    @postgres_transaction
+    @mysql_transaction
+    def update_face(self, postgres_session: Session, mysql_session: Session, request: FaceUpdateRequest) -> None:
+        """顔画像を更新する
+
+        Args:
+            postgres_session: SQLAlchemy のセッションです。
+            request: 顔画像更新リクエストパラメータ
+
+        Returns:
+            None
+        """
+        try:
+            return FaceService().update_face(
+                postgres_session=postgres_session,
+                mysql_session=mysql_session,
+                user_id=request.user_id,
+                content=request.content,
+                extension_type=request.extension_type)
+
+        except UserNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=404,
+                message=USER_NOT_FOUND_ERROR)
+
+        except FaceNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=400,
+                message=FACE_NOTE_FOUND_ERROR)
+
+        except SameFaceFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=400,
+                message=SAME_FACE_FOUND_ERROR)
+
+        except ValueError:
+            raise CustomHttpException.get_http_exception(
+                status_code=400,
+                message=REGISTER_FACE_ERROR)
+        
+        except FaceConflictException:
+            raise CustomHttpException.get_http_exception(
+                status_code=409,
+                message=FACE_ALREADY_REGISTERED_ERROR)
+
+        except FaceEmbeddingNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=409,
+                message=FACE_NOT_REGISTERED_ERROR)
         
         except Exception:
             raise CustomHttpException.get_http_exception(
