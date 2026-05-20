@@ -44,7 +44,7 @@ class FaceEmbeddingRepository:
         postgres_session.add(face_embedding)
         postgres_session.flush()
         return face_embedding
-    
+
     def update_face_embedding(self, postgres_session: Session, face_embedding: FaceEmbedding) -> FaceEmbedding:
         """顔画像から取得したベクトルデータを更新する。
 
@@ -55,8 +55,8 @@ class FaceEmbeddingRepository:
         Returns:
             face_embedding: 登録した顔画像ベクトル情報。
         """
+        face_embedding.updated_at = datetime.now(JST)
         postgres_session.add(face_embedding)
-        postgres_session.flush()
         return face_embedding
 
     def delete_face_embedding(

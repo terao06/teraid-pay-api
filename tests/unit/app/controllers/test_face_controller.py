@@ -25,6 +25,7 @@ from app.models.requests.face_delete_request import FaceDeleteRequest
 from app.models.requests.face_register_request import (
     FaceRegisterRequest,
 )
+from app.models.requests.face_update_request import FaceUpdateRequest
 from app.models.postgres.face_embedding import ExtensionType
 
 
@@ -97,6 +98,88 @@ class TestRegisterFace:
 
         with pytest.raises(HTTPException) as exc_info:
             faceController.register_face.__wrapped__.__wrapped__(
+                faceController(),
+                postgres_session=postgres_session,
+                mysql_session=mysql_session,
+                request=request,
+            )
+
+        assert exc_info.value.status_code == expected_status_code
+        assert exc_info.value.detail == {
+            "status": "error",
+            "message": expected_message,
+        }
+
+
+class TestUpdateFace:
+    @patch("app.controllers.face_controller.FaceService")
+    def test_update_face(self, mock_service_class) -> None:
+        postgres_session = Mock()
+        mysql_session = Mock()
+        request = FaceUpdateRequest(
+            user_id=101,
+            content="base64-encoded-image",
+            extension_type=ExtensionType.PNG,
+        )
+        mock_service = mock_service_class.return_value
+        mock_service.update_face.return_value = None
+
+        result = faceController.update_face.__wrapped__.__wrapped__(
+            faceController(),
+            postgres_session=postgres_session,
+            mysql_session=mysql_session,
+            request=request,
+        )
+
+        mock_service.update_face.assert_called_once_with(
+            postgres_session=postgres_session,
+            mysql_session=mysql_session,
+            user_id=request.user_id,
+            content=request.content,
+            extension_type=request.extension_type,
+        )
+        assert result is None
+
+    @patch("app.controllers.face_controller.FaceService")
+    @pytest.mark.parametrize(
+        ("side_effect", "expected_status_code", "expected_message"),
+        [
+            (UserNotFoundException("user not found"), 404, USER_NOT_FOUND_ERROR),
+            (FaceNotFoundException("face not found"), 400, FACE_NOTE_FOUND_ERROR),
+            (SameFaceFoundException("same face found"), 400, SAME_FACE_FOUND_ERROR),
+            (ValueError("invalid image"), 400, REGISTER_FACE_ERROR),
+            (
+                FaceConflictException("face already registered"),
+                409,
+                FACE_ALREADY_REGISTERED_ERROR,
+            ),
+            (
+                FaceEmbeddingNotFoundException("face embedding not found"),
+                409,
+                FACE_NOT_REGISTERED_ERROR,
+            ),
+            (Exception("unexpected error"), 500, SERVER_ERROR),
+        ],
+    )
+    def test_update_face_raise_http_exception(
+        self,
+        mock_service_class,
+        side_effect,
+        expected_status_code,
+        expected_message,
+    ) -> None:
+        postgres_session = Mock()
+        mysql_session = Mock()
+        request = FaceUpdateRequest(
+            user_id=101,
+            content="base64-encoded-image",
+            extension_type=ExtensionType.PNG,
+        )
+        mock_service = mock_service_class.return_value
+        mock_service.update_face.side_effect = side_effect
+
+        with pytest.raises(HTTPException) as exc_info:
+            faceController.update_face.__wrapped__.__wrapped__(
                 faceController(),
                 postgres_session=postgres_session,
                 mysql_session=mysql_session,

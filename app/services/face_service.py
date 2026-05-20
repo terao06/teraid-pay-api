@@ -42,6 +42,7 @@ class FaceService:
             user_id: 顔画像に紐づけるユーザーID
             content: 顔画像
             extension_type: 顔画像の拡張子
+            threshold: 閾値
 
         Returns:
             None
@@ -81,6 +82,60 @@ class FaceService:
                 file_name=f"{user_id}.{extension_type.value}",
             )
 
+    def update_face(
+        self,
+        postgres_session: Session,
+        mysql_session: Session,
+        user_id: int,
+        content: str, 
+        extension_type: ExtensionType,
+        threshold: float = 0.7) -> None:
+        """認証用顔画像を登録する
+
+        Args:
+            postgres_session: SQLAlchemy のセッション。
+            mysql_session: SQLAlchemy のセッション。
+            user_id: 顔画像に紐づけるユーザーID
+            content: 顔画像
+            extension_type: 顔画像の拡張子
+            threshold: 閾値
+
+        Returns:
+            None
+        """
+        self._validate_user_exists(mysql_session=mysql_session, user_id=user_id)
+        register_embedding = self._get_registered_face_embedding(
+            postgres_session=postgres_session,
+            user_id=user_id
+        )
+        image_bytes = base64.b64decode(content)
+        target_image = Image.open(BytesIO(image_bytes)).convert("RGB")
+        embedding = self._get_embedding_from_image(image=target_image)
+
+        self._validate_face_embedding(
+            postgres_session=postgres_session,
+            threshold=threshold,
+            user_id=user_id,
+            embedding=embedding
+        )
+
+        register_embedding.embedding = embedding
+        register_embedding.extension_type = extension_type
+        self.face_embedding_repository.update_face_embedding(
+            postgres_session=postgres_session,
+            face_embedding=register_embedding
+        )
+
+        with BytesIO() as buffer:
+            target_image.save(buffer, format=extension_type.value.upper())
+            buffer.seek(0)
+
+            self.s3_client.upload_object(
+                bucket_name=self.ssm_params.face_image_bucket,
+                file=buffer,
+                file_name=f"{user_id}.{extension_type.value}",
+            )
+
     def delete_face(self, postgres_session: Session, mysql_session: Session, user_id: int) -> None:
         """認証用顔画像を削除する
 
@@ -93,7 +148,7 @@ class FaceService:
             None
         """
         self._validate_user_exists(mysql_session=mysql_session, user_id=user_id)
-        target_embedding = self._validate_face_registered(
+        target_embedding = self._get_registered_face_embedding(
             postgres_session=postgres_session,
             user_id=user_id
         )
@@ -110,7 +165,7 @@ class FaceService:
                 file_name=f"{user_id}.{target_embedding.extension_type.value}",
             )
 
-    def _validate_user_exists(self, mysql_session: Session, user_id: int) -> User:
+    def _validate_user_exists(self, mysql_session: Session, user_id: int) -> None:
         """ユーザーが存在するかのバリデーションを行う
 
         Args:
@@ -118,7 +173,7 @@ class FaceService:
             user_id: 顔画像に紐づけるユーザーID
 
         Returns:
-            User: ユーザー情報
+            None
         """
         user = self.user_repository.get_user_by_id(
             mysql_session=mysql_session,
@@ -128,8 +183,6 @@ class FaceService:
         if user is None:
             TeraidPayApiLog.warning(f"対象のユーザーは存在しません。 user_id: {user_id}")
             raise UserNotFoundException("ユーザーが存在しません。")
-
-        return user
 
     def _validate_face_not_registered(
         self,
@@ -156,7 +209,7 @@ class FaceService:
                 "すでに顔画像が登録されています。"
             )
 
-    def _validate_face_registered(
+    def _get_registered_face_embedding(
         self,
         postgres_session: Session,
         user_id: int
