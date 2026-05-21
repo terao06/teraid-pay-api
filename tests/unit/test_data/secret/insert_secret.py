@@ -40,7 +40,7 @@ def upsert_secret(secret_name: str, secret_string: str, endpoint_url: str, regio
         print(f"Created secret: {secret_name}")
 
 
-def main() -> None:
+def insert_secret() -> None:
     secret_file = Path(os.getenv("SECRET_FILE", DEFAULT_SECRET_FILE))
     secret_name = os.getenv("SECRET_NAME", secret_file.stem)
 
@@ -57,4 +57,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    insert_secret()

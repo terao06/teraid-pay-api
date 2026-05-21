@@ -11,6 +11,7 @@ from app.endpoints.payment import payment_router
 from app.endpoints.store import store_router
 from app.endpoints.user import user_router
 from app.middlewares.transaction import get_mysql_db, get_postgres_db
+from tests.unit.test_data.secret.insert_secret import insert_secret
 
 
 @pytest.fixture()
@@ -63,3 +64,4 @@ def client_with_db(
 
     get_mysql_db.cache_clear()
     get_postgres_db.cache_clear()
+    insert_secret()
