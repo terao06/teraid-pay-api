@@ -70,6 +70,22 @@ INSERT INTO users (
     updated_at,
     deleted_at
 ) VALUES (
+    110,
+    'Payment',
+    'RequestUser',
+    '2024-03-01 00:00:00',
+    '2024-03-02 00:00:00',
+    NULL
+);
+
+INSERT INTO users (
+    user_id,
+    first_name,
+    last_name,
+    created_at,
+    updated_at,
+    deleted_at
+) VALUES (
     105,
     'Ichiro',
     'Terao',
