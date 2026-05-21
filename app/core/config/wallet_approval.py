@@ -34,10 +34,6 @@ def get_wallet_approval_config(chain_id: int) -> WalletApprovalConfig:
         "payment_processor_address",
         "PAYMENT_PROCESSOR_ADDRESS",
     )
-    print("##################################")
-    print(token_contract_address)
-    print(spender_address)
-    print("##################################")
 
     if not token_contract_address:
         raise ValueError("secretにJPYCトークンアドレスが設定されていません。")

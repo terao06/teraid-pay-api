@@ -18,7 +18,6 @@ from app.core.exceptions.message import (
     WALLET_NOT_FOUND_ERROR
 )
 from app.models.requests.payment_create_request import PaymentCreateRequest
-from app.models.responses.payment_create_response import PaymentCreateResponse
 from app.models.responses.payment_transaction_hash_response import PaymentTransactionHashResponse
 from app.models.responses.payment_verify_response import PaymentVerifyResponse
 
@@ -32,21 +31,13 @@ class TestCreateAndExecutePayment:
             user_id=201,
             amount=1000,
         )
-        created_payment = PaymentCreateResponse(
-            payment_request_id=501,
-            from_wallet_address="0x1111111111111111111111111111111111111111",
-            to_wallet_address="0x2222222222222222222222222222222222222222",
-            amount=request.amount,
-            token_symbol="JPYC",
-            chain_id=11155111,
-            expires_at="2026-04-12 12:10",
-        )
+        payment_request_id = 501
         expected = PaymentTransactionHashResponse(
-            payment_request_id=created_payment.payment_request_id,
+            payment_request_id=payment_request_id,
             transaction_hash="0xabcdef1234567890",
         )
         mock_service = mock_service_class.return_value
-        mock_service.create_payment_request.return_value = created_payment
+        mock_service.create_payment_request.return_value = payment_request_id
         mock_service.execute_payment.return_value = expected
 
         result = PaymentController.create_and_execute_payment.__wrapped__(
@@ -63,7 +54,7 @@ class TestCreateAndExecutePayment:
         )
         mock_service.execute_payment.assert_called_once_with(
             mysql_session=mysql_session,
-            payment_request_id=created_payment.payment_request_id,
+            payment_request_id=payment_request_id,
         )
         assert result == expected
 
@@ -127,17 +118,9 @@ class TestCreateAndExecutePayment:
             user_id=201,
             amount=1000,
         )
-        created_payment = PaymentCreateResponse(
-            payment_request_id=501,
-            from_wallet_address="0x1111111111111111111111111111111111111111",
-            to_wallet_address="0x2222222222222222222222222222222222222222",
-            amount=request.amount,
-            token_symbol="JPYC",
-            chain_id=11155111,
-            expires_at="2026-04-12 12:10",
-        )
+        payment_request_id = 501
         mock_service = mock_service_class.return_value
-        mock_service.create_payment_request.return_value = created_payment
+        mock_service.create_payment_request.return_value = payment_request_id
         mock_service.execute_payment.side_effect = side_effect
 
         with pytest.raises(HTTPException) as exc_info:

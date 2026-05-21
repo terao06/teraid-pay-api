@@ -118,7 +118,7 @@ def initialize_secret(initialize_aws_env: bool) -> None:
     assert initialize_aws_env == True
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def mysql_engine():
     import_mysql_models()
     engine = create_engine(build_database_url(), echo=False, future=True)
@@ -142,7 +142,7 @@ def mysql_session(mysql_engine) -> Generator[Session, None, None]:
         db_session.close()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def postgres_engine():
     import_postgres_models()
     engine = create_engine(build_postgres_database_url(), echo=False, future=True)

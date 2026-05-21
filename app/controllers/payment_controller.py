@@ -22,12 +22,23 @@ from app.services.payment_service import PaymentService
 
 
 class PaymentController:
+    """決済 API のリクエストを処理するコントローラーです。"""
+
     @mysql_transaction
     def create_and_execute_payment(
         self,
         mysql_session: Session,
         request: PaymentCreateRequest
     ) -> PaymentTransactionHashResponse:
+        """支払いリクエストを作成し、支払いを実行する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            request: 支払い作成に必要な店舗 ID、ユーザー ID、金額を含むリクエスト。
+
+        Returns:
+            支払い実行後のトランザクションハッシュ情報。
+        """
         payment_service = PaymentService()
         payment_request = payment_service.create_payment_request(
             mysql_session=mysql_session,
@@ -37,8 +48,9 @@ class PaymentController:
         )
         return payment_service.execute_payment(
             mysql_session=mysql_session,
-            payment_request_id=payment_request.payment_request_id,
+            payment_request_id=payment_request,
         )
+
         try:
             payment_service = PaymentService()
             payment_request = payment_service.create_payment_request(
@@ -49,7 +61,7 @@ class PaymentController:
             )
             return payment_service.execute_payment(
                 mysql_session=mysql_session,
-                payment_request_id=payment_request.payment_request_id,
+                payment_request_id=payment_request,
             )
 
         except WalletNotFoundException:
@@ -83,6 +95,16 @@ class PaymentController:
         mysql_session: Session,
         payment_request_id: int
     ) -> PaymentVerifyResponse:
+        """支払いトランザクションハッシュを検証する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            payment_request_id: 検証対象の支払いリクエスト ID。
+
+        Returns:
+            支払い検証結果を含むレスポンス。
+        """
+
         try:
             return PaymentService().verify_transaction_hash(
                 mysql_session=mysql_session,
@@ -94,6 +116,7 @@ class PaymentController:
                 status_code=404,
                 message=PAYMENT_ERROR
             )
+
         except Exception:
             raise CustomHttpException.get_http_exception(
                 status_code=500,

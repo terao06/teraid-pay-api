@@ -8,7 +8,6 @@ from web3.exceptions import TransactionNotFound
 
 from app.core.exceptions.custom_exception import PaymentRequestNotFoundException, WalletNotApprovedException, WalletNotFoundException
 from app.models.mysql.payment_request import PaymentRequest, PaymentStatus
-from app.models.responses.payment_create_response import PaymentCreateResponse
 from app.models.responses.payment_transaction_hash_response import PaymentTransactionHashResponse
 from app.models.responses.payment_verify_response import PaymentVerifyResponse
 from app.services.payment_service import JST, PaymentService
@@ -91,15 +90,7 @@ class TestCreatePaymentRequest:
         assert created_payment_request.status is None
         assert created_payment_request.transaction_hash is None
         assert created_payment_request.expires_at == fixed_now + timedelta(minutes=10)
-        assert result == PaymentCreateResponse(
-            payment_request_id=saved_payment_request_id,
-            from_wallet_address=user_wallet.wallet_address,
-            to_wallet_address=store_wallet.wallet_address,
-            amount=amount,
-            token_symbol=store_wallet.token_symbol,
-            chain_id=store_wallet.chain_id,
-            expires_at="2026-04-12 12:10",
-        )
+        assert result == saved_payment_request_id
 
     @pytest.mark.parametrize(
         ("store_wallet", "user_wallet"),
