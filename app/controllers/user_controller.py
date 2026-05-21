@@ -6,6 +6,7 @@ from app.core.exceptions.custom_exception import (
     UnauthorizedException,
     UserNotFoundException,
     WalletConflictException,
+    WalletNotApprovedException,
     WalletNotFoundException
 )
 from app.core.exceptions.message import (
@@ -14,6 +15,7 @@ from app.core.exceptions.message import (
     VERIFY_ERROR,
     WALLET_CONFLICT_ERROR,
     WALLET_IS_ALREADY_EXIST,
+    WALLET_NOT_APPROVED_ERROR,
     WALLET_NOT_FOUND_ERROR
 )
 from app.middlewares.transaction import mysql_transaction
@@ -72,16 +74,22 @@ class UserController:
                 message=SERVER_ERROR)
 
     @mysql_transaction
-    def update_wallet_approval_state(self, mysql_session: Session, wallet_id: int) -> None:
+    def update_wallet_approval_state(self, mysql_session: Session, wallet_id: int, tx_hash: str) -> None:
         try:
             UserService().update_wallet_approval_state(
                 mysql_session=mysql_session,
-                wallet_id=wallet_id
+                wallet_id=wallet_id,
+                tx_hash=tx_hash,
             )
         except WalletNotFoundException:
             raise CustomHttpException.get_http_exception(
                 status_code=404,
                 message=WALLET_NOT_FOUND_ERROR)
+
+        except WalletNotApprovedException:
+            raise CustomHttpException.get_http_exception(
+                status_code=400,
+                message=WALLET_NOT_APPROVED_ERROR)
 
         except Exception:
             raise CustomHttpException.get_http_exception(
