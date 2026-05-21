@@ -39,18 +39,6 @@ class PaymentController:
         Returns:
             支払い実行後のトランザクションハッシュ情報。
         """
-        payment_service = PaymentService()
-        payment_request = payment_service.create_payment_request(
-            mysql_session=mysql_session,
-            store_id=request.store_id,
-            user_id=request.user_id,
-            amount=request.amount,
-        )
-        return payment_service.execute_payment(
-            mysql_session=mysql_session,
-            payment_request_id=payment_request,
-        )
-
         try:
             payment_service = PaymentService()
             payment_request = payment_service.create_payment_request(

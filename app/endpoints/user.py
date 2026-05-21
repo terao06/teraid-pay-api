@@ -3,6 +3,7 @@ from app.controllers.user_controller import UserController
 from app.core.utils.logging import TeraidPayApiLog
 from app.middlewares.request_wrapper import request_rapper
 from app.middlewares.response_wrapper import response_rapper
+from app.models.requests.wallet_approval_update_request import WalletApprovalUpdateRequest
 from app.models.requests.wallet_nonce_create_request import WalletNonceCreateRequest
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
 
@@ -36,12 +37,15 @@ def get_user_wallet_approval(user_id: int):
 @user_router.post("/{user_id}/wallet/{wallet_id}/approval")
 @response_rapper()
 @request_rapper()
-def update_wallet_approval_state(user_id: int, wallet_id: int):
+def update_wallet_approval_state(user_id: int, wallet_id: int, request: WalletApprovalUpdateRequest):
     """ユーザーウォレットの approve 状態を更新する。"""
     TeraidPayApiLog.info(
         f"ウォレットの approve 状態更新を行います。 user_id={user_id} wallet_id={wallet_id}")
 
-    return UserController().update_wallet_approval_state(wallet_id=wallet_id)
+    return UserController().update_wallet_approval_state(
+        wallet_id=wallet_id,
+        tx_hash=request.tx_hash,
+    )
 
 
 @user_router.post("/{user_id}/wallet/nonce")

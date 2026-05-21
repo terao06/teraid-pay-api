@@ -8,6 +8,7 @@ from app.core.exceptions.custom_exception import (
     UnauthorizedException,
     UserNotFoundException,
     WalletConflictException,
+    WalletNotApprovedException,
     WalletNotFoundException,
 )
 from app.core.exceptions.message import (
@@ -16,6 +17,7 @@ from app.core.exceptions.message import (
     VERIFY_ERROR,
     WALLET_CONFLICT_ERROR,
     WALLET_IS_ALREADY_EXIST,
+    WALLET_NOT_APPROVED_ERROR,
     WALLET_NOT_FOUND_ERROR,
 )
 from app.models.requests.wallet_nonce_create_request import WalletNonceCreateRequest
@@ -143,17 +145,20 @@ class TestUpdateWalletApprovalState:
     def test_update_wallet_approval_state(self, mock_service_class) -> None:
         mysql_session = Mock()
         wallet_id = 301
+        tx_hash = "0x" + "a" * 64
         mock_service = mock_service_class.return_value
 
         result = UserController.update_wallet_approval_state.__wrapped__(
             UserController(),
             mysql_session=mysql_session,
             wallet_id=wallet_id,
+            tx_hash=tx_hash,
         )
 
         mock_service.update_wallet_approval_state.assert_called_once_with(
             mysql_session=mysql_session,
             wallet_id=wallet_id,
+            tx_hash=tx_hash,
         )
         assert result is None
 
@@ -164,6 +169,7 @@ class TestUpdateWalletApprovalState:
     ) -> None:
         mysql_session = Mock()
         wallet_id = 999
+        tx_hash = "0x" + "a" * 64
         mock_service = mock_service_class.return_value
         mock_service.update_wallet_approval_state.side_effect = WalletNotFoundException("wallet not found")
 
@@ -172,6 +178,7 @@ class TestUpdateWalletApprovalState:
                 UserController(),
                 mysql_session=mysql_session,
                 wallet_id=wallet_id,
+                tx_hash=tx_hash,
             )
 
         assert exc_info.value.status_code == 404
@@ -181,12 +188,37 @@ class TestUpdateWalletApprovalState:
         }
 
     @patch("app.controllers.user_controller.UserService")
+    def test_update_wallet_approval_state_raise_http_exception_when_wallet_not_approved(
+        self,
+        mock_service_class,
+    ) -> None:
+        mysql_session = Mock()
+        wallet_id = 301
+        mock_service = mock_service_class.return_value
+        mock_service.update_wallet_approval_state.side_effect = WalletNotApprovedException("not approved")
+
+        with pytest.raises(HTTPException) as exc_info:
+            UserController.update_wallet_approval_state.__wrapped__(
+                UserController(),
+                mysql_session=mysql_session,
+                wallet_id=wallet_id,
+                tx_hash="0x" + "a" * 64,
+            )
+
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == {
+            "status": "error",
+            "message": WALLET_NOT_APPROVED_ERROR,
+        }
+
+    @patch("app.controllers.user_controller.UserService")
     def test_update_wallet_approval_state_raise_http_exception_when_service_fails(
         self,
         mock_service_class,
     ) -> None:
         mysql_session = Mock()
         wallet_id = 301
+        tx_hash = "0x" + "a" * 64
         mock_service = mock_service_class.return_value
         mock_service.update_wallet_approval_state.side_effect = Exception("unexpected error")
 
@@ -195,6 +227,7 @@ class TestUpdateWalletApprovalState:
                 UserController(),
                 mysql_session=mysql_session,
                 wallet_id=wallet_id,
+                tx_hash=tx_hash,
             )
 
         assert exc_info.value.status_code == 500

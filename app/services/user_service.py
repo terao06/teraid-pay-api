@@ -3,11 +3,16 @@ from datetime import datetime, timedelta
 import secrets
 
 from sqlalchemy.orm import Session
+from web3 import HTTPProvider, Web3
+from web3.exceptions import TransactionNotFound
+
+from app.core.config.blockchain import get_chain_config
 from app.core.config.wallet_approval import get_wallet_approval_config
 from app.core.exceptions.custom_exception import (
     UnauthorizedException,
     UserNotFoundException,
     WalletConflictException,
+    WalletNotApprovedException,
     WalletNotFoundException
 )
 from app.core.utils.datetime import JST, DateTimeUtil
@@ -24,6 +29,50 @@ from app.models.responses.wallet_nonce_verify_response import WalletVerifyRespon
 from app.repositories.mysql.nonce_repository import NonceRepository
 from app.repositories.mysql.user_repository import UserRepository
 from app.repositories.mysql.wallet_repository import WalletRepository
+
+
+ERC20_ALLOWANCE_ABI = [
+    {
+        "anonymous": False,
+        "inputs": [
+            {"indexed": True, "internalType": "address", "name": "owner", "type": "address"},
+            {"indexed": True, "internalType": "address", "name": "spender", "type": "address"},
+            {"indexed": False, "internalType": "uint256", "name": "value", "type": "uint256"},
+        ],
+        "name": "Approval",
+        "type": "event",
+    },
+    {
+        "inputs": [
+            {"internalType": "address", "name": "owner", "type": "address"},
+            {"internalType": "address", "name": "spender", "type": "address"},
+        ],
+        "name": "allowance",
+        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function",
+    }
+]
+
+
+def _hex_value(value) -> str:
+    if hasattr(value, "hex"):
+        return value.hex()
+    return str(value)
+
+
+def _topic_to_address(web3: Web3, topic) -> str:
+    topic_hex = _hex_value(topic)
+    if topic_hex.startswith("0x"):
+        topic_hex = topic_hex[2:]
+    return web3.to_checksum_address("0x" + topic_hex[-40:])
+
+
+def _data_to_int(data) -> int:
+    if isinstance(data, int):
+        return data
+    data_hex = _hex_value(data)
+    return int(data_hex, 16)
 
 
 class UserService:
@@ -80,13 +129,69 @@ class UserService:
             spender_address=approval_config.spender_address,
         )
     
-    def update_wallet_approval_state(self, mysql_session: Session, wallet_id: int) -> None:
+    def update_wallet_approval_state(self, mysql_session: Session, wallet_id: int, tx_hash: str) -> None:
         wallet_repository = WalletRepository()
         wallet_info = wallet_repository.get_wallet_by_id(
             mysql_session=mysql_session,
             wallet_id=wallet_id)
         if not wallet_info:
             raise WalletNotFoundException(f"対象のウォレットは存在しません。 wallet_id={wallet_id}")
+
+        chain_config = get_chain_config(chain_id=wallet_info.chain_id)
+        approval_config = get_wallet_approval_config(chain_id=wallet_info.chain_id)
+        web3 = Web3(HTTPProvider(chain_config.rpc_url))
+
+        try:
+            receipt = web3.eth.get_transaction_receipt(tx_hash)
+        except TransactionNotFound:
+            raise WalletNotApprovedException("approve transactionが見つかりません。")
+
+        token_contract_address = web3.to_checksum_address(approval_config.token_contract_address)
+        wallet_address = web3.to_checksum_address(wallet_info.wallet_address)
+        spender_address = web3.to_checksum_address(approval_config.spender_address)
+
+        receipt_from = receipt.get("from")
+        receipt_to = receipt.get("to")
+        if receipt.get("status") != 1:
+            raise WalletNotApprovedException("approve transactionが成功していません。")
+        if not receipt_from or web3.to_checksum_address(receipt_from) != wallet_address:
+            raise WalletNotApprovedException("approve transactionの送信元がウォレットと一致しません。")
+        if not receipt_to or web3.to_checksum_address(receipt_to) != token_contract_address:
+            raise WalletNotApprovedException("approve transactionの送信先がトークンコントラクトと一致しません。")
+
+        approval_event_signature = _hex_value(web3.keccak(text="Approval(address,address,uint256)"))
+        has_valid_approval_event = False
+        for log in receipt.get("logs", []):
+            topics = log.get("topics", [])
+            if len(topics) < 3:
+                continue
+            log_address = log.get("address")
+            if not log_address or web3.to_checksum_address(log_address) != token_contract_address:
+                continue
+            if _hex_value(topics[0]).lower() != approval_event_signature.lower():
+                continue
+            if _topic_to_address(web3, topics[1]) != wallet_address:
+                continue
+            if _topic_to_address(web3, topics[2]) != spender_address:
+                continue
+            if _data_to_int(log.get("data", 0)) <= 0:
+                continue
+            has_valid_approval_event = True
+            break
+        if not has_valid_approval_event:
+            raise WalletNotApprovedException("approve transactionに有効なApprovalイベントがありません。")
+
+        token_contract = web3.eth.contract(
+            address=token_contract_address,
+            abi=ERC20_ALLOWANCE_ABI,
+        )
+        allowance = token_contract.functions.allowance(
+            wallet_address,
+            spender_address,
+        ).call()
+        if allowance <= 0:
+            raise WalletNotApprovedException("PaymentProcessorへのallowanceが設定されていません。")
+
         wallet_info.is_approval = True
 
         wallet_repository.update_wallet(mysql_session=mysql_session, wallet=wallet_info)

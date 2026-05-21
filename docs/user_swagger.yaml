@@ -177,6 +177,16 @@ paths:
           description: ウォレットID
           schema:
             type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WalletApprovalUpdateRequest'
+            examples:
+              default:
+                value:
+                  tx_hash: 0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
       responses:
         '200':
           description: ウォレット approve 状態更新に成功
@@ -190,6 +200,12 @@ paths:
                   value:
                     status: success
                     data: null
+        '400':
+          description: approve transaction または allowance が有効ではない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: ウォレットが存在しない
           content:
@@ -354,6 +370,19 @@ components:
           type: integer
           minimum: 1
           description: チェーンID
+
+    WalletApprovalUpdateRequest:
+      type: object
+      required:
+        - tx_hash
+      properties:
+        tx_hash:
+          type: string
+          minLength: 66
+          maxLength: 66
+          pattern: '^0x[a-fA-F0-9]{64}$'
+          description: MetaMask で実行した JPYC approve transaction hash
+
     UserWallet:
       type: object
       required:
