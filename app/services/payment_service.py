@@ -1,16 +1,19 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
+from typing import Protocol
 
 from sqlalchemy.orm import Session
 from web3 import Web3, HTTPProvider
+from web3.contract import Contract
 from web3.exceptions import TransactionNotFound
+from web3.types import TxReceipt
 
 from app.core.exceptions.custom_exception import (
     PaymentRequestNotFoundException,
     WalletNotApprovedException,
     WalletNotFoundException
 )
-from app.core.utils.datetime import JST, DateTimeUtil
+from app.core.utils.datetime import JST
 from app.core.config.blockchain import get_chain_config
 from app.core.config.payment_processor import get_payment_processor_config
 from app.models.responses.payment_transaction_hash_response import PaymentTransactionHashResponse
@@ -18,7 +21,6 @@ from app.repositories.mysql.store_repository import StoreRepository
 from app.repositories.mysql.user_repository import UserRepository
 from app.repositories.mysql.payment_repository import PaymentRepository
 from app.models.mysql.payment_request import PaymentRequest, PaymentStatus
-from app.models.responses.payment_create_response import PaymentCreateResponse
 from app.models.responses.payment_verify_response import PaymentVerifyResponse
 
 
@@ -52,6 +54,15 @@ PAYMENT_PROCESSOR_ABI = [
 ]
 
 
+class PaymentIdSource(Protocol):
+    payment_request_id: int
+    chain_id: int
+    user_wallet_address: str
+    store_wallet_address: str
+    amount: Decimal | int | str
+    expires_at: datetime | str
+
+
 class PaymentService:
     """決済関連処理を担当するサービス。"""
     def create_payment_request(
@@ -59,7 +70,7 @@ class PaymentService:
             mysql_session: Session,
             store_id: int,
             user_id: int,
-            amount: int) -> PaymentCreateResponse:
+            amount: int) -> int:
         """決済リクエスト情報を作成する。
 
         Args:
@@ -69,7 +80,7 @@ class PaymentService:
             amount: 送金額
 
         Returns:
-            PaymentCreateResponse: idを付与した決済リクエスト情報
+            int: 作成した決済リクエスト ID。
         """
         store_repository = StoreRepository()
         user_repository = UserRepository()
@@ -92,7 +103,7 @@ class PaymentService:
             raise ValueError("値が一致しません。")
 
         if not user_wallet.is_approval:
-            raise WalletNotApprovedException("user wallet is not approved")
+            raise WalletNotApprovedException("対象のウォレットは利用許可がされていません。")
 
         payment_repository = PaymentRepository()
         now = datetime.now(JST)
@@ -111,15 +122,7 @@ class PaymentService:
             mysql_session=mysql_session,
             payment_request=payment_request
         )
-        return PaymentCreateResponse(
-            payment_request_id=saved_payment_request.payment_request_id,
-            from_wallet_address=saved_payment_request.user_wallet_address,
-            to_wallet_address=saved_payment_request.store_wallet_address,
-            amount=saved_payment_request.amount,
-            token_symbol=saved_payment_request.token_symbol,
-            chain_id=saved_payment_request.chain_id,
-            expires_at=DateTimeUtil.change_datetime_to_string(saved_payment_request.expires_at)
-        )
+        return saved_payment_request.payment_request_id
 
     def execute_payment(
             self,
@@ -137,6 +140,8 @@ class PaymentService:
         """
 
         payment_repository = PaymentRepository()
+
+        # 未送信の決済リクエストを取得し、送信済みや存在しないリクエストを除外する。
         target_payment_request = payment_repository.get_payment_by_id(
             mysql_session=mysql_session,
             payment_request_id=payment_request_id,
@@ -145,17 +150,24 @@ class PaymentService:
         if not target_payment_request:
             raise PaymentRequestNotFoundException("対象のpaymentが取得できませんでした")
 
+        # 対象チェーンの RPC と PaymentProcessor コントラクト情報を読み込む。
         chain_config = get_chain_config(chain_id=target_payment_request.chain_id)
         payment_processor_config = get_payment_processor_config(
             chain_id=target_payment_request.chain_id)
         web3 = Web3(HTTPProvider(chain_config.rpc_url))
+
+        # オペレーター秘密鍵から送信者アカウントを復元し、コントラクト操作用のインスタンスを作成する。
         account = web3.eth.account.from_key(payment_processor_config.operator_private_key)
         payment_processor = web3.eth.contract(
             address=web3.to_checksum_address(payment_processor_config.payment_processor_address),
             abi=PAYMENT_PROCESSOR_ABI,
         )
+
+        # コントラクトに渡す金額と paymentId を、オンチェーン形式に変換する。
         amount = int(Decimal(str(target_payment_request.amount)) * (Decimal(10) ** 18))
-        payment_id = int(payment_request_id).to_bytes(32, byteorder="big")
+        payment_id = self._build_payment_id(target_payment_request)
+
+        # PaymentProcessor.pay を呼び出すトランザクションを組み立てる。
         transaction = payment_processor.functions.pay(
             payment_id,
             web3.to_checksum_address(payment_processor_config.token_contract_address),
@@ -167,6 +179,8 @@ class PaymentService:
             "nonce": web3.eth.get_transaction_count(account.address),
             "chainId": target_payment_request.chain_id,
         })
+
+        # オペレーター鍵で署名し、署名済みトランザクションをブロックチェーンへ送信する。
         signed_transaction = account.sign_transaction(transaction)
         raw_transaction = (
             signed_transaction.raw_transaction
@@ -175,6 +189,7 @@ class PaymentService:
         )
         transaction_hash = web3.eth.send_raw_transaction(raw_transaction).hex()
 
+        # 送信したトランザクションハッシュを保存し、決済ステータスを送信済みに更新する。
         target_payment_request.transaction_hash = transaction_hash
         target_payment_request.status = PaymentStatus.SUBMITTED
 
@@ -274,8 +289,8 @@ class PaymentService:
     def _validate_payment_processed_event(
         self,
         payment_request: PaymentRequest,
-        receipt,
-        payment_processor,
+        receipt: TxReceipt,
+        payment_processor: Contract,
         token_contract_address: str,
     ) -> bool:
         """取得したcontractのバリデーションを行う
@@ -290,7 +305,10 @@ class PaymentService:
         """
 
         events = payment_processor.events.PaymentProcessed().process_receipt(receipt)
-        expected_payment_id = int(payment_request.payment_request_id).to_bytes(32, byteorder="big")
+        expected_payment_ids = {
+            self._build_payment_id(payment_request),
+            int(payment_request.payment_request_id).to_bytes(32, byteorder="big"),
+        }
         expected_amount = int(Decimal(str(payment_request.amount)) * (Decimal(10) ** 18))
 
         for event in events:
@@ -299,7 +317,7 @@ class PaymentService:
             if isinstance(payment_id, str):
                 payment_id = bytes.fromhex(payment_id.removeprefix("0x"))
 
-            if bytes(payment_id) != expected_payment_id:
+            if bytes(payment_id) not in expected_payment_ids:
                 continue
             if str(args.get("token")).lower() != str(token_contract_address).lower():
                 continue
@@ -312,3 +330,31 @@ class PaymentService:
             return True
 
         return False
+
+    @staticmethod
+    def _build_payment_id(payment_request: PaymentIdSource) -> bytes:
+        """PaymentProcessor に渡す paymentId を作成する。
+
+        Args:
+            payment_request: 決済リクエスト情報。
+
+        Returns:
+            bytes: PaymentProcessor の paymentId として使用する bytes32 値。
+        """
+        expires_at = payment_request.expires_at
+        expires_at_text = (
+            expires_at.isoformat()
+            if hasattr(expires_at, "isoformat")
+            else str(expires_at)
+        )
+        amount = int(Decimal(str(payment_request.amount)) * (Decimal(10) ** 18))
+        source = (
+            f"teraid-pay:v1:"
+            f"{payment_request.chain_id}:"
+            f"{payment_request.payment_request_id}:"
+            f"{payment_request.user_wallet_address.lower()}:"
+            f"{payment_request.store_wallet_address.lower()}:"
+            f"{amount}:"
+            f"{expires_at_text}"
+        )
+        return Web3.keccak(text=source)

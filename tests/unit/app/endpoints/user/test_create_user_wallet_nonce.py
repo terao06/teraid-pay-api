@@ -83,7 +83,7 @@ class TestCreateWalletNonce:
         }
 
     @pytest.mark.usefixtures("insert_users")
-    @patch("app.services.user_service.secrets.token_urlsafe", return_value="generated-nonce")
+    @patch("app.services.user_service.secrets.token_urlsafe", return_value="generated-user-110-nonce")
     def test_with_db(
         self,
         mock_token_urlsafe,
@@ -92,12 +92,14 @@ class TestCreateWalletNonce:
     ) -> None:
         """DB 連携時に nonce と user_nonce が保存されることを確認する。"""
         fixed_now = datetime(2026, 4, 12, 12, 0, 0, tzinfo=JST)
+        user_id = 110
+        nonce_value = "generated-user-110-nonce"
 
         with patch("app.services.user_service.datetime") as mock_datetime:
             mock_datetime.now.return_value = fixed_now
 
             response = client_with_db.post(
-                "/user/101/wallet/nonce",
+                f"/user/{user_id}/wallet/nonce",
                 json={
                     "wallet_address": "0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
                     "chain_type": "ethereum",
@@ -109,23 +111,26 @@ class TestCreateWalletNonce:
         assert response.json() == {
             "status": "success",
             "data": {
-                "nonce": "generated-nonce",
+                "nonce": nonce_value,
                 "expires_at": "2026-04-12 12:10",
             },
         }
         mock_token_urlsafe.assert_called_once_with(32)
 
-        saved_nonce = mysql_session.query(Nonce).one()
-        saved_user_nonce = mysql_session.query(UserNonce).one()
+        mysql_session.expire_all()
+        saved_nonce = mysql_session.query(Nonce).filter(Nonce.nonce == nonce_value).one()
+        saved_user_nonce = mysql_session.query(UserNonce).filter(
+            UserNonce.nonce_id == saved_nonce.nonce_id
+        ).one()
 
         assert saved_nonce.wallet_address == "0xabcdef1234567890abcdef1234567890abcdef12"
         assert saved_nonce.chain_type == "ethereum"
         assert saved_nonce.network_name == "sepolia"
-        assert saved_nonce.nonce == "generated-nonce"
+        assert saved_nonce.nonce == nonce_value
         expected_expires_at = (fixed_now + timedelta(minutes=10)).replace(tzinfo=None)
         assert saved_nonce.expires_at == expected_expires_at
         assert saved_nonce.used_at is None
-        assert saved_user_nonce.user_id == 101
+        assert saved_user_nonce.user_id == user_id
         assert saved_user_nonce.nonce_id == saved_nonce.nonce_id
         assert saved_user_nonce.created_at is not None
         assert saved_user_nonce.updated_at is not None

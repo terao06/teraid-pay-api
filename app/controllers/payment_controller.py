@@ -15,35 +15,53 @@ from app.core.exceptions.message import (
     WALLET_NOT_FOUND_ERROR
 )
 from app.middlewares.transaction import mysql_transaction
+from app.models.requests.payment_create_request import PaymentCreateRequest
 from app.models.responses.payment_transaction_hash_response import PaymentTransactionHashResponse
 from app.models.responses.payment_verify_response import PaymentVerifyResponse
 from app.services.payment_service import PaymentService
-from app.models.requests.payment_create_request import PaymentCreateRequest
-from app.models.responses.payment_create_response import PaymentCreateResponse
 
 
 class PaymentController:
+    """決済 API のリクエストを処理するコントローラーです。"""
+
     @mysql_transaction
-    def create_payment_request(
+    def create_and_execute_payment(
         self,
         mysql_session: Session,
-        request: PaymentCreateRequest) -> PaymentCreateResponse:
-        """決済情報を作成する。
+        request: PaymentCreateRequest
+    ) -> PaymentTransactionHashResponse:
+        """支払いリクエストを作成し、支払いを実行する。
 
         Args:
             mysql_session: SQLAlchemy のセッション。
-            store_id: 対象店舗の ID。
-            request: nonce 発行に必要なウォレット情報。
+            request: 支払い作成に必要な店舗 ID、ユーザー ID、金額を含むリクエスト。
 
         Returns:
-            署名メッセージと nonce を含むレスポンス。
+            支払い実行後のトランザクションハッシュ情報。
         """
+        payment_service = PaymentService()
+        payment_request = payment_service.create_payment_request(
+            mysql_session=mysql_session,
+            store_id=request.store_id,
+            user_id=request.user_id,
+            amount=request.amount,
+        )
+        return payment_service.execute_payment(
+            mysql_session=mysql_session,
+            payment_request_id=payment_request,
+        )
+
         try:
-            return PaymentService().create_payment_request(
+            payment_service = PaymentService()
+            payment_request = payment_service.create_payment_request(
                 mysql_session=mysql_session,
                 store_id=request.store_id,
                 user_id=request.user_id,
-                amount=request.amount
+                amount=request.amount,
+            )
+            return payment_service.execute_payment(
+                mysql_session=mysql_session,
+                payment_request_id=payment_request,
             )
 
         except WalletNotFoundException:
@@ -61,23 +79,6 @@ class PaymentController:
                 status_code=400,
                 message=WALLET_NOT_APPROVED_ERROR
             )
-        except Exception:
-            raise CustomHttpException.get_http_exception(
-                status_code=500,
-                message=SERVER_ERROR)
-
-    @mysql_transaction
-    def execute_payment(
-        self,
-        mysql_session: Session,
-        payment_request_id: int) -> PaymentTransactionHashResponse:
-
-        try:
-            return PaymentService().execute_payment(
-                mysql_session=mysql_session,
-                payment_request_id=payment_request_id,
-            )
-
         except PaymentRequestNotFoundException:
             raise CustomHttpException.get_http_exception(
                 status_code=404,
@@ -87,12 +88,22 @@ class PaymentController:
             raise CustomHttpException.get_http_exception(
                 status_code=500,
                 message=SERVER_ERROR)
-        
+
     @mysql_transaction
     def verify_transaction_hash(
         self,
         mysql_session: Session,
-        payment_request_id: int) -> PaymentVerifyResponse:
+        payment_request_id: int
+    ) -> PaymentVerifyResponse:
+        """支払いトランザクションハッシュを検証する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            payment_request_id: 検証対象の支払いリクエスト ID。
+
+        Returns:
+            支払い検証結果を含むレスポンス。
+        """
 
         try:
             return PaymentService().verify_transaction_hash(
@@ -105,6 +116,7 @@ class PaymentController:
                 status_code=404,
                 message=PAYMENT_ERROR
             )
+
         except Exception:
             raise CustomHttpException.get_http_exception(
                 status_code=500,
