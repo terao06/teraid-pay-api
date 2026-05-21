@@ -296,6 +296,7 @@ class TestExecutePayment:
             chain_id=11155111,
             user_wallet_address="0x2222222222222222222222222222222222222222",
             store_wallet_address="0x1111111111111111111111111111111111111111",
+            expires_at=datetime(2026, 4, 12, 12, 10, 0),
         )
         mock_payment_repository = mock_payment_repository_class.return_value
         mock_payment_repository.get_payment_by_id.return_value = target_payment_request
@@ -340,7 +341,7 @@ class TestExecutePayment:
         mock_web3_class.assert_called_once_with("provider")
         mock_web3.eth.contract.assert_called_once()
         mock_payment_processor.functions.pay.assert_called_once_with(
-            int(payment_request_id).to_bytes(32, byteorder="big"),
+            PaymentService._build_payment_id(target_payment_request),
             "0x3333333333333333333333333333333333333333",
             target_payment_request.user_wallet_address,
             target_payment_request.store_wallet_address,
@@ -706,9 +707,11 @@ class TestValidatePaymentProcessedEvent:
     def _build_payment_request(self, payment_request_id=501, amount=1500):
         return SimpleNamespace(
             payment_request_id=payment_request_id,
+            chain_id=11155111,
             user_wallet_address=self.user_wallet_address,
             store_wallet_address=self.store_wallet_address,
             amount=amount,
+            expires_at=datetime(2026, 4, 12, 12, 10, 0),
         )
 
     def _build_payment_processor(self, events):

@@ -1,9 +1,12 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
+from typing import Protocol
 
 from sqlalchemy.orm import Session
 from web3 import Web3, HTTPProvider
+from web3.contract import Contract
 from web3.exceptions import TransactionNotFound
+from web3.types import TxReceipt
 
 from app.core.exceptions.custom_exception import (
     PaymentRequestNotFoundException,
@@ -50,6 +53,15 @@ PAYMENT_PROCESSOR_ABI = [
         "type": "event",
     },
 ]
+
+
+class PaymentIdSource(Protocol):
+    payment_request_id: int
+    chain_id: int
+    user_wallet_address: str
+    store_wallet_address: str
+    amount: Decimal | int | str
+    expires_at: datetime | str
 
 
 class PaymentService:
@@ -155,7 +167,7 @@ class PaymentService:
             abi=PAYMENT_PROCESSOR_ABI,
         )
         amount = int(Decimal(str(target_payment_request.amount)) * (Decimal(10) ** 18))
-        payment_id = int(payment_request_id).to_bytes(32, byteorder="big")
+        payment_id = self._build_payment_id(target_payment_request)
         transaction = payment_processor.functions.pay(
             payment_id,
             web3.to_checksum_address(payment_processor_config.token_contract_address),
@@ -274,8 +286,8 @@ class PaymentService:
     def _validate_payment_processed_event(
         self,
         payment_request: PaymentRequest,
-        receipt,
-        payment_processor,
+        receipt: TxReceipt,
+        payment_processor: Contract,
         token_contract_address: str,
     ) -> bool:
         """取得したcontractのバリデーションを行う
@@ -290,7 +302,10 @@ class PaymentService:
         """
 
         events = payment_processor.events.PaymentProcessed().process_receipt(receipt)
-        expected_payment_id = int(payment_request.payment_request_id).to_bytes(32, byteorder="big")
+        expected_payment_ids = {
+            self._build_payment_id(payment_request),
+            int(payment_request.payment_request_id).to_bytes(32, byteorder="big"),
+        }
         expected_amount = int(Decimal(str(payment_request.amount)) * (Decimal(10) ** 18))
 
         for event in events:
@@ -299,7 +314,7 @@ class PaymentService:
             if isinstance(payment_id, str):
                 payment_id = bytes.fromhex(payment_id.removeprefix("0x"))
 
-            if bytes(payment_id) != expected_payment_id:
+            if bytes(payment_id) not in expected_payment_ids:
                 continue
             if str(args.get("token")).lower() != str(token_contract_address).lower():
                 continue
@@ -312,3 +327,31 @@ class PaymentService:
             return True
 
         return False
+
+    @staticmethod
+    def _build_payment_id(payment_request: PaymentIdSource) -> bytes:
+        """PaymentProcessor に渡す paymentId を作成する。
+
+        Args:
+            payment_request: 決済リクエスト情報。
+
+        Returns:
+            bytes: PaymentProcessor の paymentId として使用する bytes32 値。
+        """
+        expires_at = payment_request.expires_at
+        expires_at_text = (
+            expires_at.isoformat()
+            if hasattr(expires_at, "isoformat")
+            else str(expires_at)
+        )
+        amount = int(Decimal(str(payment_request.amount)) * (Decimal(10) ** 18))
+        source = (
+            f"teraid-pay:v1:"
+            f"{payment_request.chain_id}:"
+            f"{payment_request.payment_request_id}:"
+            f"{payment_request.user_wallet_address.lower()}:"
+            f"{payment_request.store_wallet_address.lower()}:"
+            f"{amount}:"
+            f"{expires_at_text}"
+        )
+        return Web3.keccak(text=source)
