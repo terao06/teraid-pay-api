@@ -20,6 +20,8 @@ from app.repositories.mysql.user_repository import UserRepository
 
 
 class FaceService:
+    """顔登録関連処理を担当するサービス。"""
+
     def __init__(self) -> None:
         self.face_embedding_repository = FaceEmbeddingRepository()
         self.user_repository = UserRepository()

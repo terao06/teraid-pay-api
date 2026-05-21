@@ -17,7 +17,7 @@ from tests.unit.test_data.ssm.build_ssm import (
 torch = pytest.importorskip("torch")
 
 TEST_DATA_ROOT = Path(__file__).resolve().parents[3] / "test_data"
-FACE_IMAGE_PATH = TEST_DATA_ROOT / "images" / "scrfd" / "one_face.png"
+FACE_IMAGE_PATH = TEST_DATA_ROOT / "images" / "register_test" / "109.png"
 
 
 class TestRegisterFace:
@@ -108,7 +108,7 @@ class TestRegisterFace:
         postgres_session,
     ) -> None:
         """DB 連携で顔画像を登録し、保存内容とレスポンスが一致することを確認する。"""
-        user_id = 101
+        user_id = 110
 
         response = client_with_db.post(
             "/face/",

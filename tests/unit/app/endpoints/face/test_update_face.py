@@ -17,8 +17,7 @@ from tests.unit.test_data.ssm.build_ssm import (
 torch = pytest.importorskip("torch")
 
 TEST_DATA_ROOT = Path(__file__).resolve().parents[3] / "test_data"
-FACE_IMAGE_PATH = TEST_DATA_ROOT / "images" / "scrfd" / "one_face.png"
-
+FACE_IMAGE_PATH = TEST_DATA_ROOT / "images" / "update_test" / "107.png"
 
 class TestUpdateFace:
     """update_face エンドポイントの単体テスト。"""

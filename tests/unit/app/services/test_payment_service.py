@@ -8,7 +8,6 @@ from web3.exceptions import TransactionNotFound
 
 from app.core.exceptions.custom_exception import PaymentRequestNotFoundException, WalletNotApprovedException, WalletNotFoundException
 from app.models.mysql.payment_request import PaymentRequest, PaymentStatus
-from app.models.responses.payment_create_response import PaymentCreateResponse
 from app.models.responses.payment_transaction_hash_response import PaymentTransactionHashResponse
 from app.models.responses.payment_verify_response import PaymentVerifyResponse
 from app.services.payment_service import JST, PaymentService
@@ -91,15 +90,7 @@ class TestCreatePaymentRequest:
         assert created_payment_request.status is None
         assert created_payment_request.transaction_hash is None
         assert created_payment_request.expires_at == fixed_now + timedelta(minutes=10)
-        assert result == PaymentCreateResponse(
-            payment_request_id=saved_payment_request_id,
-            from_wallet_address=user_wallet.wallet_address,
-            to_wallet_address=store_wallet.wallet_address,
-            amount=amount,
-            token_symbol=store_wallet.token_symbol,
-            chain_id=store_wallet.chain_id,
-            expires_at="2026-04-12 12:10",
-        )
+        assert result == saved_payment_request_id
 
     @pytest.mark.parametrize(
         ("store_wallet", "user_wallet"),
@@ -296,6 +287,7 @@ class TestExecutePayment:
             chain_id=11155111,
             user_wallet_address="0x2222222222222222222222222222222222222222",
             store_wallet_address="0x1111111111111111111111111111111111111111",
+            expires_at=datetime(2026, 4, 12, 12, 10, 0),
         )
         mock_payment_repository = mock_payment_repository_class.return_value
         mock_payment_repository.get_payment_by_id.return_value = target_payment_request
@@ -340,7 +332,7 @@ class TestExecutePayment:
         mock_web3_class.assert_called_once_with("provider")
         mock_web3.eth.contract.assert_called_once()
         mock_payment_processor.functions.pay.assert_called_once_with(
-            int(payment_request_id).to_bytes(32, byteorder="big"),
+            PaymentService._build_payment_id(target_payment_request),
             "0x3333333333333333333333333333333333333333",
             target_payment_request.user_wallet_address,
             target_payment_request.store_wallet_address,
@@ -706,9 +698,11 @@ class TestValidatePaymentProcessedEvent:
     def _build_payment_request(self, payment_request_id=501, amount=1500):
         return SimpleNamespace(
             payment_request_id=payment_request_id,
+            chain_id=11155111,
             user_wallet_address=self.user_wallet_address,
             store_wallet_address=self.store_wallet_address,
             amount=amount,
+            expires_at=datetime(2026, 4, 12, 12, 10, 0),
         )
 
     def _build_payment_processor(self, events):

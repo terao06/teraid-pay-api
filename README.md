@@ -247,8 +247,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8005 --reload
 
 | メソッド | パス | 説明 |
 | --- | --- | --- |
-| POST | `/payment/request` | 決済リクエストを作成 |
-| POST | `/payment/request/{payment_request_id}/execute` | 決済を実行 |
+| POST | `/payment/request` | 決済リクエストを作成し、決済を実行 |
 | POST | `/payment/request/{payment_request_id}/verify` | トランザクションを検証 |
 
 ## リクエスト例
@@ -282,7 +281,7 @@ Content-Type: application/json
 }
 ```
 
-決済リクエストを作成します。
+決済リクエストを作成し、PaymentProcessor コントラクト経由で決済を実行します。レスポンスには `payment_request_id` と `transaction_hash` が返ります。
 
 ```http
 POST /payment/request
