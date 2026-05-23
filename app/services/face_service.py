@@ -15,6 +15,7 @@ from app.core.utils.logging import TeraidPayApiLog
 from app.helpers.face_helper import FaceHelper
 from app.models.mysql.user import User
 from app.models.postgres.face_embedding import FaceEmbedding, ExtensionType
+from app.models.responses.face_register_status_response import FaceRegisterStatusResponse
 from app.repositories.postgres.face_embedding_repository import FaceEmbeddingRepository
 from app.repositories.mysql.user_repository import UserRepository
 
@@ -27,6 +28,31 @@ class FaceService:
         self.user_repository = UserRepository()
         self.ssm_params = SsmClient()
         self.s3_client = S3Client(s3_endpoint=self.ssm_params.s3_endpoint)
+
+    def get_face_register_state(
+        self,
+        postgres_session: Session,
+        mysql_session: Session,
+        user_id: int) -> FaceRegisterStatusResponse:
+        """認証用顔画像を登録する
+
+        Args:
+            postgres_session: SQLAlchemy のセッション。
+            mysql_session: SQLAlchemy のセッション。
+            user_id: 顔画像に紐づけるユーザーID
+
+        Returns:
+            FaceRegisterStatusResponse: 顔登録状況結果レスポンス
+        """
+        self._validate_user_exists(mysql_session=mysql_session, user_id=user_id)
+        user_face_embedding = self.face_embedding_repository.get_face_embedding_by_id(
+            postgres_session=postgres_session,
+            user_id=user_id
+        )
+        return FaceRegisterStatusResponse(
+            user_id=user_id,
+            is_registered=user_face_embedding is not None
+        )
 
     def register_face(
         self,

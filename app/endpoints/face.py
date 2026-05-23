@@ -8,6 +8,20 @@ from app.models.requests.face_update_request import FaceUpdateRequest
 
 face_router = APIRouter()
 
+@face_router.get("/{user_id}")
+@response_rapper()
+@request_rapper()
+def get_face_register_state(user_id: int):
+    """ユーザーが顔登録済みか確認する
+
+    Args:
+        user_id: ユーザーID
+
+    Returns:
+        FaceRegisterStatusResponse: 顔登録登録状況ステータス
+    """
+    return faceController().get_face_register_state(user_id=user_id)
+
 
 @face_router.post("/")
 @response_rapper()
