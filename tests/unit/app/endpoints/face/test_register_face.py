@@ -1,9 +1,11 @@
 import base64
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
 import boto3
 from fastapi import HTTPException
+from PIL import Image
 import pytest
 
 from app.models.postgres.face_embedding import FaceEmbedding
@@ -18,6 +20,14 @@ torch = pytest.importorskip("torch")
 
 TEST_DATA_ROOT = Path(__file__).resolve().parents[3] / "test_data"
 FACE_IMAGE_PATH = TEST_DATA_ROOT / "images" / "register_test" / "109.png"
+
+
+def build_compact_face_content(path: Path) -> str:
+    image = Image.open(path).convert("RGB")
+    image.thumbnail((256, 256))
+    with BytesIO() as buffer:
+        image.save(buffer, format="JPEG", quality=30, optimize=True)
+        return base64.b64encode(buffer.getvalue()).decode("ascii")
 
 
 class TestRegisterFace:
@@ -51,6 +61,47 @@ class TestRegisterFace:
         assert request.user_id == 101
         assert request.content == "base64-encoded-image"
         assert request.extension_type.value == "png"
+
+    @patch("app.endpoints.face.faceController.register_face")
+    def test_register_face_accepts_content_length_5000(
+        self,
+        mock_register_face,
+        client,
+    ) -> None:
+        mock_register_face.return_value = None
+        content = "a" * 5000
+
+        response = client.post(
+            "/face/",
+            json={
+                "user_id": 101,
+                "content": content,
+                "extension_type": "png",
+            },
+        )
+
+        assert response.status_code == 200
+        mock_register_face.assert_called_once()
+        request = mock_register_face.call_args.kwargs["request"]
+        assert request.content == content
+
+    @patch("app.endpoints.face.faceController.register_face")
+    def test_register_face_rejects_content_length_over_5000(
+        self,
+        mock_register_face,
+        client,
+    ) -> None:
+        response = client.post(
+            "/face/",
+            json={
+                "user_id": 101,
+                "content": "a" * 5001,
+                "extension_type": "png",
+            },
+        )
+
+        assert response.status_code == 422
+        mock_register_face.assert_not_called()
 
     @patch("app.endpoints.face.faceController.register_face")
     @pytest.mark.parametrize(
@@ -114,8 +165,8 @@ class TestRegisterFace:
             "/face/",
             json={
                 "user_id": user_id,
-                "content": base64.b64encode(FACE_IMAGE_PATH.read_bytes()).decode("ascii"),
-                "extension_type": "png",
+                "content": build_compact_face_content(FACE_IMAGE_PATH),
+                "extension_type": "jpeg",
             },
         )
 
@@ -143,5 +194,5 @@ class TestRegisterFace:
             aws_access_key_id=AWS_ACCESS_KEY_ID,
             aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
         )
-        response = s3_client.get_object(Bucket="faces", Key=f"{user_id}.png")
+        response = s3_client.get_object(Bucket="faces", Key=f"{user_id}.jpeg")
         assert response["Body"].read() != b""

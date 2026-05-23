@@ -4,5 +4,5 @@ from app.models.postgres.face_embedding import ExtensionType
 
 class FaceUpdateRequest(BaseModel):
     user_id: int = Field(..., description="登録対象ユーザーID")
-    content: str = Field(..., description="登録対象の顔画像")
+    content: str = Field(..., max_length=5000, description="登録対象の顔画像")
     extension_type: ExtensionType = Field(..., description="画像拡張子")
