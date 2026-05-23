@@ -32,6 +32,81 @@ def _build_face_service(
     return service
 
 
+class TestGetFaceRegisterState:
+    def test_get_face_register_state_returns_registered_when_face_exists(self) -> None:
+        postgres_session = Mock()
+        mysql_session = Mock()
+        user_id = 101
+        registered_face = Mock()
+        service = _build_face_service()
+        service._validate_user_exists = Mock()
+        service.face_embedding_repository.get_face_embedding_by_id.return_value = registered_face
+
+        result = service.get_face_register_state(
+            postgres_session=postgres_session,
+            mysql_session=mysql_session,
+            user_id=user_id,
+        )
+
+        assert result.user_id == user_id
+        assert result.is_registered is True
+        service._validate_user_exists.assert_called_once_with(
+            mysql_session=mysql_session,
+            user_id=user_id,
+        )
+        service.face_embedding_repository.get_face_embedding_by_id.assert_called_once_with(
+            postgres_session=postgres_session,
+            user_id=user_id,
+        )
+
+    def test_get_face_register_state_returns_not_registered_when_face_does_not_exist(self) -> None:
+        postgres_session = Mock()
+        mysql_session = Mock()
+        user_id = 101
+        service = _build_face_service()
+        service._validate_user_exists = Mock()
+        service.face_embedding_repository.get_face_embedding_by_id.return_value = None
+
+        result = service.get_face_register_state(
+            postgres_session=postgres_session,
+            mysql_session=mysql_session,
+            user_id=user_id,
+        )
+
+        assert result.user_id == user_id
+        assert result.is_registered is False
+        service._validate_user_exists.assert_called_once_with(
+            mysql_session=mysql_session,
+            user_id=user_id,
+        )
+        service.face_embedding_repository.get_face_embedding_by_id.assert_called_once_with(
+            postgres_session=postgres_session,
+            user_id=user_id,
+        )
+
+    def test_get_face_register_state_raises_user_not_found_when_user_does_not_exist(self) -> None:
+        postgres_session = Mock()
+        mysql_session = Mock()
+        user_id = 999
+        service = _build_face_service()
+        service._validate_user_exists = Mock(
+            side_effect=UserNotFoundException("user not found")
+        )
+
+        with pytest.raises(UserNotFoundException, match="user not found"):
+            service.get_face_register_state(
+                postgres_session=postgres_session,
+                mysql_session=mysql_session,
+                user_id=user_id,
+            )
+
+        service._validate_user_exists.assert_called_once_with(
+            mysql_session=mysql_session,
+            user_id=user_id,
+        )
+        service.face_embedding_repository.get_face_embedding_by_id.assert_not_called()
+
+
 class TestRegisterFace:
     @patch("app.services.face_service.FaceEmbeddingRepository")
     @patch("app.services.face_service.FaceHelper.get_embedding")

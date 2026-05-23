@@ -12,6 +12,62 @@ tags:
     description: 顔認証操作
 
 paths:
+  /face/{user_id}:
+    get:
+      tags:
+        - Face
+      summary: 顔登録状況取得
+      description: 指定ユーザーが顔画像を登録済みか確認する。
+      operationId: getFaceRegisterState
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: ユーザーID
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: 顔登録状況の取得に成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FaceRegisterStatusWrappedResponse'
+              examples:
+                registered:
+                  summary: 登録済み
+                  value:
+                    status: success
+                    data:
+                      user_id: 101
+                      is_registered: true
+                notRegistered:
+                  summary: 未登録
+                  value:
+                    status: success
+                    data:
+                      user_id: 101
+                      is_registered: false
+        '404':
+          description: ユーザーが存在しない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /face/:
     post:
       tags:
@@ -246,6 +302,32 @@ components:
           type: integer
           minimum: 1
           description: 削除対象ユーザーID
+
+    FaceRegisterStatus:
+      type: object
+      required:
+        - user_id
+        - is_registered
+      properties:
+        user_id:
+          type: integer
+          minimum: 1
+          description: ユーザーID
+        is_registered:
+          type: boolean
+          description: 顔画像が登録済みかどうか
+
+    FaceRegisterStatusWrappedResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/FaceRegisterStatus'
 
     FaceWrappedResponse:
       type: object

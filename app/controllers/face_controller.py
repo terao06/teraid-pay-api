@@ -22,11 +22,36 @@ from app.middlewares.transaction import postgres_transaction, mysql_transaction
 from app.models.requests.face_delete_request import FaceDeleteRequest
 from app.models.requests.face_register_request import FaceRegisterRequest
 from app.models.requests.face_update_request import FaceUpdateRequest
+from app.models.responses.face_register_status_response import FaceRegisterStatusResponse
 from app.services.face_service import FaceService
 
 
 class faceController:
     """顔認証 API のリクエストを処理するコントローラーです。"""
+
+    @postgres_transaction
+    @mysql_transaction
+    def get_face_register_state(
+        self,
+        postgres_session: Session,
+        mysql_session: Session,
+        user_id: int) -> FaceRegisterStatusResponse:
+        try:
+            return FaceService().get_face_register_state(
+                postgres_session=postgres_session,
+                mysql_session=mysql_session,
+                user_id=user_id
+            )
+
+        except UserNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=404,
+                message=USER_NOT_FOUND_ERROR)
+
+        except Exception:
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR)
 
     @postgres_transaction
     @mysql_transaction
