@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.core.exceptions.custom_exception import (
     CustomHttpException,
     FaceEmbeddingNotFoundException,
+    FaceNotFoundException,
     PaymentRequestNotFoundException,
     UserNotFoundException,
     WalletNotApprovedException,
@@ -10,6 +11,7 @@ from app.core.exceptions.custom_exception import (
 )
 from app.core.exceptions.message import (
     FACE_NOT_REGISTERED_ERROR,
+    FACE_NOTE_FOUND_ERROR,
     NOT_MATCH_ERROR,
     PAYMENT_ERROR,
     PAYMENT_INFO_NOT_FOUND,
@@ -99,6 +101,7 @@ class PaymentController:
         Returns:
             支払い実行後のトランザクションハッシュ情報。
         """
+
         try:
             payment_service = PaymentService()
             user_id = payment_service.get_user_id_from_face_image(
@@ -118,6 +121,10 @@ class PaymentController:
                 payment_request_id=payment_request,
             )
 
+        except FaceNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=400,
+                message=FACE_NOTE_FOUND_ERROR)
         except FaceEmbeddingNotFoundException:
             raise CustomHttpException.get_http_exception(
                 status_code=404,
