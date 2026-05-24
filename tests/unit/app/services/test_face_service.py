@@ -109,18 +109,14 @@ class TestGetFaceRegisterState:
 
 class TestRegisterFace:
     @patch("app.services.face_service.FaceEmbeddingRepository")
-    @patch("app.services.face_service.FaceHelper.get_embedding")
-    @patch("app.services.face_service.FaceHelper.alignment_face")
-    @patch("app.services.face_service.FaceHelper.get_face_landmark")
+    @patch("app.services.face_service.FaceHelper.get_embedding_from_image")
     @patch("app.services.face_service.S3Client")
     @patch("app.services.face_service.SsmClient")
     def test_register_face_creates_embedding_and_uploads_original_image(
         self,
         mock_ssm_client_class,
         mock_s3_client_class,
-        mock_get_face_landmark,
-        mock_alignment_face,
-        mock_get_embedding,
+        mock_get_embedding_from_image,
         mock_repository_class,
     ) -> None:
         postgres_session = Mock()
@@ -135,22 +131,17 @@ class TestRegisterFace:
             face_image_bucket="faces",
         )
         s3_client = Mock()
-        face_image = Mock()
-        alignment_face = Image.new("RGB", (112, 112), color=(10, 20, 30))
         embedding = [0.1] * 512
 
         mock_ssm_client_class.return_value = ssm_params
         mock_s3_client_class.return_value = s3_client
-        s3_client.get_object.side_effect = [b"scrfd-weight", b"adaface-weight"]
         uploaded_body = BytesIO()
 
         def capture_uploaded_file(bucket_name, file, file_name) -> None:
             uploaded_body.write(file.read())
 
         s3_client.upload_object.side_effect = capture_uploaded_file
-        mock_get_face_landmark.return_value = face_image
-        mock_alignment_face.return_value = alignment_face
-        mock_get_embedding.return_value = embedding
+        mock_get_embedding_from_image.return_value = embedding
         mock_repository = mock_repository_class.return_value
         mock_repository.get_nearest_face_embedding.return_value = None
 
@@ -177,26 +168,12 @@ class TestRegisterFace:
         )
         mock_ssm_client_class.assert_called_once_with()
         mock_s3_client_class.assert_called_once_with(s3_endpoint="http://s3.local")
-        assert s3_client.get_object.call_args_list[0].kwargs == {
-            "bucket_name": "weights",
-            "key": "scrfd/model.onnx",
-        }
-        assert s3_client.get_object.call_args_list[1].kwargs == {
-            "bucket_name": "weights",
-            "key": "adaface/model.ckpt",
-        }
-
-        mock_get_face_landmark.assert_called_once()
-        face_landmark_kwargs = mock_get_face_landmark.call_args.kwargs
-        assert face_landmark_kwargs["weight_bytes"] == b"scrfd-weight"
-        assert face_landmark_kwargs["image"].mode == "RGB"
-        assert face_landmark_kwargs["image"].size == (160, 120)
-
-        mock_alignment_face.assert_called_once_with(face_image=face_image)
-        mock_get_embedding.assert_called_once_with(
-            weight_bytes=b"adaface-weight",
-            face_image=alignment_face,
-        )
+        mock_get_embedding_from_image.assert_called_once()
+        embedding_kwargs = mock_get_embedding_from_image.call_args.kwargs
+        assert embedding_kwargs["s3_client"] is s3_client
+        assert embedding_kwargs["ssm_params"] is ssm_params
+        assert embedding_kwargs["image"].mode == "RGB"
+        assert embedding_kwargs["image"].size == (160, 120)
 
         mock_repository_class.assert_called_once_with()
         mock_repository.get_nearest_face_embedding.assert_called_once_with(
@@ -225,18 +202,14 @@ class TestRegisterFace:
 
     @patch("app.services.face_service.TeraidPayApiLog.warning")
     @patch("app.services.face_service.FaceEmbeddingRepository")
-    @patch("app.services.face_service.FaceHelper.get_embedding")
-    @patch("app.services.face_service.FaceHelper.alignment_face")
-    @patch("app.services.face_service.FaceHelper.get_face_landmark")
+    @patch("app.services.face_service.FaceHelper.get_embedding_from_image")
     @patch("app.services.face_service.S3Client")
     @patch("app.services.face_service.SsmClient")
     def test_register_face_logs_distance_when_same_face_exists(
         self,
         mock_ssm_client_class,
         mock_s3_client_class,
-        mock_get_face_landmark,
-        mock_alignment_face,
-        mock_get_embedding,
+        mock_get_embedding_from_image,
         mock_repository_class,
         mock_warning,
     ) -> None:
@@ -252,20 +225,15 @@ class TestRegisterFace:
             face_image_bucket="faces",
         )
         s3_client = Mock()
-        face_image = Mock()
-        alignment_face = Image.new("RGB", (112, 112), color=(10, 20, 30))
         embedding = [0.1] * 512
         nearest_face = SimpleNamespace(
-            face_embedding=SimpleNamespace(user_id=202),
+            user_id=202,
             distance=0.1234,
         )
 
         mock_ssm_client_class.return_value = ssm_params
         mock_s3_client_class.return_value = s3_client
-        s3_client.get_object.side_effect = [b"scrfd-weight", b"adaface-weight"]
-        mock_get_face_landmark.return_value = face_image
-        mock_alignment_face.return_value = alignment_face
-        mock_get_embedding.return_value = embedding
+        mock_get_embedding_from_image.return_value = embedding
         mock_repository = mock_repository_class.return_value
         mock_repository.get_nearest_face_embedding.return_value = nearest_face
 
@@ -369,7 +337,11 @@ class TestRegisterFace:
 
 
 class TestUpdateFace:
-    def test_update_face_updates_embedding_and_uploads_original_image(self) -> None:
+    @patch("app.services.face_service.FaceHelper.get_embedding_from_image")
+    def test_update_face_updates_embedding_and_uploads_original_image(
+        self,
+        mock_get_embedding_from_image,
+    ) -> None:
         postgres_session = Mock()
         mysql_session = Mock()
         user_id = 101
@@ -392,7 +364,7 @@ class TestUpdateFace:
         service = _build_face_service(ssm_params=ssm_params, s3_client=s3_client)
         service._validate_user_exists = Mock()
         service._get_registered_face_embedding = Mock(return_value=registered_embedding)
-        service._get_embedding_from_image = Mock(return_value=new_embedding)
+        mock_get_embedding_from_image.return_value = new_embedding
         service._validate_face_embedding = Mock()
 
         result = service.update_face(
@@ -412,8 +384,11 @@ class TestUpdateFace:
             postgres_session=postgres_session,
             user_id=user_id,
         )
-        service._get_embedding_from_image.assert_called_once()
-        target_image = service._get_embedding_from_image.call_args.kwargs["image"]
+        mock_get_embedding_from_image.assert_called_once()
+        embedding_kwargs = mock_get_embedding_from_image.call_args.kwargs
+        assert embedding_kwargs["s3_client"] is s3_client
+        assert embedding_kwargs["ssm_params"] is ssm_params
+        target_image = embedding_kwargs["image"]
         assert target_image.mode == "RGB"
         assert target_image.size == (160, 120)
         service._validate_face_embedding.assert_called_once_with(
@@ -439,7 +414,11 @@ class TestUpdateFace:
         assert uploaded_image.mode == "RGB"
         assert uploaded_image.size == (160, 120)
 
-    def test_update_face_raises_user_not_found_when_user_does_not_exist(self) -> None:
+    @patch("app.services.face_service.FaceHelper.get_embedding_from_image")
+    def test_update_face_raises_user_not_found_when_user_does_not_exist(
+        self,
+        mock_get_embedding_from_image,
+    ) -> None:
         postgres_session = Mock()
         mysql_session = Mock()
         user_id = 999
@@ -449,7 +428,6 @@ class TestUpdateFace:
             side_effect=UserNotFoundException("user not found")
         )
         service._get_registered_face_embedding = Mock()
-        service._get_embedding_from_image = Mock()
 
         with pytest.raises(UserNotFoundException, match="user not found"):
             service.update_face(
@@ -465,10 +443,14 @@ class TestUpdateFace:
             user_id=user_id,
         )
         service._get_registered_face_embedding.assert_not_called()
-        service._get_embedding_from_image.assert_not_called()
+        mock_get_embedding_from_image.assert_not_called()
         s3_client.upload_object.assert_not_called()
 
-    def test_update_face_raises_not_found_when_face_is_not_registered(self) -> None:
+    @patch("app.services.face_service.FaceHelper.get_embedding_from_image")
+    def test_update_face_raises_not_found_when_face_is_not_registered(
+        self,
+        mock_get_embedding_from_image,
+    ) -> None:
         postgres_session = Mock()
         mysql_session = Mock()
         user_id = 101
@@ -478,7 +460,6 @@ class TestUpdateFace:
         service._get_registered_face_embedding = Mock(
             side_effect=FaceEmbeddingNotFoundException("face embedding not found")
         )
-        service._get_embedding_from_image = Mock()
 
         with pytest.raises(FaceEmbeddingNotFoundException, match="face embedding not found"):
             service.update_face(
@@ -497,11 +478,15 @@ class TestUpdateFace:
             postgres_session=postgres_session,
             user_id=user_id,
         )
-        service._get_embedding_from_image.assert_not_called()
+        mock_get_embedding_from_image.assert_not_called()
         service.face_embedding_repository.update_face_embedding.assert_not_called()
         s3_client.upload_object.assert_not_called()
 
-    def test_update_face_stops_when_same_face_exists(self) -> None:
+    @patch("app.services.face_service.FaceHelper.get_embedding_from_image")
+    def test_update_face_stops_when_same_face_exists(
+        self,
+        mock_get_embedding_from_image,
+    ) -> None:
         postgres_session = Mock()
         mysql_session = Mock()
         user_id = 101
@@ -516,7 +501,7 @@ class TestUpdateFace:
         service = _build_face_service(s3_client=s3_client)
         service._validate_user_exists = Mock()
         service._get_registered_face_embedding = Mock(return_value=registered_embedding)
-        service._get_embedding_from_image = Mock(return_value=new_embedding)
+        mock_get_embedding_from_image.return_value = new_embedding
         service._validate_face_embedding = Mock(
             side_effect=FaceConflictException("face conflict")
         )
@@ -786,7 +771,7 @@ class TestValidateFaceEmbedding:
         threshold = 0.7
         embedding = [0.1] * 512
         nearest_face = SimpleNamespace(
-            face_embedding=SimpleNamespace(user_id=202),
+            user_id=202,
             distance=0.1234,
         )
         service = _build_face_service()
@@ -810,50 +795,3 @@ class TestValidateFaceEmbedding:
             "この顔画像は既に登録されています。 user_id: 202, distance: 0.1234"
         )
 
-
-class TestGetEmbeddingFromImage:
-    @patch("app.services.face_service.FaceHelper.get_embedding")
-    @patch("app.services.face_service.FaceHelper.alignment_face")
-    @patch("app.services.face_service.FaceHelper.get_face_landmark")
-    def test_get_embedding_from_image_returns_embedding(
-        self,
-        mock_get_face_landmark,
-        mock_alignment_face,
-        mock_get_embedding,
-    ) -> None:
-        image = Image.new("RGB", (160, 120), color=(255, 0, 0))
-        face_image = Mock()
-        alignment_face = Mock()
-        embedding = [0.1] * 512
-        ssm_params = SimpleNamespace(
-            llm_weight_bucket="weights",
-            scrfd_weight="scrfd/model.onnx",
-            adaface_weight="adaface/model.ckpt",
-        )
-        s3_client = Mock()
-        s3_client.get_object.side_effect = [b"scrfd-weight", b"adaface-weight"]
-        mock_get_face_landmark.return_value = face_image
-        mock_alignment_face.return_value = alignment_face
-        mock_get_embedding.return_value = embedding
-        service = _build_face_service(ssm_params=ssm_params, s3_client=s3_client)
-
-        result = service._get_embedding_from_image(image=image)
-
-        assert result == embedding
-        assert s3_client.get_object.call_args_list[0].kwargs == {
-            "bucket_name": "weights",
-            "key": "scrfd/model.onnx",
-        }
-        assert s3_client.get_object.call_args_list[1].kwargs == {
-            "bucket_name": "weights",
-            "key": "adaface/model.ckpt",
-        }
-        mock_get_face_landmark.assert_called_once_with(
-            weight_bytes=b"scrfd-weight",
-            image=image,
-        )
-        mock_alignment_face.assert_called_once_with(face_image=face_image)
-        mock_get_embedding.assert_called_once_with(
-            weight_bytes=b"adaface-weight",
-            face_image=alignment_face,
-        )

@@ -1,27 +1,37 @@
+import base64
 from datetime import datetime, timedelta
 from decimal import Decimal
+from io import BytesIO
 from typing import Protocol
 
+from PIL import Image
 from sqlalchemy.orm import Session
 from web3 import Web3, HTTPProvider
 from web3.contract import Contract
 from web3.exceptions import TransactionNotFound
 from web3.types import TxReceipt
 
+from app.core.aws.s3_client import S3Client
+from app.core.aws.ssm_manager import SsmClient
 from app.core.exceptions.custom_exception import (
+    FaceEmbeddingNotFoundException,
     PaymentRequestNotFoundException,
+    UserNotFoundException,
     WalletNotApprovedException,
     WalletNotFoundException
 )
 from app.core.utils.datetime import JST
 from app.core.config.blockchain import get_chain_config
 from app.core.config.payment_processor import get_payment_processor_config
+from app.core.utils.logging import TeraidPayApiLog
+from app.helpers.face_helper import FaceHelper
 from app.models.responses.payment_transaction_hash_response import PaymentTransactionHashResponse
 from app.repositories.mysql.store_repository import StoreRepository
 from app.repositories.mysql.user_repository import UserRepository
 from app.repositories.mysql.payment_repository import PaymentRepository
 from app.models.mysql.payment_request import PaymentRequest, PaymentStatus
 from app.models.responses.payment_verify_response import PaymentVerifyResponse
+from app.repositories.postgres.face_embedding_repository import FaceEmbeddingRepository
 
 
 PAYMENT_PROCESSOR_ABI = [
@@ -65,6 +75,51 @@ class PaymentIdSource(Protocol):
 
 class PaymentService:
     """決済関連処理を担当するサービス。"""
+    def get_user_id_from_face_image(
+            self,
+            mysql_session: Session,
+            postgres_session: Session,
+            content: str,
+            threshold: float = 0.7) -> int:
+        """顔画像からuser_idを取得する
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            postgres_session: SQLAlchemy のセッション。
+            store_id: 送金先店舗のID
+            content: 送金元ユーザーのID
+
+        Returns:
+            int: ユーザーID。
+        """
+        self.ssm_params = SsmClient()
+        self.s3_client = S3Client(s3_endpoint=self.ssm_params.s3_endpoint)
+
+        image_bytes = base64.b64decode(content)
+        target_image = Image.open(BytesIO(image_bytes)).convert("RGB")
+        embedding = FaceHelper.get_embedding_from_image(
+            image=target_image,
+            s3_client=self.s3_client,
+            ssm_params=self.ssm_params,
+        )
+        face_info = FaceEmbeddingRepository().get_nearest_face_embedding(
+            postgres_session=postgres_session,
+            embedding=embedding,
+            threshold=threshold,
+        )
+        if face_info is None:
+            TeraidPayApiLog.warning("対象の顔画像は登録されていません。")
+            raise FaceEmbeddingNotFoundException("顔画像が登録されていません。")
+
+        user = UserRepository().get_user_by_id(
+            mysql_session=mysql_session,
+            user_id=face_info.user_id
+        )
+        if user is None:
+            TeraidPayApiLog.warning(f"対象のユーザーは存在しません。 user_id: {face_info.user_id}")
+            raise UserNotFoundException("ユーザーが存在しません。")
+        return user.user_id
+
     def create_payment_request(
             self,
             mysql_session: Session,
