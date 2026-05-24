@@ -155,7 +155,7 @@ class faceController:
 
         except FaceEmbeddingNotFoundException:
             raise CustomHttpException.get_http_exception(
-                status_code=409,
+                status_code=404,
                 message=FACE_NOT_REGISTERED_ERROR)
         
         except Exception:
@@ -188,7 +188,7 @@ class faceController:
 
         except FaceEmbeddingNotFoundException:
             raise CustomHttpException.get_http_exception(
-                status_code=400,
+                status_code=404,
                 message=FACE_NOT_REGISTERED_ERROR)
 
         except Exception:

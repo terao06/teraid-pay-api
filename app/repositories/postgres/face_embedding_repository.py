@@ -5,12 +5,18 @@ from sqlalchemy import Float, bindparam, cast
 from sqlalchemy.orm import Session
 
 from app.core.utils.datetime import JST
-from app.models.postgres.face_embedding import FaceEmbedding
+from app.models.postgres.face_embedding import FaceEmbedding, ExtensionType
 
 
 @dataclass(frozen=True)
 class NearestFaceEmbedding:
-    face_embedding: FaceEmbedding
+    face_embedding_id: int
+    user_id: int
+    embedding: list[float]
+    extension_type: ExtensionType
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
     distance: float
 
 
@@ -81,7 +87,7 @@ class FaceEmbeddingRepository:
         postgres_session: Session,
         embedding: list[float],
         threshold: float,
-        exclusion_user_id: int,
+        exclusion_user_id: int | None = None,
     ) -> NearestFaceEmbedding | None:
         """指定したベクトルに最も近い有効な顔特徴量を取得する。
 
@@ -109,17 +115,25 @@ class FaceEmbeddingRepository:
         result = (
             postgres_session.query(FaceEmbedding, distance.label("distance"))
             .filter(FaceEmbedding.is_active.is_(True))
-            .filter(FaceEmbedding.user_id != exclusion_user_id)
             .filter(distance <= threshold)
-            .order_by(distance)
-            .first()
         )
+
+        if exclusion_user_id is not None:
+            result = result.filter(FaceEmbedding.user_id != exclusion_user_id)
+
+        result = result.order_by(distance).first()
         if result is None:
             return None
 
         face_embedding, nearest_distance = result
         return NearestFaceEmbedding(
-            face_embedding=face_embedding,
+            face_embedding_id=face_embedding.face_embedding_id,
+            user_id=face_embedding.user_id,
+            embedding=face_embedding.embedding,
+            extension_type=face_embedding.extension_type,
+            is_active=face_embedding.is_active,
+            created_at=face_embedding.created_at,
+            updated_at=face_embedding.updated_at,
             distance=float(nearest_distance),
         )
 

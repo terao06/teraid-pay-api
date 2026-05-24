@@ -121,11 +121,11 @@ def _build_test_face_embedding() -> list[float]:
 
     scrfd_weight_bytes = SCRFD_WEIGHT_PATH.read_bytes()
     image = Image.open(TEST_FACE_PATH).convert("RGB")
-    face_image = FaceHelper.get_face_landmark(weight_bytes=scrfd_weight_bytes, image=image)
-    alignment_face = FaceHelper.alignment_face(face_image=face_image)
+    face_image = FaceHelper._get_face_landmark(weight_bytes=scrfd_weight_bytes, image=image)
+    _alignment_face = FaceHelper._alignment_face(face_image=face_image)
 
     adaface_weight_bytes = ADAFACE_WEIGHT_PATH.read_bytes()
-    embedding = FaceHelper.get_embedding(weight_bytes=adaface_weight_bytes, face_image=alignment_face)
+    embedding = FaceHelper._get_embedding(weight_bytes=adaface_weight_bytes, face_image=_alignment_face)
     if len(embedding) != 512:
         raise ValueError(f"test_face.png の embedding は 512 次元である必要があります: {len(embedding)}")
     return embedding

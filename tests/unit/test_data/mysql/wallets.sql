@@ -137,3 +137,31 @@ INSERT INTO wallets (
     '2024-05-02 00:00:00',
     NULL
 );
+
+INSERT INTO wallets (
+    wallet_id,
+    wallet_address,
+    chain_type,
+    network_name,
+    token_symbol,
+    chain_id,
+    wallet_name,
+    is_active,
+    verified_at,
+    created_at,
+    updated_at,
+    deleted_at
+) VALUES (
+    306,
+    '0x6666666666666666666666666666666666666666',
+    'ETH',
+    'mainnet',
+    'JPYC',
+    1,
+    NULL,
+    1,
+    '2024-06-01 00:00:00',
+    '2024-06-01 00:00:00',
+    '2024-06-02 00:00:00',
+    NULL
+);

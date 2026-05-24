@@ -13,7 +13,6 @@ from app.core.exceptions.custom_exception import (
 )
 from app.core.utils.logging import TeraidPayApiLog
 from app.helpers.face_helper import FaceHelper
-from app.models.mysql.user import User
 from app.models.postgres.face_embedding import FaceEmbedding, ExtensionType
 from app.models.responses.face_register_status_response import FaceRegisterStatusResponse
 from app.repositories.postgres.face_embedding_repository import FaceEmbeddingRepository
@@ -82,7 +81,11 @@ class FaceService:
         )
         image_bytes = base64.b64decode(content)
         target_image = Image.open(BytesIO(image_bytes)).convert("RGB")
-        embedding = self._get_embedding_from_image(image=target_image)
+        embedding = FaceHelper.get_embedding_from_image(
+            image=target_image,
+            s3_client=self.s3_client,
+            ssm_params=self.ssm_params,
+        )
 
         self._validate_face_embedding(
             postgres_session=postgres_session,
@@ -138,7 +141,11 @@ class FaceService:
         )
         image_bytes = base64.b64decode(content)
         target_image = Image.open(BytesIO(image_bytes)).convert("RGB")
-        embedding = self._get_embedding_from_image(image=target_image)
+        embedding = FaceHelper.get_embedding_from_image(
+            image=target_image,
+            s3_client=self.s3_client,
+            ssm_params=self.ssm_params,
+        )
 
         self._validate_face_embedding(
             postgres_session=postgres_session,
@@ -290,29 +297,7 @@ class FaceService:
         if face is not None:
             TeraidPayApiLog.warning(
                 f"この顔画像は既に登録されています。 "
-                f"user_id: {face.face_embedding.user_id}, distance: {face.distance}"
+                f"user_id: {face.user_id}, distance: {face.distance}"
             )
             raise FaceConflictException("この顔画像は既に登録されています。")
 
-    def _get_embedding_from_image(self, image: Image) -> list[float]:
-        """画像から顔のlandmarkを抽出する
-
-        Args:
-            image: 顔画像
-
-        Returns:
-            FaceEmbedding: 顔画像から抽出したランドマーク
-        """
-
-        scrfd_weight_bytes = self.s3_client.get_object(
-            bucket_name=self.ssm_params.llm_weight_bucket,
-            key=self.ssm_params.scrfd_weight
-        )
-        face_image = FaceHelper.get_face_landmark(weight_bytes=scrfd_weight_bytes, image=image)
-        alignment_face = FaceHelper.alignment_face(face_image=face_image)
-
-        adaface_weight_bytes = self.s3_client.get_object(
-            bucket_name=self.ssm_params.llm_weight_bucket,
-            key=self.ssm_params.adaface_weight
-        )
-        return FaceHelper.get_embedding(weight_bytes=adaface_weight_bytes, face_image=alignment_face)

@@ -77,3 +77,19 @@ INSERT INTO user_wallets (
     '2024-05-02 00:00:00',
     NULL
 );
+
+INSERT INTO user_wallets (
+    user_wallet_id,
+    user_id,
+    wallet_id,
+    created_at,
+    updated_at,
+    deleted_at
+) VALUES (
+    207,
+    107,
+    306,
+    '2024-06-01 00:00:00',
+    '2024-06-02 00:00:00',
+    NULL
+);

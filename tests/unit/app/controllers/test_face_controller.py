@@ -219,7 +219,7 @@ class TestUpdateFace:
             ),
             (
                 FaceEmbeddingNotFoundException("face embedding not found"),
-                409,
+                404,
                 FACE_NOT_REGISTERED_ERROR,
             ),
             (Exception("unexpected error"), 500, SERVER_ERROR),
@@ -287,7 +287,7 @@ class TestDeleteFace:
             (UserNotFoundException("user not found"), 404, USER_NOT_FOUND_ERROR),
             (
                 FaceEmbeddingNotFoundException("face embedding not found"),
-                400,
+                404,
                 FACE_NOT_REGISTERED_ERROR,
             ),
             (Exception("unexpected error"), 500, SERVER_ERROR),
