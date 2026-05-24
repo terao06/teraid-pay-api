@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from app.controllers.payment_controller import PaymentController
 from app.core.exceptions.custom_exception import (
     FaceEmbeddingNotFoundException,
+    FaceNotFoundException,
     PaymentRequestNotFoundException,
     UserNotFoundException,
     WalletNotApprovedException,
@@ -13,6 +14,7 @@ from app.core.exceptions.custom_exception import (
 )
 from app.core.exceptions.message import (
     FACE_NOT_REGISTERED_ERROR,
+    FACE_NOTE_FOUND_ERROR,
     NOT_MATCH_ERROR,
     PAYMENT_ERROR,
     PAYMENT_INFO_NOT_FOUND,
@@ -191,6 +193,7 @@ class TestCreateAndExecutePaymentFromFace:
     @pytest.mark.parametrize(
         ("side_effect", "expected_status_code", "expected_message"),
         [
+            (FaceNotFoundException("face not found"), 400, FACE_NOTE_FOUND_ERROR),
             (FaceEmbeddingNotFoundException("face not registered"), 404, FACE_NOT_REGISTERED_ERROR),
             (UserNotFoundException("user not found"), 404, USER_NOT_FOUND_ERROR),
             (Exception("unexpected error"), 500, SERVER_ERROR),
