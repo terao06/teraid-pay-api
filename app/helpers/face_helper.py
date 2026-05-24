@@ -5,6 +5,8 @@ from typing import NamedTuple
 import numpy as np
 from PIL import Image
 
+from app.core.aws.s3_client import S3Client
+from app.core.aws.ssm_manager import SsmClient
 from app.ml.scrfd import Scrfd, ScrfdDevice
 from app.ml.adaface import AdaFace
 
@@ -34,7 +36,28 @@ class FaceImage(NamedTuple):
 
 class FaceHelper:
     @classmethod
-    def get_face_landmark(
+    def get_embedding_from_image(
+        cls,
+        image: Image.Image,
+        s3_client: S3Client,
+        ssm_params: SsmClient,
+    ) -> list[float]:
+        """画像から顔特徴量を抽出する。"""
+        scrfd_weight_bytes = s3_client.get_object(
+            bucket_name=ssm_params.llm_weight_bucket,
+            key=ssm_params.scrfd_weight,
+        )
+        face_image = cls._get_face_landmark(weight_bytes=scrfd_weight_bytes, image=image)
+        _alignment_face = cls._alignment_face(face_image=face_image)
+
+        adaface_weight_bytes = s3_client.get_object(
+            bucket_name=ssm_params.llm_weight_bucket,
+            key=ssm_params.adaface_weight,
+        )
+        return cls._get_embedding(weight_bytes=adaface_weight_bytes, face_image=_alignment_face)
+
+    @classmethod
+    def _get_face_landmark(
         cls,
         weight_bytes: bytes,
         image: Image.Image,
@@ -79,11 +102,11 @@ class FaceHelper:
         )
 
     @classmethod
-    def alignment_face(cls, face_image: FaceImage) -> Image.Image:
+    def _alignment_face(cls, face_image: FaceImage) -> Image.Image:
         """5点ランドマークを基準に顔画像を112x112へアライメントする。
 
         Args:
-            face_image: get_face_landmarkで取得した顔画像と5点ランドマーク。
+            face_image: _get_face_landmarkで取得した顔画像と5点ランドマーク。
 
         Returns:
             AdaFace/ArcFace系モデルに入力しやすい112x112のアライメント済み顔画像。
@@ -150,6 +173,6 @@ class FaceHelper:
         )
     
     @classmethod
-    def get_embedding(cls, weight_bytes: bytes, face_image: Image.Image) -> list[float]:
+    def _get_embedding(cls, weight_bytes: bytes, face_image: Image.Image) -> list[float]:
         adaface = AdaFace(weight_bytes=weight_bytes, device="cuda")
         return adaface.get_embedding(image=face_image)

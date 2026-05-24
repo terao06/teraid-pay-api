@@ -19,7 +19,7 @@ def _point(x: float, y: float) -> SimpleNamespace:
 
 class TestFaceHelperGetFaceLandmark:
     @patch("app.helpers.face_helper.Scrfd")
-    def test_get_face_landmark_returns_cropped_face_and_relative_landmarks(
+    def test__get_face_landmark_returns_cropped_face_and_relative_landmarks(
         self,
         mock_scrfd,
     ) -> None:
@@ -43,7 +43,7 @@ class TestFaceHelperGetFaceLandmark:
         mock_scrfd.return_value = scrfd
         scrfd.get_face.return_value = face
 
-        result = FaceHelper.get_face_landmark(weight_bytes=weight_bytes, image=image)
+        result = FaceHelper._get_face_landmark(weight_bytes=weight_bytes, image=image)
 
         mock_scrfd.assert_called_once_with(
             weight_bytes=weight_bytes,
@@ -60,7 +60,7 @@ class TestFaceHelperGetFaceLandmark:
         )
 
     @patch("app.helpers.face_helper.Scrfd")
-    def test_get_face_landmark_uses_cuda_device(
+    def test__get_face_landmark_uses_cuda_device(
         self,
         mock_scrfd,
     ) -> None:
@@ -82,7 +82,7 @@ class TestFaceHelperGetFaceLandmark:
         mock_scrfd.return_value = scrfd
         scrfd.get_face.return_value = face
 
-        FaceHelper.get_face_landmark(
+        FaceHelper._get_face_landmark(
             weight_bytes=weight_bytes,
             image=image,
         )
@@ -94,7 +94,7 @@ class TestFaceHelperGetFaceLandmark:
 
 
 class TestFaceHelperAlignmentFace:
-    def test_alignment_face_returns_rgb_image_with_alignment_size(self) -> None:
+    def test__alignment_face_returns_rgb_image_with_alignment_size(self) -> None:
         """基準ランドマークに揃った顔画像を112x112のRGB画像として返すこと。"""
         image = Image.new("L", FACE_ALIGNMENT_SIZE, color=128)
         face_image = FaceImage(
@@ -102,7 +102,7 @@ class TestFaceHelperAlignmentFace:
             landmarks=tuple(map(tuple, REFERENCE_FIVE_POINT_LANDMARKS)),
         )
 
-        result = FaceHelper.alignment_face(face_image=face_image)
+        result = FaceHelper._alignment_face(face_image=face_image)
 
         assert result.size == FACE_ALIGNMENT_SIZE
         assert result.mode == "RGB"
@@ -172,8 +172,59 @@ class TestFaceHelperGetEmbedding:
         adaface.get_embedding.return_value = [0.1, 0.2, 0.3]
         mock_adaface.return_value = adaface
 
-        result = FaceHelper.get_embedding(weight_bytes=weight_bytes, face_image=face_image)
+        result = FaceHelper._get_embedding(weight_bytes=weight_bytes, face_image=face_image)
 
         mock_adaface.assert_called_once_with(weight_bytes=weight_bytes, device="cuda")
         adaface.get_embedding.assert_called_once_with(image=face_image)
         assert result == [0.1, 0.2, 0.3]
+
+
+class TestFaceHelperGetEmbeddingFromImage:
+    @patch("app.helpers.face_helper.FaceHelper._get_embedding")
+    @patch("app.helpers.face_helper.FaceHelper._alignment_face")
+    @patch("app.helpers.face_helper.FaceHelper._get_face_landmark")
+    def test_get_embedding_from_image_returns_embedding(
+        self,
+        mock__get_face_landmark,
+        mock__alignment_face,
+        mock_get_embedding,
+    ) -> None:
+        image = Image.new("RGB", (160, 120), color=(255, 0, 0))
+        face_image = Mock()
+        _alignment_face = Mock()
+        embedding = [0.1] * 512
+        ssm_params = SimpleNamespace(
+            llm_weight_bucket="weights",
+            scrfd_weight="scrfd/model.onnx",
+            adaface_weight="adaface/model.ckpt",
+        )
+        s3_client = Mock()
+        s3_client.get_object.side_effect = [b"scrfd-weight", b"adaface-weight"]
+        mock__get_face_landmark.return_value = face_image
+        mock__alignment_face.return_value = _alignment_face
+        mock_get_embedding.return_value = embedding
+
+        result = FaceHelper.get_embedding_from_image(
+            image=image,
+            s3_client=s3_client,
+            ssm_params=ssm_params,
+        )
+
+        assert result == embedding
+        assert s3_client.get_object.call_args_list[0].kwargs == {
+            "bucket_name": "weights",
+            "key": "scrfd/model.onnx",
+        }
+        assert s3_client.get_object.call_args_list[1].kwargs == {
+            "bucket_name": "weights",
+            "key": "adaface/model.ckpt",
+        }
+        mock__get_face_landmark.assert_called_once_with(
+            weight_bytes=b"scrfd-weight",
+            image=image,
+        )
+        mock__alignment_face.assert_called_once_with(face_image=face_image)
+        mock_get_embedding.assert_called_once_with(
+            weight_bytes=b"adaface-weight",
+            face_image=_alignment_face,
+        )
