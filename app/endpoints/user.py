@@ -38,13 +38,24 @@ def get_user_wallet_approval(user_id: int):
 @response_rapper()
 @request_rapper()
 def update_wallet_approval_state(user_id: int, wallet_id: int, request: WalletApprovalUpdateRequest):
-    """ユーザーウォレットの approve 状態を更新する。"""
+    """ユーザーウォレットの permit approval 状態を更新する。"""
     TeraidPayApiLog.info(
-        f"ウォレットの approve 状態更新を行います。 user_id={user_id} wallet_id={wallet_id}")
+        f"ウォレットの permit approval 状態更新を行います。 "
+        f"user_id={user_id} "
+        f"wallet_id={wallet_id} "
+        f"allowance_value={request.allowance_value} "
+        f"signature_deadline={request.signature_deadline} "
+        f"signature_recovery_id={request.signature_recovery_id} "
+        f"signature_first_32_bytes={request.signature_first_32_bytes} "
+        f"signature_second_32_bytes={request.signature_second_32_bytes}")
 
     return UserController().update_wallet_approval_state(
         wallet_id=wallet_id,
-        tx_hash=request.tx_hash,
+        value=request.allowance_value,
+        deadline=request.signature_deadline,
+        signature_recovery_id=request.signature_recovery_id,
+        signature_first_32_bytes=request.signature_first_32_bytes,
+        signature_second_32_bytes=request.signature_second_32_bytes,
     )
 
 

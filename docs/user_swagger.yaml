@@ -162,7 +162,7 @@ paths:
     post:
       tags:
         - User
-      summary: ユーザーウォレット approve 状態更新
+      summary: ユーザーウォレット permit 承認状態更新
       operationId: updateWalletApprovalState
       parameters:
         - name: user_id
@@ -186,10 +186,14 @@ paths:
             examples:
               default:
                 value:
-                  tx_hash: 0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                  allowance_value: 10000000000000000000000
+                  signature_deadline: 1893456000
+                  signature_recovery_id: 27
+                  signature_first_32_bytes: 0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                  signature_second_32_bytes: 0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
       responses:
         '200':
-          description: ウォレット approve 状態更新に成功
+          description: ウォレット permit 承認状態更新に成功
           content:
             application/json:
               schema:
@@ -201,7 +205,7 @@ paths:
                     status: success
                     data: null
         '400':
-          description: approve transaction または allowance が有効ではない
+          description: permit 署名または allowance が有効ではない
           content:
             application/json:
               schema:
@@ -268,7 +272,7 @@ paths:
     get:
       tags:
         - User
-      summary: ユーザーウォレットの approve 情報取得
+      summary: ユーザーウォレットの permit 承認情報取得
       operationId: getUserWalletApproval
       parameters:
         - name: user_id
@@ -279,7 +283,7 @@ paths:
             type: integer
       responses:
         '200':
-          description: approve に必要な情報の取得に成功
+          description: permit 署名に必要な情報の取得に成功
           content:
             application/json:
               schema:
@@ -374,14 +378,37 @@ components:
     WalletApprovalUpdateRequest:
       type: object
       required:
-        - tx_hash
+        - allowance_value
+        - signature_deadline
+        - signature_recovery_id
+        - signature_first_32_bytes
+        - signature_second_32_bytes
       properties:
-        tx_hash:
+        allowance_value:
+          type: integer
+          minimum: 1
+          description: permit で許可するトークン最小単位の allowance 値
+        signature_deadline:
+          type: integer
+          minimum: 1
+          description: permit 署名の有効期限を表す Unix タイムスタンプ
+        signature_recovery_id:
+          type: integer
+          minimum: 0
+          maximum: 255
+          description: ウォレットが作成した permit 署名を分解した recovery id
+        signature_first_32_bytes:
           type: string
           minLength: 66
           maxLength: 66
           pattern: '^0x[a-fA-F0-9]{64}$'
-          description: MetaMask で実行した JPYC approve transaction hash
+          description: ウォレットが作成した permit 署名を分解した前半32バイト
+        signature_second_32_bytes:
+          type: string
+          minLength: 66
+          maxLength: 66
+          pattern: '^0x[a-fA-F0-9]{64}$'
+          description: ウォレットが作成した permit 署名を分解した後半32バイト
 
     UserWallet:
       type: object
@@ -414,7 +441,7 @@ components:
           description: ウォレットが有効かどうか
         is_approval:
           type: boolean
-          description: approve 済みかどうか
+          description: permit 承認済みかどうか
         verified_at:
           type: string
           nullable: true
@@ -472,7 +499,7 @@ components:
           description: ウォレットが有効かどうか
         is_approval:
           type: boolean
-          description: approve 済みかどうか
+          description: permit 承認済みかどうか
         verified_at:
           type: string
           description: ウォレットが検証された日時
@@ -509,19 +536,19 @@ components:
       properties:
         wallet_address:
           type: string
-          description: approve を実行するユーザーウォレットアドレス
+          description: permit 署名を作成するユーザーウォレットアドレス
         chain_id:
           type: integer
-          description: approve を実行するチェーンID
+          description: permit 署名を作成するチェーンID
         token_symbol:
           type: string
           description: トークンシンボル
         token_contract_address:
           type: string
-          description: approve 対象のJPYCトークンコントラクトアドレス
+          description: permit 対象のJPYCトークンコントラクトアドレス
         spender_address:
           type: string
-          description: approve の spender になる PaymentProcessor コントラクトアドレス
+          description: permit の spender になる PaymentProcessor コントラクトアドレス
 
     WalletNonceCreateWrappedResponse:
       type: object
