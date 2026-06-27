@@ -64,8 +64,8 @@ class TestGetPaymentById:
                     "store_wallet_address": "0x4444444444444444444444444444444444444444",
                     "user_wallet_address": "0x4444444444444444444444444444444444444444",
                     "amount": Decimal("250.000000"),
-                    "token_symbol": "USDC",
-                    "chain_id": 137,
+                    "token_symbol": "JPYC",
+                    "chain_id": 11155111,
                     "status": PaymentStatus.PAID,
                     "transaction_hash": (
                         "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"

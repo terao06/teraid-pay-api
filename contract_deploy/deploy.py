@@ -7,6 +7,7 @@ from typing import Any
 
 from solcx import compile_standard, install_solc, set_solc_version
 from web3 import Web3
+from web3.middleware import ExtraDataToPOAMiddleware
 
 
 ROOT = Path(__file__).resolve().parent
@@ -41,6 +42,52 @@ def checksum(web3: Web3, address: str, name: str) -> str:
     if not web3.is_address(address):
         raise RuntimeError(f"{name} is not a valid address: {address}")
     return web3.to_checksum_address(address)
+
+
+ERC20_PERMIT_CHECK_ABI = [
+    {
+        "inputs": [],
+        "name": "name",
+        "outputs": [{"internalType": "string", "name": "", "type": "string"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [],
+        "name": "symbol",
+        "outputs": [{"internalType": "string", "name": "", "type": "string"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [{"internalType": "address", "name": "owner", "type": "address"}],
+        "name": "nonces",
+        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+]
+
+
+def validate_token_contract(web3: Web3, token: str, owner: str) -> None:
+    if not web3.eth.get_code(token):
+        raise RuntimeError(
+            "JPYC_TOKEN_ADDRESS must be a token contract address on the target chain, "
+            f"but no contract code was found at {token}"
+        )
+
+    token_contract = web3.eth.contract(address=token, abi=ERC20_PERMIT_CHECK_ABI)
+    try:
+        token_name = token_contract.functions.name().call()
+        token_symbol = token_contract.functions.symbol().call()
+        token_contract.functions.nonces(owner).call()
+    except Exception as exc:
+        raise RuntimeError(
+            "JPYC_TOKEN_ADDRESS must be an ERC20Permit-compatible token contract. "
+            f"Failed to call name(), symbol(), or nonces(address) at {token}"
+        ) from exc
+
+    print(f"validated_token name={token_name} symbol={token_symbol} address={token}")
 
 
 def compile_contract() -> tuple[list[dict[str, Any]], str]:
@@ -90,13 +137,15 @@ def compile_contract() -> tuple[list[dict[str, Any]], str]:
 
 
 def main() -> None:
-    load_env(ROOT / ".env")
+    env_file = os.getenv("ENV_FILE", ".env.polygon")
+    load_env(ROOT / env_file)
 
     rpc_url = required_env("RPC_URL")
     private_key = required_env("DEPLOYER_PRIVATE_KEY")
     token_address = required_env("JPYC_TOKEN_ADDRESS")
 
     web3 = Web3(Web3.HTTPProvider(rpc_url))
+    web3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
     if not web3.is_connected():
         raise RuntimeError(f"failed to connect RPC_URL: {rpc_url}")
 
@@ -108,6 +157,7 @@ def main() -> None:
     owner = checksum(web3, owner, "CONTRACT_OWNER_ADDRESS")
     operator = checksum(web3, operator, "PAYMENT_OPERATOR_ADDRESS")
     token = checksum(web3, token_address, "JPYC_TOKEN_ADDRESS")
+    validate_token_contract(web3, token, owner)
 
     abi, bytecode = compile_contract()
     contract = web3.eth.contract(abi=abi, bytecode=bytecode)

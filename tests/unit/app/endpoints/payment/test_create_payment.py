@@ -128,19 +128,19 @@ class TestCreatePayment:
                 "transaction_hash": transaction_hash,
             },
         }
-        mock_http_provider_class.assert_called_once_with("https://mainnet.infura.io/v3/hogehoge")
+        mock_http_provider_class.assert_called_once_with("https://sepolia.infura.io/v3/hogehoge")
         mock_web3_class.assert_called_once_with(mock_http_provider)
         mock_web3.eth.account.from_key.assert_called_once_with(
             "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         )
         mock_web3.eth.contract.assert_called_once_with(
-            address="0x3333333333333333333333333333333333333333",
+            address="0x5555555555555555555555555555555555555555",
             abi=PAYMENT_PROCESSOR_ABI,
         )
         expected_payment_id = PaymentService._build_payment_id(
             SimpleNamespace(
                 payment_request_id=payment_request_id,
-                chain_id=1,
+                chain_id=11155111,
                 user_wallet_address="0x1111111111111111111111111111111111111111",
                 store_wallet_address="0x1111111111111111111111111111111111111111",
                 amount=1500,
@@ -149,7 +149,7 @@ class TestCreatePayment:
         )
         mock_payment_processor.functions.pay.assert_called_once_with(
             expected_payment_id,
-            "0x2222222222222222222222222222222222222222",
+            "0x4444444444444444444444444444444444444444",
             "0x1111111111111111111111111111111111111111",
             "0x1111111111111111111111111111111111111111",
             1500000000000000000000,
@@ -157,7 +157,7 @@ class TestCreatePayment:
         mock_pay_call.build_transaction.assert_called_once_with({
             "from": mock_account.address,
             "nonce": 7,
-            "chainId": 1,
+            "chainId": 11155111,
         })
         mock_web3.eth.send_raw_transaction.assert_called_once_with(b"signed")
 
@@ -174,7 +174,7 @@ class TestCreatePayment:
         assert saved_payment_request.user_wallet_address == "0x1111111111111111111111111111111111111111"
         assert saved_payment_request.amount == Decimal("1500.000000")
         assert saved_payment_request.token_symbol == "JPYC"
-        assert saved_payment_request.chain_id == 1
+        assert saved_payment_request.chain_id == 11155111
         assert saved_payment_request.status == PaymentStatus.SUBMITTED
         assert saved_payment_request.transaction_hash == transaction_hash
         assert saved_payment_request.expires_at == (fixed_now + timedelta(minutes=10)).replace(tzinfo=None)

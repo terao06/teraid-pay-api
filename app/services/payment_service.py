@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from web3 import Web3, HTTPProvider
 from web3.contract import Contract
 from web3.exceptions import TransactionNotFound
+from web3.middleware import ExtraDataToPOAMiddleware
 from web3.types import TxReceipt
 
 from app.core.aws.s3_client import S3Client
@@ -210,6 +211,7 @@ class PaymentService:
         payment_processor_config = get_payment_processor_config(
             chain_id=target_payment_request.chain_id)
         web3 = Web3(HTTPProvider(chain_config.rpc_url))
+        web3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
 
         # オペレーター秘密鍵から送信者アカウントを復元し、コントラクト操作用のインスタンスを作成する。
         account = web3.eth.account.from_key(payment_processor_config.operator_private_key)
@@ -280,6 +282,7 @@ class PaymentService:
 
         chain_config = get_chain_config(chain_id=target_payment_request.chain_id)
         web3 = Web3(HTTPProvider(chain_config.rpc_url))
+        web3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
 
         try:
             receipt = web3.eth.get_transaction_receipt(

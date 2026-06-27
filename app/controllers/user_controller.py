@@ -74,12 +74,25 @@ class UserController:
                 message=SERVER_ERROR)
 
     @mysql_transaction
-    def update_wallet_approval_state(self, mysql_session: Session, wallet_id: int, tx_hash: str) -> None:
+    def update_wallet_approval_state(
+        self,
+        mysql_session: Session,
+        wallet_id: int,
+        value: int,
+        deadline: int,
+        signature_recovery_id: int,
+        signature_first_32_bytes: str,
+        signature_second_32_bytes: str,
+    ) -> None:
         try:
             UserService().update_wallet_approval_state(
                 mysql_session=mysql_session,
                 wallet_id=wallet_id,
-                tx_hash=tx_hash,
+                value=value,
+                deadline=deadline,
+                signature_recovery_id=signature_recovery_id,
+                signature_first_32_bytes=signature_first_32_bytes,
+                signature_second_32_bytes=signature_second_32_bytes,
             )
         except WalletNotFoundException:
             raise CustomHttpException.get_http_exception(

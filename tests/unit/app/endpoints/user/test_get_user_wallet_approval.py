@@ -70,9 +70,9 @@ class TestGetUserWalletApproval:
             "status": "success",
             "data": {
                 "wallet_address": "0x1111111111111111111111111111111111111111",
-                "chain_id": 1,
+                "chain_id": 11155111,
                 "token_symbol": "JPYC",
-                "token_contract_address": "0x2222222222222222222222222222222222222222",
-                "spender_address": "0x3333333333333333333333333333333333333333",
+                "token_contract_address": "0x4444444444444444444444444444444444444444",
+                "spender_address": "0x5555555555555555555555555555555555555555",
             },
         }

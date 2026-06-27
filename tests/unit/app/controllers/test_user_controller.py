@@ -145,20 +145,26 @@ class TestUpdateWalletApprovalState:
     def test_update_wallet_approval_state(self, mock_service_class) -> None:
         mysql_session = Mock()
         wallet_id = 301
-        tx_hash = "0x" + "a" * 64
+        permit = {
+            "value": 1000,
+            "deadline": 1893456000,
+            "signature_recovery_id": 27,
+            "signature_first_32_bytes": "0x" + "a" * 64,
+            "signature_second_32_bytes": "0x" + "b" * 64,
+        }
         mock_service = mock_service_class.return_value
 
         result = UserController.update_wallet_approval_state.__wrapped__(
             UserController(),
             mysql_session=mysql_session,
             wallet_id=wallet_id,
-            tx_hash=tx_hash,
+            **permit,
         )
 
         mock_service.update_wallet_approval_state.assert_called_once_with(
             mysql_session=mysql_session,
             wallet_id=wallet_id,
-            tx_hash=tx_hash,
+            **permit,
         )
         assert result is None
 
@@ -178,7 +184,11 @@ class TestUpdateWalletApprovalState:
                 UserController(),
                 mysql_session=mysql_session,
                 wallet_id=wallet_id,
-                tx_hash=tx_hash,
+                value=1000,
+                deadline=1893456000,
+                signature_recovery_id=27,
+                signature_first_32_bytes="0x" + "a" * 64,
+                signature_second_32_bytes="0x" + "b" * 64,
             )
 
         assert exc_info.value.status_code == 404
@@ -202,7 +212,11 @@ class TestUpdateWalletApprovalState:
                 UserController(),
                 mysql_session=mysql_session,
                 wallet_id=wallet_id,
-                tx_hash="0x" + "a" * 64,
+                value=1000,
+                deadline=1893456000,
+                signature_recovery_id=27,
+                signature_first_32_bytes="0x" + "a" * 64,
+                signature_second_32_bytes="0x" + "b" * 64,
             )
 
         assert exc_info.value.status_code == 400
@@ -218,7 +232,6 @@ class TestUpdateWalletApprovalState:
     ) -> None:
         mysql_session = Mock()
         wallet_id = 301
-        tx_hash = "0x" + "a" * 64
         mock_service = mock_service_class.return_value
         mock_service.update_wallet_approval_state.side_effect = Exception("unexpected error")
 
@@ -227,7 +240,11 @@ class TestUpdateWalletApprovalState:
                 UserController(),
                 mysql_session=mysql_session,
                 wallet_id=wallet_id,
-                tx_hash=tx_hash,
+                value=1000,
+                deadline=1893456000,
+                signature_recovery_id=27,
+                signature_first_32_bytes="0x" + "a" * 64,
+                signature_second_32_bytes="0x" + "b" * 64,
             )
 
         assert exc_info.value.status_code == 500
