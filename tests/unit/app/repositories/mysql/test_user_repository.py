@@ -21,7 +21,7 @@ class TestGetUserWallet:
                     "wallet_id": 301,
                     "wallet_address": "0x1111111111111111111111111111111111111111",
                     "chain_type": "ETH",
-                    "network_name": "mainnet",
+                    "network_name": "sepolia",
                     "is_active": True,
                     "verified_at": "2024-01-10 12:00:00",
                 },
@@ -133,11 +133,10 @@ class TestGetWalletByUserId:
     @pytest.mark.parametrize(
         ("user_id", "chain_type", "network_name", "chain_id", "expected_wallet_id"),
         [
-            (101, "ETH", "mainnet", 1, 301),
-            (101, "ETH", "mainnet", 11155111, None),
+            (101, "ETH", "sepolia", 11155111, 301),
+            (101, "ETH", "mainnet", 1, None),
             (101, "ETH", "goerli", 1, None),
-            (101, "ETH", "sepolia", 11155111, None),
-            (102, "ETH", "mainnet", 1, 304),
+            (102, "ETH", "sepolia", 11155111, 304),
             (999, "ETH", "mainnet", 1, None),
         ],
     )

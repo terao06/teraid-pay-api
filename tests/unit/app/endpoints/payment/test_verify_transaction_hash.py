@@ -92,7 +92,7 @@ class TestVerifyTransactionHash:
                 "status": PaymentStatus.CONFIRMING.value,
             },
         }
-        mock_http_provider_class.assert_called_once_with("https://polygon-rpc.com")
+        mock_http_provider_class.assert_called_once_with("https://sepolia.infura.io/v3/hogehoge")
         mock_web3_class.assert_called_once_with(mock_http_provider)
         mock_web3.eth.get_transaction_receipt.assert_called_once_with(
             transaction_hash=transaction_hash,
@@ -138,7 +138,7 @@ class TestVerifyTransactionHash:
                 "status": PaymentStatus.CONFIRMING.value,
             },
         }
-        mock_http_provider_class.assert_called_once_with("https://polygon-rpc.com")
+        mock_http_provider_class.assert_called_once_with("https://sepolia.infura.io/v3/hogehoge")
         mock_web3_class.assert_called_once_with(mock_http_provider)
         mock_web3.eth.get_transaction_receipt.assert_called_once_with(
             transaction_hash=transaction_hash,

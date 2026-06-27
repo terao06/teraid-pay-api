@@ -4,6 +4,7 @@ import secrets
 
 from sqlalchemy.orm import Session
 from web3 import HTTPProvider, Web3
+from web3.middleware import ExtraDataToPOAMiddleware
 
 from app.core.config.blockchain import get_chain_config
 from app.core.config.payment_processor import get_payment_processor_config
@@ -167,10 +168,15 @@ class UserService:
         approval_config = get_wallet_approval_config(chain_id=wallet_info.chain_id)
         payment_processor_config = get_payment_processor_config(chain_id=wallet_info.chain_id)
         web3 = Web3(HTTPProvider(chain_config.rpc_url))
+        web3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
 
         token_contract_address = web3.to_checksum_address(approval_config.token_contract_address)
         wallet_address = web3.to_checksum_address(wallet_info.wallet_address)
         spender_address = web3.to_checksum_address(approval_config.spender_address)
+        if not web3.eth.get_code(token_contract_address):
+            raise WalletNotApprovedException("JPYCトークンアドレスにコントラクトが存在しません。")
+        if not web3.eth.get_code(spender_address):
+            raise WalletNotApprovedException("PaymentProcessorアドレスにコントラクトが存在しません。")
 
         token_contract = web3.eth.contract(
             address=token_contract_address,

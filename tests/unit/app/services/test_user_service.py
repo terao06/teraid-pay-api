@@ -182,6 +182,7 @@ class TestUpdateWalletApprovalState:
         )
         mock_web3 = mock_web3_class.return_value
         mock_web3.to_checksum_address.side_effect = lambda value: value
+        mock_web3.eth.get_code.return_value = b"contract"
         mock_account = mock_web3.eth.account.from_key.return_value
         mock_account.address = "0x4444444444444444444444444444444444444444"
         mock_account.sign_transaction.return_value = SimpleNamespace(raw_transaction=b"raw")
@@ -310,6 +311,7 @@ class TestUpdateWalletApprovalState:
         )
         mock_web3 = mock_web3_class.return_value
         mock_web3.to_checksum_address.side_effect = lambda value: value
+        mock_web3.eth.get_code.return_value = b"contract"
         mock_account = mock_web3.eth.account.from_key.return_value
         mock_account.address = "0x4444444444444444444444444444444444444444"
         mock_account.sign_transaction.return_value = SimpleNamespace(raw_transaction=b"raw")
@@ -332,6 +334,55 @@ class TestUpdateWalletApprovalState:
             )
 
         assert wallet_info.is_approval is False
+        mock_repository.update_wallet.assert_not_called()
+
+    @patch("app.services.user_service.Web3")
+    @patch("app.services.user_service.get_payment_processor_config")
+    @patch("app.services.user_service.get_wallet_approval_config")
+    @patch("app.services.user_service.get_chain_config")
+    @patch("app.services.user_service.WalletRepository")
+    def test_update_wallet_approval_state_raises_when_token_address_has_no_code(
+        self,
+        mock_repository_class,
+        mock_get_chain_config,
+        mock_get_wallet_approval_config,
+        mock_get_payment_processor_config,
+        mock_web3_class,
+    ) -> None:
+        mysql_session = Mock()
+        wallet_id = 301
+        wallet_info = SimpleNamespace(
+            wallet_id=wallet_id,
+            wallet_address="0x1111111111111111111111111111111111111111",
+            chain_id=43113,
+            is_approval=False,
+        )
+        mock_repository = mock_repository_class.return_value
+        mock_repository.get_wallet_by_id.return_value = wallet_info
+        mock_get_chain_config.return_value = SimpleNamespace(rpc_url="https://example.test")
+        mock_get_wallet_approval_config.return_value = SimpleNamespace(
+            token_contract_address="0x2222222222222222222222222222222222222222",
+            spender_address="0x3333333333333333333333333333333333333333",
+        )
+        mock_get_payment_processor_config.return_value = SimpleNamespace(
+            operator_private_key="0x" + "c" * 64,
+        )
+        mock_web3 = mock_web3_class.return_value
+        mock_web3.to_checksum_address.side_effect = lambda value: value
+        mock_web3.eth.get_code.return_value = b""
+
+        with pytest.raises(WalletNotApprovedException, match="JPYCトークンアドレス"):
+            UserService().update_wallet_approval_state(
+                mysql_session=mysql_session,
+                wallet_id=wallet_id,
+                value=1000,
+                deadline=1893456000,
+                signature_recovery_id=27,
+                signature_first_32_bytes="0x" + "a" * 64,
+                signature_second_32_bytes="0x" + "b" * 64,
+            )
+
+        mock_web3.eth.contract.assert_not_called()
         mock_repository.update_wallet.assert_not_called()
 
 class TestCreateWalletNonce:
