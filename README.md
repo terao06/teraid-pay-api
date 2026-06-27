@@ -108,7 +108,7 @@ Secret の主な項目は以下です。
   "mysql_password": "password",
   "mysql_host": "teraid-pay-api-db",
   "mysql_port": 3306,
-  "sepolia_infra_api_key": "your-infura-api-key",
+  "chain_11155111_rpc_url": "https://sepolia.infura.io/v3/your-infura-api-key",
   "chain_11155111_jpyc_token_address": "0x...",
   "chain_11155111_payment_processor_address": "0x...",
   "chain_11155111_payment_operator_private_key": "0x..."
@@ -124,7 +124,7 @@ Secret の主な項目は以下です。
 | `mysql_password` | MySQL のパスワード。ローカル Docker Compose では `password` | API 起動時 |
 | `mysql_host` | MySQL のホスト名。API コンテナから接続するため、ローカル Docker Compose では `teraid-pay-api-db` | API 起動時 |
 | `mysql_port` | MySQL のポート。API コンテナからは `3306` | API 起動時 |
-| `sepolia_infra_api_key` | Sepolia RPC に接続するための Infura API key([api key作成サイト](https://developer.metamask.io/)にて作成) | approve 情報取得、決済実行、トランザクション検証 |
+| `chain_11155111_rpc_url` | 対象チェーンの RPC URL。Sepolia で Infura を使う場合は API key を含めた `https://sepolia.infura.io/v3/{api_key}` | approve 情報取得、決済実行、トランザクション検証 |
 | `chain_11155111_jpyc_token_address` | 対象チェーン上の JPYC トークンコントラクトアドレス。`contract_deploy/.env` の `JPYC_TOKEN_ADDRESS` と同じ値、またはデプロイ結果 `deployment.json` の `token` | approve 情報取得、決済実行 |
 | `chain_11155111_payment_processor_address` | デプロイ済み `PaymentProcessor` のコントラクトアドレス。`contract_deploy/build/deployment.json` の `payment_processor` | approve 情報取得、決済実行 |
 | `chain_11155111_payment_operator_private_key` | `PaymentProcessor` の operator として登録したウォレットの秘密鍵。`contract_deploy/.env` の `PAYMENT_OPERATOR_ADDRESS` に対応する秘密鍵 | 決済実行 |
@@ -165,7 +165,7 @@ PAYMENT_OPERATOR_ADDRESS=0x決済実行用operatorウォレットアドレス
 
 ```json
 {
-  "sepolia_infra_api_key": "YOUR_PROJECT_ID",
+  "chain_11155111_rpc_url": "https://sepolia.infura.io/v3/YOUR_PROJECT_ID",
   "chain_11155111_jpyc_token_address": "deployment.json の token",
   "chain_11155111_payment_processor_address": "deployment.json の payment_processor",
   "chain_11155111_payment_operator_private_key": "deployment.json の operator に対応する秘密鍵"

@@ -9,49 +9,37 @@ class ChainConfig:
     token_contract_address: str
 
 
-# テスト用ブロックへのチェーン関連で使用するurlはapi key必要
-INFURA_RPC_URL_TEMPLATES = {
-    11155111: "https://sepolia.infura.io/v3/{api_key}",
-}
+SUPPORTED_CHAIN_IDS = {11155111, 43113, 80002}
 
 
-CHAIN_CONFIG = {
-    11155111: ChainConfig(
-        rpc_url=INFURA_RPC_URL_TEMPLATES[11155111],
-        token_contract_address="0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29",
-    ),
-    43113: ChainConfig(
-        rpc_url="https://api.avax-test.network/ext/bc/C/rpc",
-        token_contract_address="0xe8aE6fa0212e575d8C80387D337dea0e6083d75b",
-    ),
-    80002: ChainConfig(
-        rpc_url="https://rpc-amoy.polygon.technology",
-        token_contract_address="0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29",
-    ),
-}
+def _get_secret_value(secret: dict, *keys: str) -> str | None:
+    for key in keys:
+        value = secret.get(key)
+        if value:
+            return str(value)
+    return None
 
 
-def _get_infura_api_key() -> str:
+def get_chain_config(chain_id: int) -> ChainConfig:
+    if chain_id not in SUPPORTED_CHAIN_IDS:
+        raise ValueError(f"chain_idの設定が存在しません。 chain_id: {chain_id}")
+
     secret = SecretManager().get_secret("secret")
     if not isinstance(secret, dict):
         raise ValueError("Secrets ManagerのsecretがJSON形式ではありません。")
 
-    api_key = secret.get("sepolia_infra_api_key")
-    if not api_key:
-        raise ValueError("secretにsepolia_infra_api_keyが設定されていません。")
+    rpc_url = _get_secret_value(secret, f"chain_{chain_id}_rpc_url")
+    token_contract_address = _get_secret_value(
+        secret,
+        f"chain_{chain_id}_jpyc_token_address"
+    )
 
-    return str(api_key)
+    if not rpc_url:
+        raise ValueError(f"secretにchain_{chain_id}_rpc_urlが設定されていません。")
+    if not token_contract_address:
+        raise ValueError("secretにJPYCトークンアドレスが設定されていません。")
 
-
-def get_chain_config(chain_id: int) -> ChainConfig:
-    if chain_id not in CHAIN_CONFIG:
-        raise ValueError(f"chain_idの設定が存在しません。 chain_id: {chain_id}")
-
-    chain_config = CHAIN_CONFIG[chain_id]
-    if chain_id in INFURA_RPC_URL_TEMPLATES:
-        return ChainConfig(
-            rpc_url=chain_config.rpc_url.format(api_key=_get_infura_api_key()),
-            token_contract_address=chain_config.token_contract_address,
-        )
-
-    return chain_config
+    return ChainConfig(
+        rpc_url=rpc_url,
+        token_contract_address=token_contract_address,
+    )
