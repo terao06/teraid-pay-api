@@ -12,7 +12,6 @@ class ChainConfig:
 # テスト用ブロックへのチェーン関連で使用するurlはapi key必要
 INFURA_RPC_URL_TEMPLATES = {
     11155111: "https://sepolia.infura.io/v3/{api_key}",
-    1: "https://mainnet.infura.io/v3/{api_key}",
 }
 
 
@@ -21,16 +20,12 @@ CHAIN_CONFIG = {
         rpc_url=INFURA_RPC_URL_TEMPLATES[11155111],
         token_contract_address="0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29",
     ),
-    1: ChainConfig(
-        rpc_url=INFURA_RPC_URL_TEMPLATES[1],
-        token_contract_address="0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29",
+    43113: ChainConfig(
+        rpc_url="https://api.avax-test.network/ext/bc/C/rpc",
+        token_contract_address="0xe8aE6fa0212e575d8C80387D337dea0e6083d75b",
     ),
     80002: ChainConfig(
         rpc_url="https://rpc-amoy.polygon.technology",
-        token_contract_address="",
-    ),
-    137: ChainConfig(
-        rpc_url="https://polygon-rpc.com",
         token_contract_address="0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29",
     ),
 }
