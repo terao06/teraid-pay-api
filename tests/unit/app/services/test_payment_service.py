@@ -49,7 +49,7 @@ class TestGetUserIdFromFaceImage:
         content = self._build_base64_image()
         threshold = 0.42
         embedding = [0.1, 0.2, 0.3]
-        face_info = SimpleNamespace(user_id=123)
+        face_info = SimpleNamespace(user_id=123, distance=0.41)
         user = SimpleNamespace(user_id=123)
         ssm_params = SimpleNamespace(s3_endpoint="http://s3.local")
         s3_client = Mock()
@@ -79,7 +79,6 @@ class TestGetUserIdFromFaceImage:
         mock_face_embedding_repository.get_nearest_face_embedding.assert_called_once_with(
             postgres_session=postgres_session,
             embedding=embedding,
-            threshold=threshold,
         )
         mock_user_repository.get_user_by_id.assert_called_once_with(
             mysql_session=mysql_session,
@@ -106,7 +105,7 @@ class TestGetUserIdFromFaceImage:
         postgres_session = Mock()
         content = self._build_base64_image()
         embedding = [0.1, 0.2, 0.3]
-        face_info = SimpleNamespace(user_id=123)
+        face_info = SimpleNamespace(user_id=123, distance=0.1)
         ssm_params = SimpleNamespace(s3_endpoint="http://s3.local")
 
         mock_ssm_client_class.return_value = ssm_params
@@ -127,7 +126,6 @@ class TestGetUserIdFromFaceImage:
         mock_face_embedding_repository.get_nearest_face_embedding.assert_called_once_with(
             postgres_session=postgres_session,
             embedding=embedding,
-            threshold=0.7,
         )
         mock_user_repository.get_user_by_id.assert_called_once_with(
             mysql_session=mysql_session,
@@ -172,7 +170,50 @@ class TestGetUserIdFromFaceImage:
         mock_face_embedding_repository.get_nearest_face_embedding.assert_called_once_with(
             postgres_session=postgres_session,
             embedding=embedding,
-            threshold=0.7,
+        )
+        mock_user_repository_class.assert_not_called()
+        mock_warning.assert_called_once()
+
+    @patch("app.services.payment_service.TeraidPayApiLog.warning")
+    @patch("app.services.payment_service.UserRepository")
+    @patch("app.services.payment_service.FaceEmbeddingRepository")
+    @patch("app.services.payment_service.FaceHelper.get_embedding_from_image")
+    @patch("app.services.payment_service.S3Client")
+    @patch("app.services.payment_service.SsmClient")
+    def test_get_user_id_from_face_image_raises_when_nearest_face_exceeds_threshold(
+        self,
+        mock_ssm_client_class,
+        mock_s3_client_class,
+        mock_get_embedding_from_image,
+        mock_face_embedding_repository_class,
+        mock_user_repository_class,
+        mock_warning,
+    ) -> None:
+        mysql_session = Mock()
+        postgres_session = Mock()
+        content = self._build_base64_image()
+        threshold = 0.42
+        embedding = [0.1, 0.2, 0.3]
+        face_info = SimpleNamespace(user_id=123, distance=0.4201)
+        ssm_params = SimpleNamespace(s3_endpoint="http://s3.local")
+
+        mock_ssm_client_class.return_value = ssm_params
+        mock_get_embedding_from_image.return_value = embedding
+        mock_face_embedding_repository = mock_face_embedding_repository_class.return_value
+        mock_face_embedding_repository.get_nearest_face_embedding.return_value = face_info
+
+        with pytest.raises(FaceEmbeddingNotFoundException):
+            PaymentService().get_user_id_from_face_image(
+                mysql_session=mysql_session,
+                postgres_session=postgres_session,
+                content=content,
+                threshold=threshold,
+            )
+
+        mock_s3_client_class.assert_called_once_with(s3_endpoint=ssm_params.s3_endpoint)
+        mock_face_embedding_repository.get_nearest_face_embedding.assert_called_once_with(
+            postgres_session=postgres_session,
+            embedding=embedding,
         )
         mock_user_repository_class.assert_not_called()
         mock_warning.assert_called_once()

@@ -86,7 +86,6 @@ class FaceEmbeddingRepository:
         self,
         postgres_session: Session,
         embedding: list[float],
-        threshold: float,
         exclusion_user_id: int | None = None,
     ) -> NearestFaceEmbedding | None:
         """指定したベクトルに最も近い有効な顔特徴量を取得する。
@@ -94,7 +93,6 @@ class FaceEmbeddingRepository:
         Args:
             postgres_session: SQLAlchemy のセッション。
             embedding: 検索対象の顔特徴量ベクトル。
-            threshold: 取得対象とする距離の閾値。
             exclusion_user_id: 検索対象から除外するユーザーID。
 
         Returns:
@@ -115,7 +113,6 @@ class FaceEmbeddingRepository:
         result = (
             postgres_session.query(FaceEmbedding, distance.label("distance"))
             .filter(FaceEmbedding.is_active.is_(True))
-            .filter(distance <= threshold)
         )
 
         if exclusion_user_id is not None:
