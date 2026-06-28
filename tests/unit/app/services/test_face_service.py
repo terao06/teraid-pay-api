@@ -179,7 +179,6 @@ class TestRegisterFace:
         mock_repository.get_nearest_face_embedding.assert_called_once_with(
             postgres_session=postgres_session,
             embedding=embedding,
-            threshold=0.7,
             exclusion_user_id=user_id,
         )
         mock_repository.create_face_embedding.assert_called_once()
@@ -757,7 +756,6 @@ class TestValidateFaceEmbedding:
         service.face_embedding_repository.get_nearest_face_embedding.assert_called_once_with(
             postgres_session=postgres_session,
             embedding=embedding,
-            threshold=threshold,
             exclusion_user_id=user_id,
         )
 
@@ -788,10 +786,35 @@ class TestValidateFaceEmbedding:
         service.face_embedding_repository.get_nearest_face_embedding.assert_called_once_with(
             postgres_session=postgres_session,
             embedding=embedding,
-            threshold=threshold,
             exclusion_user_id=user_id,
         )
         mock_warning.assert_called_once_with(
             "この顔画像は既に登録されています。 user_id: 202, distance: 0.1234"
+        )
+
+    def test_validate_face_embedding_returns_none_when_nearest_face_exceeds_threshold(self) -> None:
+        postgres_session = Mock()
+        user_id = 101
+        threshold = 0.7
+        embedding = [0.1] * 512
+        nearest_face = SimpleNamespace(
+            user_id=202,
+            distance=0.7001,
+        )
+        service = _build_face_service()
+        service.face_embedding_repository.get_nearest_face_embedding.return_value = nearest_face
+
+        result = service._validate_face_embedding(
+            postgres_session=postgres_session,
+            threshold=threshold,
+            user_id=user_id,
+            embedding=embedding,
+        )
+
+        assert result is None
+        service.face_embedding_repository.get_nearest_face_embedding.assert_called_once_with(
+            postgres_session=postgres_session,
+            embedding=embedding,
+            exclusion_user_id=user_id,
         )
 

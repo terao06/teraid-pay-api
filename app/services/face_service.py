@@ -291,10 +291,9 @@ class FaceService:
         face = self.face_embedding_repository.get_nearest_face_embedding(
             postgres_session=postgres_session,
             embedding=embedding,
-            threshold=threshold,
             exclusion_user_id=user_id,
         )
-        if face is not None:
+        if face is not None and face.distance <= threshold:
             TeraidPayApiLog.warning(
                 f"この顔画像は既に登録されています。 "
                 f"user_id: {face.user_id}, distance: {face.distance}"

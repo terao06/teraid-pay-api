@@ -106,10 +106,13 @@ class PaymentService:
         face_info = FaceEmbeddingRepository().get_nearest_face_embedding(
             postgres_session=postgres_session,
             embedding=embedding,
-            threshold=threshold,
         )
         if face_info is None:
-            TeraidPayApiLog.warning("対象の顔画像は登録されていません。")
+            TeraidPayApiLog.warning("顔画像を取得できませんでした。")
+            raise FaceEmbeddingNotFoundException("顔画像が登録されていません。")
+
+        if face_info.distance > threshold:
+            TeraidPayApiLog.warning(f"顔画像が閾値を超えていません。 threshold: {threshold}")
             raise FaceEmbeddingNotFoundException("顔画像が登録されていません。")
 
         user = UserRepository().get_user_by_id(
