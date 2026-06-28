@@ -6,7 +6,7 @@ from app.core.exceptions.custom_exception import (
     FaceNotFoundException,
     PaymentRequestNotFoundException,
     UserNotFoundException,
-    WalletNotApprovedException,
+    WalletNotPermittedException,
     WalletNotFoundException
 )
 from app.core.exceptions.message import (
@@ -17,7 +17,7 @@ from app.core.exceptions.message import (
     PAYMENT_INFO_NOT_FOUND,
     SERVER_ERROR,
     USER_NOT_FOUND_ERROR,
-    WALLET_NOT_APPROVED_ERROR,
+    WALLET_NOT_PERMITTED_ERROR,
     WALLET_NOT_FOUND_ERROR
 )
 from app.middlewares.transaction import mysql_transaction, postgres_transaction
@@ -69,10 +69,10 @@ class PaymentController:
                 status_code=400,
                 message=NOT_MATCH_ERROR
             )
-        except WalletNotApprovedException:
+        except WalletNotPermittedException:
             raise CustomHttpException.get_http_exception(
                 status_code=400,
-                message=WALLET_NOT_APPROVED_ERROR
+                message=WALLET_NOT_PERMITTED_ERROR
             )
         except PaymentRequestNotFoundException:
             raise CustomHttpException.get_http_exception(
@@ -141,10 +141,10 @@ class PaymentController:
             raise CustomHttpException.get_http_exception(
                 status_code=400,
                 message=NOT_MATCH_ERROR)
-        except WalletNotApprovedException:
+        except WalletNotPermittedException:
             raise CustomHttpException.get_http_exception(
                 status_code=400,
-                message=WALLET_NOT_APPROVED_ERROR)
+                message=WALLET_NOT_PERMITTED_ERROR)
         except PaymentRequestNotFoundException:
             raise CustomHttpException.get_http_exception(
                 status_code=404,

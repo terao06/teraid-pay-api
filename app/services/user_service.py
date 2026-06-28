@@ -8,12 +8,12 @@ from web3.middleware import ExtraDataToPOAMiddleware
 
 from app.core.config.blockchain import get_chain_config
 from app.core.config.payment_processor import get_payment_processor_config
-from app.core.config.wallet_approval import get_wallet_approval_config
+from app.core.config.wallet_permit import get_wallet_permit_config
 from app.core.exceptions.custom_exception import (
     UnauthorizedException,
     UserNotFoundException,
     WalletConflictException,
-    WalletNotApprovedException,
+    WalletNotPermittedException,
     WalletNotFoundException
 )
 from app.core.utils.datetime import JST, DateTimeUtil
@@ -23,14 +23,14 @@ from app.models.mysql.nonce import Nonce
 from app.models.mysql.user_nonce import UserNonce
 from app.models.mysql.user_wallet import UserWallet
 from app.models.mysql.wallet import Wallet
-from app.models.mysql.wallet_approval import WalletApproval
+from app.models.mysql.wallet_permit import WalletPermit
 from app.models.responses.wallet_response import WalletResponse
-from app.models.responses.wallet_approval_response import WalletApprovalResponse
+from app.models.responses.wallet_permit_response import WalletPermitResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
 from app.repositories.mysql.nonce_repository import NonceRepository
 from app.repositories.mysql.user_repository import UserRepository
-from app.repositories.mysql.wallet_approval_repository import WalletApprovalRepository
+from app.repositories.mysql.wallet_permit_repository import WalletPermitRepository
 from app.repositories.mysql.wallet_repository import WalletRepository
 
 
@@ -122,13 +122,13 @@ class UserService:
             token_symbol=wallet_info.token_symbol,
             chain_id=wallet_info.chain_id,
             is_active=wallet_info.is_active,
-            is_approval=wallet_info.is_approval,
+            is_permitted=wallet_info.is_permitted,
             verified_at=DateTimeUtil.change_datetime_to_string(wallet_info.verified_at),
             created_at=DateTimeUtil.change_datetime_to_string(wallet_info.created_at),
             updated_at=DateTimeUtil.change_datetime_to_string(wallet_info.updated_at)
         )
 
-    def get_user_wallet_approval(self, mysql_session: Session, user_id: int) -> WalletApprovalResponse | None:
+    def get_user_wallet_permit(self, mysql_session: Session, user_id: int) -> WalletPermitResponse | None:
         wallet_info = UserRepository().get_user_wallet(
             mysql_session=mysql_session,
             user_id=user_id
@@ -137,17 +137,17 @@ class UserService:
         if wallet_info is None:
             return None
 
-        approval_config = get_wallet_approval_config(chain_id=wallet_info.chain_id)
+        permit_config = get_wallet_permit_config(chain_id=wallet_info.chain_id)
 
-        return WalletApprovalResponse(
+        return WalletPermitResponse(
             wallet_address=wallet_info.wallet_address,
             chain_id=wallet_info.chain_id,
             token_symbol=wallet_info.token_symbol,
-            token_contract_address=approval_config.token_contract_address,
-            spender_address=approval_config.spender_address,
+            token_contract_address=permit_config.token_contract_address,
+            spender_address=permit_config.spender_address,
         )
     
-    def update_wallet_approval_state(
+    def update_wallet_permit_state(
         self,
         mysql_session: Session,
         wallet_id: int,
@@ -165,18 +165,18 @@ class UserService:
             raise WalletNotFoundException(f"対象のウォレットは存在しません。 wallet_id={wallet_id}")
 
         chain_config = get_chain_config(chain_id=wallet_info.chain_id)
-        approval_config = get_wallet_approval_config(chain_id=wallet_info.chain_id)
+        permit_config = get_wallet_permit_config(chain_id=wallet_info.chain_id)
         payment_processor_config = get_payment_processor_config(chain_id=wallet_info.chain_id)
         web3 = Web3(HTTPProvider(chain_config.rpc_url))
         web3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
 
-        token_contract_address = web3.to_checksum_address(approval_config.token_contract_address)
+        token_contract_address = web3.to_checksum_address(permit_config.token_contract_address)
         wallet_address = web3.to_checksum_address(wallet_info.wallet_address)
-        spender_address = web3.to_checksum_address(approval_config.spender_address)
+        spender_address = web3.to_checksum_address(permit_config.spender_address)
         if not web3.eth.get_code(token_contract_address):
-            raise WalletNotApprovedException("JPYCトークンアドレスにコントラクトが存在しません。")
+            raise WalletNotPermittedException("JPYCトークンアドレスにコントラクトが存在しません。")
         if not web3.eth.get_code(spender_address):
-            raise WalletNotApprovedException("PaymentProcessorアドレスにコントラクトが存在しません。")
+            raise WalletNotPermittedException("PaymentProcessorアドレスにコントラクトが存在しません。")
 
         token_contract = web3.eth.contract(
             address=token_contract_address,
@@ -207,31 +207,31 @@ class UserService:
         transaction_hash_hex = _hex_value(transaction_hash)
         receipt = web3.eth.wait_for_transaction_receipt(transaction_hash)
         if receipt.get("status") != 1:
-            raise WalletNotApprovedException("permit transactionが成功していません。")
+            raise WalletNotPermittedException("permit transactionが成功していません。")
 
         allowance = token_contract.functions.allowance(
             wallet_address,
             spender_address,
         ).call()
         if allowance < value:
-            raise WalletNotApprovedException("PaymentProcessorへのallowanceが設定されていません。")
+            raise WalletNotPermittedException("PaymentProcessorへのpermit allowanceが設定されていません。")
 
-        wallet_info.is_approval = True
+        wallet_info.is_permitted = True
 
-        approved_at = datetime.now(JST).replace(tzinfo=None)
+        permitted_at = datetime.now(JST).replace(tzinfo=None)
         permit_deadline = datetime.fromtimestamp(deadline, JST).replace(tzinfo=None)
-        wallet_approval = WalletApproval(
+        wallet_permit = WalletPermit(
             wallet_id=wallet_info.wallet_id,
             token_contract_address=token_contract_address,
             spender_address=spender_address,
             allowance_amount=str(value),
             permit_deadline=permit_deadline,
-            approval_tx_hash=transaction_hash_hex,
-            approved_at=approved_at,
+            permit_tx_hash=transaction_hash_hex,
+            permitted_at=permitted_at,
         )
-        WalletApprovalRepository().create_wallet_approval(
+        WalletPermitRepository().create_wallet_permit(
             mysql_session=mysql_session,
-            wallet_approval=wallet_approval,
+            wallet_permit=wallet_permit,
         )
         wallet_repository.update_wallet(mysql_session=mysql_session, wallet=wallet_info)
         return None
@@ -402,7 +402,7 @@ class UserService:
             token_symbol=token_symbol,
             chain_id=chain_id,
             verified_at=datetime.now(),
-            is_approval=False,
+            is_permitted=False,
         )
         saved_wallet = wallet_repository.create_wallet(
             mysql_session=mysql_session,
@@ -434,7 +434,7 @@ class UserService:
             token_symbol=new_wallet.token_symbol,
             chain_id=new_wallet.chain_id,
             is_active=bool(new_wallet.is_active),
-            is_approval=bool(new_wallet.is_approval),
+            is_permitted=bool(new_wallet.is_permitted),
             verified_at=DateTimeUtil.change_datetime_to_string(
                 new_wallet.verified_at
             ),

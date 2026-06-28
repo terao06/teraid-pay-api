@@ -59,7 +59,7 @@ class Wallet(Base):
         server_default=text("1"),
         comment="有効フラグ",
     )
-    is_approval = Column(
+    is_permitted = Column(
         Boolean,
         nullable=False,
         default=True,

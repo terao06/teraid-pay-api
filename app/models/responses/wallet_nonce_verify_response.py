@@ -8,5 +8,5 @@ class WalletVerifyResponse(BaseModel):
     token_symbol: str
     chain_id: int
     is_active: bool
-    is_approval: bool
+    is_permitted: bool
     verified_at: str

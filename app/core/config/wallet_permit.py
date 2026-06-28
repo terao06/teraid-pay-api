@@ -4,7 +4,7 @@ from app.core.aws.secret_manager import SecretManager
 
 
 @dataclass(frozen=True)
-class WalletApprovalConfig:
+class WalletPermitConfig:
     token_contract_address: str
     spender_address: str
 
@@ -17,7 +17,7 @@ def _get_secret_value(secret: dict, *keys: str) -> str | None:
     return None
 
 
-def get_wallet_approval_config(chain_id: int) -> WalletApprovalConfig:
+def get_wallet_permit_config(chain_id: int) -> WalletPermitConfig:
     secret = SecretManager().get_secret("secret")
     if not isinstance(secret, dict):
         raise ValueError("Secrets ManagerのsecretがJSON形式ではありません。")
@@ -40,7 +40,7 @@ def get_wallet_approval_config(chain_id: int) -> WalletApprovalConfig:
     if not spender_address:
         raise ValueError("secretにPaymentProcessorアドレスが設定されていません。")
 
-    return WalletApprovalConfig(
+    return WalletPermitConfig(
         token_contract_address=token_contract_address,
         spender_address=spender_address,
     )

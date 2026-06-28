@@ -276,7 +276,7 @@ components:
         - token_symbol
         - chain_id
         - is_active
-        - is_approval
+        - is_permitted
         - created_at
         - updated_at
       properties:
@@ -295,9 +295,9 @@ components:
         is_active:
           type: boolean
           description: ウォレットが有効かどうか
-        is_approval:
+        is_permitted:
           type: boolean
-          description: approve 済みかどうか
+          description: permit 許可済みかどうか
         verified_at:
           type: string
           nullable: true
@@ -338,7 +338,7 @@ components:
         - token_symbol
         - chain_id
         - is_active
-        - is_approval
+        - is_permitted
         - verified_at
       properties:
         wallet_address:
@@ -353,9 +353,9 @@ components:
         is_active:
           type: boolean
           description: ウォレットが有効かどうか
-        is_approval:
+        is_permitted:
           type: boolean
-          description: approve 済みかどうか
+          description: permit 許可済みかどうか
         verified_at:
           type: string
           description: ウォレットが検証された日時

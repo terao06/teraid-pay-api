@@ -13,7 +13,7 @@ from app.core.exceptions.custom_exception import (
     FaceEmbeddingNotFoundException,
     PaymentRequestNotFoundException,
     UserNotFoundException,
-    WalletNotApprovedException,
+    WalletNotPermittedException,
     WalletNotFoundException,
 )
 from app.models.mysql.payment_request import PaymentRequest, PaymentStatus
@@ -207,7 +207,7 @@ class TestCreatePaymentRequest:
             wallet_address="0x2222222222222222222222222222222222222222",
             token_symbol="JPYC",
             chain_id=11155111,
-            is_approval=True,
+            is_permitted=True,
         )
 
         mock_datetime.now.return_value = fixed_now
@@ -266,7 +266,7 @@ class TestCreatePaymentRequest:
                     wallet_address="0x2222222222222222222222222222222222222222",
                     token_symbol="JPYC",
                     chain_id=11155111,
-                    is_approval=True,
+                    is_permitted=True,
                 ),
             ),
             (
@@ -327,13 +327,13 @@ class TestCreatePaymentRequest:
                 wallet_address="0x2222222222222222222222222222222222222222",
                 token_symbol="USDC",
                 chain_id=11155111,
-                is_approval=True,
+                is_permitted=True,
             ),
             SimpleNamespace(
                 wallet_address="0x2222222222222222222222222222222222222222",
                 token_symbol="JPYC",
                 chain_id=137,
-                is_approval=True,
+                is_permitted=True,
             ),
         ],
         ids=["token-mismatch", "chain-mismatch"],
@@ -382,13 +382,13 @@ class TestCreatePaymentRequest:
     @patch("app.services.payment_service.PaymentRepository")
     @patch("app.services.payment_service.UserRepository")
     @patch("app.services.payment_service.StoreRepository")
-    def test_create_payment_request_raises_when_user_wallet_is_not_approved(
+    def test_create_payment_request_raises_when_user_wallet_permit_is_incomplete(
         self,
         mock_store_repository_class,
         mock_user_repository_class,
         mock_payment_repository_class,
     ) -> None:
-        """user wallet が未承認の場合は payment request を作成しないことを検証する。"""
+        """user wallet の permit 許可が未完了の場合は payment request を作成しないことを検証する。"""
         mysql_session = Mock()
         store_wallet = SimpleNamespace(
             wallet_address="0x1111111111111111111111111111111111111111",
@@ -399,7 +399,7 @@ class TestCreatePaymentRequest:
             wallet_address="0x2222222222222222222222222222222222222222",
             token_symbol="JPYC",
             chain_id=11155111,
-            is_approval=False,
+            is_permitted=False,
         )
 
         mock_store_repository = mock_store_repository_class.return_value
@@ -407,7 +407,7 @@ class TestCreatePaymentRequest:
         mock_user_repository = mock_user_repository_class.return_value
         mock_user_repository.get_user_wallet.return_value = user_wallet
 
-        with pytest.raises(WalletNotApprovedException):
+        with pytest.raises(WalletNotPermittedException):
             PaymentService().create_payment_request(
                 mysql_session=mysql_session,
                 store_id=101,

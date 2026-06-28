@@ -6,19 +6,19 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.models.mysql.wallet import Wallet
-from app.models.mysql.wallet_approval import WalletApproval
+from app.models.mysql.wallet_permit import WalletPermit
 
 
-class TestUpdateWalletApprovalState:
-    """update wallet approval state endpoint tests."""
+class TestUpdateWalletPermitState:
+    """update wallet permit state endpoint tests."""
 
-    @patch("app.endpoints.user.UserController.update_wallet_approval_state")
-    def test_update_wallet_approval_state_returns_wrapped_success(
+    @patch("app.endpoints.user.UserController.update_wallet_permit_state")
+    def test_update_wallet_permit_state_returns_wrapped_success(
         self,
-        mock_update_wallet_approval_state,
+        mock_update_wallet_permit_state,
         client,
     ) -> None:
-        mock_update_wallet_approval_state.return_value = None
+        mock_update_wallet_permit_state.return_value = None
         permit = {
             "allowance_value": 1000,
             "signature_deadline": 1893456000,
@@ -28,7 +28,7 @@ class TestUpdateWalletApprovalState:
         }
 
         response = client.post(
-            "/user/101/wallet/301/approval",
+            "/user/101/wallet/301/permit",
             json=permit,
         )
 
@@ -37,21 +37,21 @@ class TestUpdateWalletApprovalState:
             "status": "success",
             "data": None,
         }
-        mock_update_wallet_approval_state.assert_called_once()
-        assert mock_update_wallet_approval_state.call_args.kwargs["wallet_id"] == 301
-        assert mock_update_wallet_approval_state.call_args.kwargs["value"] == permit["allowance_value"]
-        assert mock_update_wallet_approval_state.call_args.kwargs["deadline"] == permit["signature_deadline"]
-        assert mock_update_wallet_approval_state.call_args.kwargs["signature_recovery_id"] == permit["signature_recovery_id"]
-        assert mock_update_wallet_approval_state.call_args.kwargs["signature_first_32_bytes"] == permit["signature_first_32_bytes"]
-        assert mock_update_wallet_approval_state.call_args.kwargs["signature_second_32_bytes"] == permit["signature_second_32_bytes"]
+        mock_update_wallet_permit_state.assert_called_once()
+        assert mock_update_wallet_permit_state.call_args.kwargs["wallet_id"] == 301
+        assert mock_update_wallet_permit_state.call_args.kwargs["value"] == permit["allowance_value"]
+        assert mock_update_wallet_permit_state.call_args.kwargs["deadline"] == permit["signature_deadline"]
+        assert mock_update_wallet_permit_state.call_args.kwargs["signature_recovery_id"] == permit["signature_recovery_id"]
+        assert mock_update_wallet_permit_state.call_args.kwargs["signature_first_32_bytes"] == permit["signature_first_32_bytes"]
+        assert mock_update_wallet_permit_state.call_args.kwargs["signature_second_32_bytes"] == permit["signature_second_32_bytes"]
 
-    @patch("app.endpoints.user.UserController.update_wallet_approval_state")
-    def test_update_wallet_approval_state_returns_http_exception_from_controller(
+    @patch("app.endpoints.user.UserController.update_wallet_permit_state")
+    def test_update_wallet_permit_state_returns_http_exception_from_controller(
         self,
-        mock_update_wallet_approval_state,
+        mock_update_wallet_permit_state,
         client,
     ) -> None:
-        mock_update_wallet_approval_state.side_effect = HTTPException(
+        mock_update_wallet_permit_state.side_effect = HTTPException(
             status_code=404,
             detail={
                 "status": "error",
@@ -60,7 +60,7 @@ class TestUpdateWalletApprovalState:
         )
 
         response = client.post(
-            "/user/101/wallet/999/approval",
+            "/user/101/wallet/999/permit",
             json={
                 "allowance_value": 1000,
                 "signature_deadline": 1893456000,
@@ -81,12 +81,12 @@ class TestUpdateWalletApprovalState:
     @pytest.mark.usefixtures("insert_wallets")
     @patch("app.services.user_service.Web3")
     @patch("app.services.user_service.get_payment_processor_config")
-    @patch("app.services.user_service.get_wallet_approval_config")
+    @patch("app.services.user_service.get_wallet_permit_config")
     @patch("app.services.user_service.get_chain_config")
     def test_with_db(
         self,
         mock_get_chain_config,
-        mock_get_wallet_approval_config,
+        mock_get_wallet_permit_config,
         mock_get_payment_processor_config,
         mock_web3_class,
         client_with_db,
@@ -101,15 +101,15 @@ class TestUpdateWalletApprovalState:
             "signature_second_32_bytes": "0x" + "b" * 64,
         }
         before_wallet = mysql_session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
-        before_wallet.is_approval = False
+        before_wallet.is_permitted = False
         mysql_session.commit()
         mysql_session.expire_all()
 
         before_wallet = mysql_session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
-        assert before_wallet.is_approval is False
+        assert before_wallet.is_permitted is False
         mock_get_chain_config.return_value = type("ChainConfig", (), {"rpc_url": "https://example.test"})()
-        mock_get_wallet_approval_config.return_value = type(
-            "WalletApprovalConfig",
+        mock_get_wallet_permit_config.return_value = type(
+            "WalletPermitConfig",
             (),
             {
                 "token_contract_address": "0x2222222222222222222222222222222222222222",
@@ -134,7 +134,7 @@ class TestUpdateWalletApprovalState:
         mock_contract.functions.allowance.return_value.call.return_value = 1000
 
         response = client_with_db.post(
-            f"/user/101/wallet/{wallet_id}/approval",
+            f"/user/101/wallet/{wallet_id}/permit",
             json=permit,
         )
 
@@ -148,27 +148,27 @@ class TestUpdateWalletApprovalState:
         mysql_session.expire_all()
 
         after_wallet = mysql_session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
-        assert after_wallet.is_approval is True
+        assert after_wallet.is_permitted is True
 
-        saved_wallet_approval = (
-            mysql_session.query(WalletApproval)
-            .filter(WalletApproval.wallet_id == wallet_id)
+        saved_wallet_permit = (
+            mysql_session.query(WalletPermit)
+            .filter(WalletPermit.wallet_id == wallet_id)
             .one()
         )
-        assert saved_wallet_approval.wallet_approval_id is not None
-        assert saved_wallet_approval.wallet_id == wallet_id
+        assert saved_wallet_permit.wallet_permit_id is not None
+        assert saved_wallet_permit.wallet_id == wallet_id
         assert (
-            saved_wallet_approval.token_contract_address
+            saved_wallet_permit.token_contract_address
             == "0x2222222222222222222222222222222222222222"
         )
         assert (
-            saved_wallet_approval.spender_address
+            saved_wallet_permit.spender_address
             == "0x3333333333333333333333333333333333333333"
         )
-        assert saved_wallet_approval.allowance_amount == "1000"
-        assert saved_wallet_approval.permit_deadline == datetime(2030, 1, 1, 9, 0, 0)
-        assert saved_wallet_approval.approval_tx_hash == "0x" + "d" * 64
-        assert saved_wallet_approval.approved_at is not None
-        assert saved_wallet_approval.created_at is not None
-        assert saved_wallet_approval.updated_at is not None
-        assert saved_wallet_approval.deleted_at is None
+        assert saved_wallet_permit.allowance_amount == "1000"
+        assert saved_wallet_permit.permit_deadline == datetime(2030, 1, 1, 9, 0, 0)
+        assert saved_wallet_permit.permit_tx_hash == "0x" + "d" * 64
+        assert saved_wallet_permit.permitted_at is not None
+        assert saved_wallet_permit.created_at is not None
+        assert saved_wallet_permit.updated_at is not None
+        assert saved_wallet_permit.deleted_at is None

@@ -158,12 +158,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /user/{user_id}/wallet/{wallet_id}/approval:
+  /user/{user_id}/wallet/{wallet_id}/permit:
     post:
       tags:
         - User
-      summary: ユーザーウォレット permit 承認状態更新
-      operationId: updateWalletApprovalState
+      summary: ユーザーウォレット permit 許可状態更新
+      operationId: updateWalletPermitState
       parameters:
         - name: user_id
           in: path
@@ -182,7 +182,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/WalletApprovalUpdateRequest'
+              $ref: '#/components/schemas/WalletPermitUpdateRequest'
             examples:
               default:
                 value:
@@ -193,11 +193,11 @@ paths:
                   signature_second_32_bytes: 0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
       responses:
         '200':
-          description: ウォレット permit 承認状態更新に成功
+          description: ウォレット permit 許可状態更新に成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WalletApprovalStateWrappedResponse'
+                $ref: '#/components/schemas/WalletPermitStateWrappedResponse'
               examples:
                 success:
                   summary: 更新成功
@@ -268,12 +268,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /user/{user_id}/wallet/approval:
+  /user/{user_id}/wallet/permit:
     get:
       tags:
         - User
-      summary: ユーザーウォレットの permit 承認情報取得
-      operationId: getUserWalletApproval
+      summary: ユーザーウォレットの permit 署名情報取得
+      operationId: getUserWalletPermit
       parameters:
         - name: user_id
           in: path
@@ -287,7 +287,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WalletApprovalWrappedResponse'
+                $ref: '#/components/schemas/WalletPermitWrappedResponse'
               examples:
                 success:
                   value:
@@ -375,7 +375,7 @@ components:
           minimum: 1
           description: チェーンID
 
-    WalletApprovalUpdateRequest:
+    WalletPermitUpdateRequest:
       type: object
       required:
         - allowance_value
@@ -420,7 +420,7 @@ components:
         - token_symbol
         - chain_id
         - is_active
-        - is_approval
+        - is_permitted
         - created_at
         - updated_at
       properties:
@@ -439,9 +439,9 @@ components:
         is_active:
           type: boolean
           description: ウォレットが有効かどうか
-        is_approval:
+        is_permitted:
           type: boolean
-          description: permit 承認済みかどうか
+          description: permit 許可済みかどうか
         verified_at:
           type: string
           nullable: true
@@ -482,7 +482,7 @@ components:
         - token_symbol
         - chain_id
         - is_active
-        - is_approval
+        - is_permitted
         - verified_at
       properties:
         wallet_address:
@@ -497,9 +497,9 @@ components:
         is_active:
           type: boolean
           description: ウォレットが有効かどうか
-        is_approval:
+        is_permitted:
           type: boolean
-          description: permit 承認済みかどうか
+          description: permit 許可済みかどうか
         verified_at:
           type: string
           description: ウォレットが検証された日時
@@ -525,7 +525,7 @@ components:
             - $ref: '#/components/schemas/UserWallet'
           nullable: true
 
-    WalletApproval:
+    WalletPermit:
       type: object
       required:
         - wallet_address
@@ -574,7 +574,7 @@ components:
         data:
           $ref: '#/components/schemas/UserWalletVerify'
 
-    WalletApprovalWrappedResponse:
+    WalletPermitWrappedResponse:
       type: object
       required:
         - status
@@ -584,9 +584,9 @@ components:
           type: string
           enum: [success]
         data:
-          $ref: '#/components/schemas/WalletApproval'
+          $ref: '#/components/schemas/WalletPermit'
 
-    WalletApprovalStateWrappedResponse:
+    WalletPermitStateWrappedResponse:
       type: object
       required:
         - status

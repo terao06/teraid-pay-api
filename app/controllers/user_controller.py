@@ -6,7 +6,7 @@ from app.core.exceptions.custom_exception import (
     UnauthorizedException,
     UserNotFoundException,
     WalletConflictException,
-    WalletNotApprovedException,
+    WalletNotPermittedException,
     WalletNotFoundException
 )
 from app.core.exceptions.message import (
@@ -15,7 +15,7 @@ from app.core.exceptions.message import (
     VERIFY_ERROR,
     WALLET_CONFLICT_ERROR,
     WALLET_IS_ALREADY_EXIST,
-    WALLET_NOT_APPROVED_ERROR,
+    WALLET_NOT_PERMITTED_ERROR,
     WALLET_NOT_FOUND_ERROR
 )
 from app.middlewares.transaction import mysql_transaction
@@ -23,7 +23,7 @@ from app.models.requests.wallet_nonce_create_request import WalletNonceCreateReq
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
-from app.models.responses.wallet_approval_response import WalletApprovalResponse
+from app.models.responses.wallet_permit_response import WalletPermitResponse
 from app.models.responses.wallet_response import WalletResponse
 from app.services.user_service import UserService
 
@@ -54,18 +54,18 @@ class UserController:
                 message=SERVER_ERROR)
 
     @mysql_transaction
-    def get_user_wallet_approval(self, mysql_session: Session, user_id: int) -> WalletApprovalResponse:
+    def get_user_wallet_permit(self, mysql_session: Session, user_id: int) -> WalletPermitResponse:
         try:
-            approval = UserService().get_user_wallet_approval(
+            permit = UserService().get_user_wallet_permit(
                 mysql_session=mysql_session,
                 user_id=user_id
             )
-            if approval is None:
+            if permit is None:
                 raise CustomHttpException.get_http_exception(
                     status_code=404,
                     message=WALLET_NOT_FOUND_ERROR
                 )
-            return approval
+            return permit
         except HTTPException:
             raise
         except Exception:
@@ -74,7 +74,7 @@ class UserController:
                 message=SERVER_ERROR)
 
     @mysql_transaction
-    def update_wallet_approval_state(
+    def update_wallet_permit_state(
         self,
         mysql_session: Session,
         wallet_id: int,
@@ -85,7 +85,7 @@ class UserController:
         signature_second_32_bytes: str,
     ) -> None:
         try:
-            UserService().update_wallet_approval_state(
+            UserService().update_wallet_permit_state(
                 mysql_session=mysql_session,
                 wallet_id=wallet_id,
                 value=value,
@@ -99,10 +99,10 @@ class UserController:
                 status_code=404,
                 message=WALLET_NOT_FOUND_ERROR)
 
-        except WalletNotApprovedException:
+        except WalletNotPermittedException:
             raise CustomHttpException.get_http_exception(
                 status_code=400,
-                message=WALLET_NOT_APPROVED_ERROR)
+                message=WALLET_NOT_PERMITTED_ERROR)
 
         except Exception:
             raise CustomHttpException.get_http_exception(

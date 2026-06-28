@@ -53,7 +53,7 @@ class StoreService:
             token_symbol=wallet_info.token_symbol,
             chain_id=wallet_info.chain_id,
             is_active=wallet_info.is_active,
-            is_approval=wallet_info.is_approval,
+            is_permitted=wallet_info.is_permitted,
             verified_at=DateTimeUtil.change_datetime_to_string(wallet_info.verified_at),
             created_at=DateTimeUtil.change_datetime_to_string(wallet_info.created_at),
             updated_at=DateTimeUtil.change_datetime_to_string(wallet_info.updated_at)
@@ -224,7 +224,7 @@ class StoreService:
             chain_id=chain_id,
             verified_at=datetime.now(),
             is_active=True,
-            is_approval=True,
+            is_permitted=True,
         )
         saved_wallet = wallet_repository.create_wallet(
             mysql_session=mysql_session,
@@ -256,7 +256,7 @@ class StoreService:
             token_symbol=new_wallet.token_symbol,
             chain_id=new_wallet.chain_id,
             is_active=bool(new_wallet.is_active),
-            is_approval=bool(new_wallet.is_approval),
+            is_permitted=bool(new_wallet.is_permitted),
             verified_at=DateTimeUtil.change_datetime_to_string(
                 new_wallet.verified_at
             ),

@@ -4,14 +4,15 @@
 
 ## 役割
 
-`PaymentProcessor` は、JPYC の `approve` 先になる決済用コントラクトです。
+`PaymentProcessor` は、JPYC の `permit` で spender に指定する決済用コントラクトです。
 
 決済フローは以下です。
 
-1. ユーザーが JPYC コントラクトに対して `approve(PaymentProcessor, amount)` を実行する
-2. バックエンドの operator が `pay(paymentId, token, from, to, amount)` を呼び出す
-3. `PaymentProcessor` が `JPYC.transferFrom(from, to, amount)` を実行する
-4. `PaymentProcessed` イベントが発火する
+1. ユーザーが JPYC の `permit` 署名を作成する
+2. バックエンドの operator が `permit(owner, spender, value, deadline, v, r, s)` を送信し、PaymentProcessor への allowance を設定する
+3. バックエンドの operator が `pay(paymentId, token, from, to, amount)` を呼び出す
+4. `PaymentProcessor` が `JPYC.transferFrom(from, to, amount)` を実行する
+5. `PaymentProcessed` イベントが発火する
 
 ## 対象ネットワーク
 
@@ -223,11 +224,11 @@ python deploy.py
 payment_processor
 ```
 
-この値がデプロイ済み `PaymentProcessor` のコントラクトアドレスです。API とフロントでは、このアドレスを JPYC の `approve` 先として使用します。
+この値がデプロイ済み `PaymentProcessor` のコントラクトアドレスです。API とフロントでは、このアドレスを JPYC の `permit` 署名で spender として使用します。
 
 ## 注意点
 
 - `DEPLOYER_PRIVATE_KEY` はコミットしないでください。
 - `.env`, `.env.avalanche`, `.env.sepolia`, `.env.polygon` は `.gitignore` の対象です。
-- `approve` はコントラクトアドレス単位で行われるため、デプロイ後の `payment_processor` アドレスは環境変数または Secret Manager で管理してください。
+- `permit` 署名では spender にコントラクトアドレスを指定するため、デプロイ後の `payment_processor` アドレスは環境変数または Secret Manager で管理してください。
 - アプリ起動時に毎回デプロイする運用にはしません。環境ごとに一度デプロイし、そのアドレスを使い回します。
