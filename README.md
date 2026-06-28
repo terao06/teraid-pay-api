@@ -2,14 +2,14 @@
 
 Teraid Pay の決済 API です。FastAPI、MySQL、AWS Secrets Manager 互換の LocalStack、Ethereum 系ウォレット署名検証、JPYC 決済用コントラクト連携を扱います。
 
-この API は、ユーザーと店舗のウォレット登録、署名用 nonce の発行、JPYC approve 状態の管理、決済リクエスト作成、PaymentProcessor コントラクト経由の決済実行を提供します。
+この API は、ユーザーと店舗のウォレット登録、署名用 nonce の発行、JPYC permit 許可状態の管理、決済リクエスト作成、PaymentProcessor コントラクト経由の決済実行を提供します。
 
 ## 主な機能
 
 - FastAPI による REST API
 - ユーザーウォレットと店舗ウォレットの管理
 - ウォレット署名用 nonce の発行と署名検証
-- JPYC approve に必要なコントラクト情報の返却
+- JPYC permit 署名に必要なコントラクト情報の返却
 - 決済リクエストの作成、実行、トランザクション検証
 - MySQL による永続化
 - LocalStack Secrets Manager を使ったローカル Secret 管理
@@ -93,7 +93,7 @@ http://localhost:8014
 
 API は MySQL 接続情報やコントラクト情報を Secrets Manager から取得します。ローカルでは LocalStack の Secrets Manager を使います。
 
-サンプルをコピーして、必要に応じて値を編集します。まず API を起動してウォレット登録系の動作確認だけを行う場合は、サンプル値のままでも構いません。ただし、JPYC の approve 情報取得や決済実行まで動かす場合は、コントラクトデプロイ後の値に差し替える必要があります。
+サンプルをコピーして、必要に応じて値を編集します。まず API を起動してウォレット登録系の動作確認だけを行う場合は、サンプル値のままでも構いません。ただし、JPYC の permit 署名情報取得や決済実行まで動かす場合は、コントラクトデプロイ後の値に差し替える必要があります。
 
 ```powershell
 copy tests\unit\test_data\secret\secret.sample.json tests\unit\test_data\secret\secret.json
@@ -108,7 +108,7 @@ Secret の主な項目は以下です。
   "mysql_password": "password",
   "mysql_host": "teraid-pay-api-db",
   "mysql_port": 3306,
-  "sepolia_infra_api_key": "your-infura-api-key",
+  "chain_11155111_rpc_url": "https://sepolia.infura.io/v3/your-infura-api-key",
   "chain_11155111_jpyc_token_address": "0x...",
   "chain_11155111_payment_processor_address": "0x...",
   "chain_11155111_payment_operator_private_key": "0x..."
@@ -124,9 +124,9 @@ Secret の主な項目は以下です。
 | `mysql_password` | MySQL のパスワード。ローカル Docker Compose では `password` | API 起動時 |
 | `mysql_host` | MySQL のホスト名。API コンテナから接続するため、ローカル Docker Compose では `teraid-pay-api-db` | API 起動時 |
 | `mysql_port` | MySQL のポート。API コンテナからは `3306` | API 起動時 |
-| `sepolia_infra_api_key` | Sepolia RPC に接続するための Infura API key([api key作成サイト](https://developer.metamask.io/)にて作成) | approve 情報取得、決済実行、トランザクション検証 |
-| `chain_11155111_jpyc_token_address` | 対象チェーン上の JPYC トークンコントラクトアドレス。`contract_deploy/.env` の `JPYC_TOKEN_ADDRESS` と同じ値、またはデプロイ結果 `deployment.json` の `token` | approve 情報取得、決済実行 |
-| `chain_11155111_payment_processor_address` | デプロイ済み `PaymentProcessor` のコントラクトアドレス。`contract_deploy/build/deployment.json` の `payment_processor` | approve 情報取得、決済実行 |
+| `chain_11155111_rpc_url` | 対象チェーンの RPC URL。Sepolia で Infura を使う場合は API key を含めた `https://sepolia.infura.io/v3/{api_key}` | permit 署名情報取得、決済実行、トランザクション検証 |
+| `chain_11155111_jpyc_token_address` | 対象チェーン上の JPYC トークンコントラクトアドレス。`contract_deploy/.env` の `JPYC_TOKEN_ADDRESS` と同じ値、またはデプロイ結果 `deployment.json` の `token` | permit 署名情報取得、決済実行 |
+| `chain_11155111_payment_processor_address` | デプロイ済み `PaymentProcessor` のコントラクトアドレス。`contract_deploy/build/deployment.json` の `payment_processor` | permit 署名情報取得、決済実行 |
 | `chain_11155111_payment_operator_private_key` | `PaymentProcessor` の operator として登録したウォレットの秘密鍵。`contract_deploy/.env` の `PAYMENT_OPERATOR_ADDRESS` に対応する秘密鍵 | 決済実行 |
 
 `chain_11155111_...` の `11155111` は Sepolia の chain ID です。他のチェーンを使う場合は、実装側が参照する chain ID に合わせてキー名と値を用意してください。
@@ -165,7 +165,7 @@ PAYMENT_OPERATOR_ADDRESS=0x決済実行用operatorウォレットアドレス
 
 ```json
 {
-  "sepolia_infra_api_key": "YOUR_PROJECT_ID",
+  "chain_11155111_rpc_url": "https://sepolia.infura.io/v3/YOUR_PROJECT_ID",
   "chain_11155111_jpyc_token_address": "deployment.json の token",
   "chain_11155111_payment_processor_address": "deployment.json の payment_processor",
   "chain_11155111_payment_operator_private_key": "deployment.json の operator に対応する秘密鍵"
@@ -174,7 +174,7 @@ PAYMENT_OPERATOR_ADDRESS=0x決済実行用operatorウォレットアドレス
 
 注意点:
 
-- `payment_processor` は JPYC の `approve` 先です。フロントエンドでも同じアドレスを使います。
+- `payment_processor` は JPYC の `permit` で spender に指定するアドレスです。フロントエンドでも同じアドレスを使います。
 - `token` は `PaymentProcessor` デプロイ時に指定した JPYC トークンアドレスです。
 - `operator` は公開アドレスです。Secret に入れるのは、その operator アドレスに対応する秘密鍵です。
 - 秘密鍵や実際の API key はコミットしないでください。
@@ -197,7 +197,7 @@ Docker Compose 内の API コンテナからは、`SECRETS_MANAGER_ENDPOINT=http
 4. `contract_deploy/build/deployment.json` の `token` と `payment_processor` を `secret.json` に反映する
 5. `operator` に対応する秘密鍵を `chain_11155111_payment_operator_private_key` に設定する
 6. リポジトリルートに戻り、`python tests\unit\test_data\secret\insert_secret.py` で LocalStack に登録する
-7. API の `/docs` またはフロントエンドからウォレット登録、approve、決済作成、決済実行を確認する
+7. API の `/docs` またはフロントエンドからウォレット登録、permit、決済作成、決済実行を確認する
 
 ## 起動
 
@@ -228,8 +228,8 @@ uvicorn app.main:app --host 0.0.0.0 --port 8005 --reload
 | メソッド | パス | 説明 |
 | --- | --- | --- |
 | GET | `/user/{user_id}/wallet` | ユーザーのウォレット情報を取得 |
-| GET | `/user/{user_id}/wallet/approval` | JPYC approve に必要な情報を取得 |
-| POST | `/user/{user_id}/wallet/{wallet_id}/approval` | ユーザーウォレットの approve 状態を更新 |
+| GET | `/user/{user_id}/wallet/permit` | JPYC permit 署名に必要な情報を取得 |
+| POST | `/user/{user_id}/wallet/{wallet_id}/permit` | ユーザーウォレットの permit 許可状態を更新 |
 | POST | `/user/{user_id}/wallet/nonce` | ウォレット署名用 nonce を作成 |
 | POST | `/user/{user_id}/wallet` | 署名検証後にウォレットを作成 |
 | DELETE | `/user/{user_id}/wallet/{wallet_id}` | ユーザーウォレットを削除 |
@@ -300,10 +300,11 @@ JPYC 決済では `PaymentProcessor` コントラクトを使用します。コ�
 
 基本的な決済フローは以下です。
 
-1. ユーザーが JPYC コントラクトに対して `approve(PaymentProcessor, amount)` を実行する
-2. バックエンドの operator が `pay(paymentId, token, from, to, amount)` を呼び出す
-3. `PaymentProcessor` が `JPYC.transferFrom(from, to, amount)` を実行する
-4. `PaymentProcessed` イベントが発火する
+1. ユーザーが JPYC の `permit` 署名を作成する
+2. バックエンドの operator が `permit(owner, spender, value, deadline, v, r, s)` を送信し、PaymentProcessor への allowance を設定する
+3. バックエンドの operator が `pay(paymentId, token, from, to, amount)` を呼び出す
+4. `PaymentProcessor` が `JPYC.transferFrom(from, to, amount)` を実行する
+5. `PaymentProcessed` イベントが発火する
 
 デプロイ済みの `PaymentProcessor` アドレス、JPYC トークンアドレス、operator 秘密鍵は Secret Manager で管理します。ローカルで決済実行まで確認する場合は、`ローカルシークレット` セクションの手順に従って `secret.json` を更新してください。
 

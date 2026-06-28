@@ -6,8 +6,8 @@ RECOVERY_ID_MIN = 0
 RECOVERY_ID_MAX = 255
 
 
-class WalletApprovalUpdateRequest(BaseModel):
-    """ウォレット permit 承認状態更新 API のリクエストモデルです。"""
+class WalletPermitUpdateRequest(BaseModel):
+    """ウォレット permit 許可状態更新 API のリクエストモデルです。"""
 
     allowance_value: int = Field(
         ...,

@@ -9,7 +9,7 @@ from app.core.exceptions.custom_exception import (
     FaceNotFoundException,
     PaymentRequestNotFoundException,
     UserNotFoundException,
-    WalletNotApprovedException,
+    WalletNotPermittedException,
     WalletNotFoundException
 )
 from app.core.exceptions.message import (
@@ -20,7 +20,7 @@ from app.core.exceptions.message import (
     PAYMENT_INFO_NOT_FOUND,
     SERVER_ERROR,
     USER_NOT_FOUND_ERROR,
-    WALLET_NOT_APPROVED_ERROR,
+    WALLET_NOT_PERMITTED_ERROR,
     WALLET_NOT_FOUND_ERROR
 )
 from app.models.requests.payment_create_from_face_request import PaymentCreateFromFaceRequest
@@ -71,7 +71,7 @@ class TestCreateAndExecutePayment:
         [
             (WalletNotFoundException("wallet not found"), 404, WALLET_NOT_FOUND_ERROR),
             (ValueError("wallet values mismatch"), 400, NOT_MATCH_ERROR),
-            (WalletNotApprovedException("wallet not approved"), 400, WALLET_NOT_APPROVED_ERROR),
+            (WalletNotPermittedException("wallet permit is incomplete"), 400, WALLET_NOT_PERMITTED_ERROR),
             (Exception("unexpected error"), 500, SERVER_ERROR),
         ],
     )
@@ -236,7 +236,7 @@ class TestCreateAndExecutePaymentFromFace:
         [
             (WalletNotFoundException("wallet not found"), 404, WALLET_NOT_FOUND_ERROR),
             (ValueError("wallet values mismatch"), 400, NOT_MATCH_ERROR),
-            (WalletNotApprovedException("wallet not approved"), 400, WALLET_NOT_APPROVED_ERROR),
+            (WalletNotPermittedException("wallet permit is incomplete"), 400, WALLET_NOT_PERMITTED_ERROR),
             (Exception("unexpected error"), 500, SERVER_ERROR),
         ],
     )

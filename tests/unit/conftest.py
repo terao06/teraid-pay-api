@@ -124,6 +124,7 @@ def mysql_engine():
     engine = create_engine(build_database_url(), echo=False, future=True)
     with engine.begin() as connection:
         connection.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
+        connection.execute(text("DROP TABLE IF EXISTS wallet_approvals"))
         connection.execute(text("DROP TABLE IF EXISTS store_wallet_nonces"))
         connection.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
     MySQLBase.metadata.drop_all(bind=engine)

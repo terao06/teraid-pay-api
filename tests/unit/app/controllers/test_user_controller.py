@@ -8,7 +8,7 @@ from app.core.exceptions.custom_exception import (
     UnauthorizedException,
     UserNotFoundException,
     WalletConflictException,
-    WalletNotApprovedException,
+    WalletNotPermittedException,
     WalletNotFoundException,
 )
 from app.core.exceptions.message import (
@@ -17,14 +17,14 @@ from app.core.exceptions.message import (
     VERIFY_ERROR,
     WALLET_CONFLICT_ERROR,
     WALLET_IS_ALREADY_EXIST,
-    WALLET_NOT_APPROVED_ERROR,
+    WALLET_NOT_PERMITTED_ERROR,
     WALLET_NOT_FOUND_ERROR,
 )
 from app.models.requests.wallet_nonce_create_request import WalletNonceCreateRequest
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
-from app.models.responses.wallet_approval_response import WalletApprovalResponse
+from app.models.responses.wallet_permit_response import WalletPermitResponse
 from app.models.responses.wallet_response import WalletResponse
 
 
@@ -44,7 +44,7 @@ class TestGetUserWallet:
             token_symbol="JPYC",
             chain_id=1,
             is_active=True,
-            is_approval=False,
+            is_permitted=False,
             verified_at="2024-01-10 12:00",
             created_at="2024-01-01 09:30",
             updated_at="2024-01-15 18:45",
@@ -89,12 +89,12 @@ class TestGetUserWallet:
         }
 
 
-class TestGetUserWalletApproval:
+class TestGetUserWalletPermit:
     @patch("app.controllers.user_controller.UserService")
-    def test_get_user_wallet_approval(self, mock_service_class) -> None:
+    def test_get_user_wallet_permit(self, mock_service_class) -> None:
         mysql_session = Mock()
         user_id = 101
-        expected = WalletApprovalResponse(
+        expected = WalletPermitResponse(
             wallet_address="0x1111111111111111111111111111111111111111",
             chain_id=11155111,
             token_symbol="JPYC",
@@ -102,32 +102,32 @@ class TestGetUserWalletApproval:
             spender_address="0x3333333333333333333333333333333333333333",
         )
         mock_service = mock_service_class.return_value
-        mock_service.get_user_wallet_approval.return_value = expected
+        mock_service.get_user_wallet_permit.return_value = expected
 
-        result = UserController.get_user_wallet_approval.__wrapped__(
+        result = UserController.get_user_wallet_permit.__wrapped__(
             UserController(),
             mysql_session=mysql_session,
             user_id=user_id,
         )
 
-        mock_service.get_user_wallet_approval.assert_called_once_with(
+        mock_service.get_user_wallet_permit.assert_called_once_with(
             mysql_session=mysql_session,
             user_id=user_id,
         )
         assert result == expected
 
     @patch("app.controllers.user_controller.UserService")
-    def test_get_user_wallet_approval_returns_404_when_wallet_not_found(
+    def test_get_user_wallet_permit_returns_404_when_wallet_not_found(
         self,
         mock_service_class,
     ) -> None:
         mysql_session = Mock()
         user_id = 999
         mock_service = mock_service_class.return_value
-        mock_service.get_user_wallet_approval.return_value = None
+        mock_service.get_user_wallet_permit.return_value = None
 
         with pytest.raises(HTTPException) as exc_info:
-            UserController.get_user_wallet_approval.__wrapped__(
+            UserController.get_user_wallet_permit.__wrapped__(
                 UserController(),
                 mysql_session=mysql_session,
                 user_id=user_id,
@@ -140,9 +140,9 @@ class TestGetUserWalletApproval:
         }
 
 
-class TestUpdateWalletApprovalState:
+class TestUpdateWalletPermitState:
     @patch("app.controllers.user_controller.UserService")
-    def test_update_wallet_approval_state(self, mock_service_class) -> None:
+    def test_update_wallet_permit_state(self, mock_service_class) -> None:
         mysql_session = Mock()
         wallet_id = 301
         permit = {
@@ -154,14 +154,14 @@ class TestUpdateWalletApprovalState:
         }
         mock_service = mock_service_class.return_value
 
-        result = UserController.update_wallet_approval_state.__wrapped__(
+        result = UserController.update_wallet_permit_state.__wrapped__(
             UserController(),
             mysql_session=mysql_session,
             wallet_id=wallet_id,
             **permit,
         )
 
-        mock_service.update_wallet_approval_state.assert_called_once_with(
+        mock_service.update_wallet_permit_state.assert_called_once_with(
             mysql_session=mysql_session,
             wallet_id=wallet_id,
             **permit,
@@ -169,7 +169,7 @@ class TestUpdateWalletApprovalState:
         assert result is None
 
     @patch("app.controllers.user_controller.UserService")
-    def test_update_wallet_approval_state_raise_http_exception_when_wallet_not_found(
+    def test_update_wallet_permit_state_raise_http_exception_when_wallet_not_found(
         self,
         mock_service_class,
     ) -> None:
@@ -177,10 +177,10 @@ class TestUpdateWalletApprovalState:
         wallet_id = 999
         tx_hash = "0x" + "a" * 64
         mock_service = mock_service_class.return_value
-        mock_service.update_wallet_approval_state.side_effect = WalletNotFoundException("wallet not found")
+        mock_service.update_wallet_permit_state.side_effect = WalletNotFoundException("wallet not found")
 
         with pytest.raises(HTTPException) as exc_info:
-            UserController.update_wallet_approval_state.__wrapped__(
+            UserController.update_wallet_permit_state.__wrapped__(
                 UserController(),
                 mysql_session=mysql_session,
                 wallet_id=wallet_id,
@@ -198,17 +198,17 @@ class TestUpdateWalletApprovalState:
         }
 
     @patch("app.controllers.user_controller.UserService")
-    def test_update_wallet_approval_state_raise_http_exception_when_wallet_not_approved(
+    def test_update_wallet_permit_state_raise_http_exception_when_permit_is_incomplete(
         self,
         mock_service_class,
     ) -> None:
         mysql_session = Mock()
         wallet_id = 301
         mock_service = mock_service_class.return_value
-        mock_service.update_wallet_approval_state.side_effect = WalletNotApprovedException("not approved")
+        mock_service.update_wallet_permit_state.side_effect = WalletNotPermittedException("permit is incomplete")
 
         with pytest.raises(HTTPException) as exc_info:
-            UserController.update_wallet_approval_state.__wrapped__(
+            UserController.update_wallet_permit_state.__wrapped__(
                 UserController(),
                 mysql_session=mysql_session,
                 wallet_id=wallet_id,
@@ -222,21 +222,21 @@ class TestUpdateWalletApprovalState:
         assert exc_info.value.status_code == 400
         assert exc_info.value.detail == {
             "status": "error",
-            "message": WALLET_NOT_APPROVED_ERROR,
+            "message": WALLET_NOT_PERMITTED_ERROR,
         }
 
     @patch("app.controllers.user_controller.UserService")
-    def test_update_wallet_approval_state_raise_http_exception_when_service_fails(
+    def test_update_wallet_permit_state_raise_http_exception_when_service_fails(
         self,
         mock_service_class,
     ) -> None:
         mysql_session = Mock()
         wallet_id = 301
         mock_service = mock_service_class.return_value
-        mock_service.update_wallet_approval_state.side_effect = Exception("unexpected error")
+        mock_service.update_wallet_permit_state.side_effect = Exception("unexpected error")
 
         with pytest.raises(HTTPException) as exc_info:
-            UserController.update_wallet_approval_state.__wrapped__(
+            UserController.update_wallet_permit_state.__wrapped__(
                 UserController(),
                 mysql_session=mysql_session,
                 wallet_id=wallet_id,
@@ -398,7 +398,7 @@ class TestVerifyAndCreateWalletNonce:
             token_symbol=request.token_symbol,
             chain_id=request.chain_id,
             is_active=True,
-            is_approval=True,
+            is_permitted=True,
             verified_at="2026-04-12 12:10",
         )
         mock_service = mock_service_class.return_value

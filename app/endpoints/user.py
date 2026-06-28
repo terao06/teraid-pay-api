@@ -3,7 +3,7 @@ from app.controllers.user_controller import UserController
 from app.core.utils.logging import TeraidPayApiLog
 from app.middlewares.request_wrapper import request_rapper
 from app.middlewares.response_wrapper import response_rapper
-from app.models.requests.wallet_approval_update_request import WalletApprovalUpdateRequest
+from app.models.requests.wallet_permit_update_request import WalletPermitUpdateRequest
 from app.models.requests.wallet_nonce_create_request import WalletNonceCreateRequest
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
 
@@ -26,21 +26,21 @@ def get_user_wallet(user_id: int):
     return UserController().get_user_wallet(user_id=user_id)
 
 
-@user_router.get("/{user_id}/wallet/approval")
+@user_router.get("/{user_id}/wallet/permit")
 @response_rapper()
 @request_rapper()
-def get_user_wallet_approval(user_id: int):
-    """ユーザーウォレットのJPYC approveに必要な情報を取得する。"""
-    return UserController().get_user_wallet_approval(user_id=user_id)
+def get_user_wallet_permit(user_id: int):
+    """ユーザーウォレットの JPYC permit 署名に必要な情報を取得する。"""
+    return UserController().get_user_wallet_permit(user_id=user_id)
 
 
-@user_router.post("/{user_id}/wallet/{wallet_id}/approval")
+@user_router.post("/{user_id}/wallet/{wallet_id}/permit")
 @response_rapper()
 @request_rapper()
-def update_wallet_approval_state(user_id: int, wallet_id: int, request: WalletApprovalUpdateRequest):
-    """ユーザーウォレットの permit approval 状態を更新する。"""
+def update_wallet_permit_state(user_id: int, wallet_id: int, request: WalletPermitUpdateRequest):
+    """ユーザーウォレットの permit 許可状態を更新する。"""
     TeraidPayApiLog.info(
-        f"ウォレットの permit approval 状態更新を行います。 "
+        f"ウォレットの permit 許可状態更新を行います。 "
         f"user_id={user_id} "
         f"wallet_id={wallet_id} "
         f"allowance_value={request.allowance_value} "
@@ -49,7 +49,7 @@ def update_wallet_approval_state(user_id: int, wallet_id: int, request: WalletAp
         f"signature_first_32_bytes={request.signature_first_32_bytes} "
         f"signature_second_32_bytes={request.signature_second_32_bytes}")
 
-    return UserController().update_wallet_approval_state(
+    return UserController().update_wallet_permit_state(
         wallet_id=wallet_id,
         value=request.allowance_value,
         deadline=request.signature_deadline,

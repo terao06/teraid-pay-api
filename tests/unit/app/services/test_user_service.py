@@ -9,12 +9,12 @@ from app.core.exceptions.custom_exception import (
     UnauthorizedException,
     UserNotFoundException,
     WalletConflictException,
-    WalletNotApprovedException,
+    WalletNotPermittedException,
     WalletNotFoundException,
 )
 from app.models.mysql.wallet import Wallet
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
-from app.models.responses.wallet_approval_response import WalletApprovalResponse
+from app.models.responses.wallet_permit_response import WalletPermitResponse
 from app.models.responses.wallet_response import WalletResponse
 from app.services.user_service import JST, UserService
 
@@ -35,7 +35,7 @@ class TestGetUserWallet:
             token_symbol="JPYC",
             chain_id=1,
             is_active=True,
-            is_approval=False,
+            is_permitted=False,
             verified_at=datetime(2024, 1, 10, 12, 0, 0),
             created_at=datetime(2024, 1, 1, 9, 30, 0),
             updated_at=datetime(2024, 1, 15, 18, 45, 0),
@@ -57,7 +57,7 @@ class TestGetUserWallet:
             token_symbol="JPYC",
             chain_id=1,
             is_active=True,
-            is_approval=False,
+            is_permitted=False,
             verified_at="2024-01-10 12:00",
             created_at="2024-01-01 09:30",
             updated_at="2024-01-15 18:45",
@@ -80,13 +80,13 @@ class TestGetUserWallet:
         assert result is None
 
 
-class TestGetUserWalletApproval:
-    @patch("app.services.user_service.get_wallet_approval_config")
+class TestGetUserWalletPermit:
+    @patch("app.services.user_service.get_wallet_permit_config")
     @patch("app.services.user_service.UserRepository")
-    def test_get_user_wallet_approval(
+    def test_get_user_wallet_permit(
         self,
         mock_repository_class,
-        mock_get_wallet_approval_config,
+        mock_get_wallet_permit_config,
     ) -> None:
         mysql_session = Mock()
         user_id = 101
@@ -97,19 +97,19 @@ class TestGetUserWalletApproval:
         )
         mock_repository = mock_repository_class.return_value
         mock_repository.get_user_wallet.return_value = wallet_info
-        mock_get_wallet_approval_config.return_value = SimpleNamespace(
+        mock_get_wallet_permit_config.return_value = SimpleNamespace(
             token_contract_address="0x2222222222222222222222222222222222222222",
             spender_address="0x3333333333333333333333333333333333333333",
         )
 
-        result = UserService().get_user_wallet_approval(mysql_session=mysql_session, user_id=user_id)
+        result = UserService().get_user_wallet_permit(mysql_session=mysql_session, user_id=user_id)
 
         mock_repository.get_user_wallet.assert_called_once_with(
             mysql_session=mysql_session,
             user_id=user_id,
         )
-        mock_get_wallet_approval_config.assert_called_once_with(chain_id=11155111)
-        assert result == WalletApprovalResponse(
+        mock_get_wallet_permit_config.assert_called_once_with(chain_id=11155111)
+        assert result == WalletPermitResponse(
             wallet_address=wallet_info.wallet_address,
             chain_id=11155111,
             token_symbol="JPYC",
@@ -117,42 +117,42 @@ class TestGetUserWalletApproval:
             spender_address="0x3333333333333333333333333333333333333333",
         )
 
-    @patch("app.services.user_service.get_wallet_approval_config")
+    @patch("app.services.user_service.get_wallet_permit_config")
     @patch("app.services.user_service.UserRepository")
-    def test_get_user_wallet_approval_returns_none_when_wallet_not_found(
+    def test_get_user_wallet_permit_returns_none_when_wallet_not_found(
         self,
         mock_repository_class,
-        mock_get_wallet_approval_config,
+        mock_get_wallet_permit_config,
     ) -> None:
         mysql_session = Mock()
         user_id = 999
         mock_repository = mock_repository_class.return_value
         mock_repository.get_user_wallet.return_value = None
 
-        result = UserService().get_user_wallet_approval(mysql_session=mysql_session, user_id=user_id)
+        result = UserService().get_user_wallet_permit(mysql_session=mysql_session, user_id=user_id)
 
         mock_repository.get_user_wallet.assert_called_once_with(
             mysql_session=mysql_session,
             user_id=user_id,
         )
-        mock_get_wallet_approval_config.assert_not_called()
+        mock_get_wallet_permit_config.assert_not_called()
         assert result is None
 
 
-class TestUpdateWalletApprovalState:
+class TestUpdateWalletPermitState:
     @patch("app.services.user_service.Web3")
-    @patch("app.services.user_service.WalletApprovalRepository")
+    @patch("app.services.user_service.WalletPermitRepository")
     @patch("app.services.user_service.get_payment_processor_config")
-    @patch("app.services.user_service.get_wallet_approval_config")
+    @patch("app.services.user_service.get_wallet_permit_config")
     @patch("app.services.user_service.get_chain_config")
     @patch("app.services.user_service.WalletRepository")
-    def test_update_wallet_approval_state(
+    def test_update_wallet_permit_state(
         self,
         mock_repository_class,
         mock_get_chain_config,
-        mock_get_wallet_approval_config,
+        mock_get_wallet_permit_config,
         mock_get_payment_processor_config,
-        mock_wallet_approval_repository_class,
+        mock_wallet_permit_repository_class,
         mock_web3_class,
     ) -> None:
         mysql_session = Mock()
@@ -168,12 +168,12 @@ class TestUpdateWalletApprovalState:
             wallet_id=wallet_id,
             wallet_address="0x1111111111111111111111111111111111111111",
             chain_id=11155111,
-            is_approval=False,
+            is_permitted=False,
         )
         mock_repository = mock_repository_class.return_value
         mock_repository.get_wallet_by_id.return_value = wallet_info
         mock_get_chain_config.return_value = SimpleNamespace(rpc_url="https://example.test")
-        mock_get_wallet_approval_config.return_value = SimpleNamespace(
+        mock_get_wallet_permit_config.return_value = SimpleNamespace(
             token_contract_address="0x2222222222222222222222222222222222222222",
             spender_address="0x3333333333333333333333333333333333333333",
         )
@@ -193,7 +193,7 @@ class TestUpdateWalletApprovalState:
         mock_contract.functions.permit.return_value.build_transaction.return_value = {"tx": "permit"}
         mock_contract.functions.allowance.return_value.call.return_value = 1000
 
-        result = UserService().update_wallet_approval_state(
+        result = UserService().update_wallet_permit_state(
             mysql_session=mysql_session,
             wallet_id=wallet_id,
             **permit,
@@ -220,7 +220,7 @@ class TestUpdateWalletApprovalState:
         })
         mock_web3.eth.send_raw_transaction.assert_called_once_with(b"raw")
         mock_web3.eth.wait_for_transaction_receipt.assert_called_once_with("0x" + "d" * 64)
-        assert wallet_info.is_approval is True
+        assert wallet_info.is_permitted is True
         mock_repository.update_wallet.assert_called_once_with(
             mysql_session=mysql_session,
             wallet=wallet_info,
@@ -229,30 +229,30 @@ class TestUpdateWalletApprovalState:
             wallet_info.wallet_address,
             "0x3333333333333333333333333333333333333333",
         )
-        mock_wallet_approval_repository = mock_wallet_approval_repository_class.return_value
-        mock_wallet_approval_repository.create_wallet_approval.assert_called_once()
-        create_wallet_approval_kwargs = (
-            mock_wallet_approval_repository.create_wallet_approval.call_args.kwargs
+        mock_wallet_permit_repository = mock_wallet_permit_repository_class.return_value
+        mock_wallet_permit_repository.create_wallet_permit.assert_called_once()
+        create_wallet_permit_kwargs = (
+            mock_wallet_permit_repository.create_wallet_permit.call_args.kwargs
         )
-        assert create_wallet_approval_kwargs["mysql_session"] is mysql_session
-        saved_wallet_approval = create_wallet_approval_kwargs["wallet_approval"]
-        assert saved_wallet_approval.wallet_id == wallet_id
+        assert create_wallet_permit_kwargs["mysql_session"] is mysql_session
+        saved_wallet_permit = create_wallet_permit_kwargs["wallet_permit"]
+        assert saved_wallet_permit.wallet_id == wallet_id
         assert (
-            saved_wallet_approval.token_contract_address
+            saved_wallet_permit.token_contract_address
             == "0x2222222222222222222222222222222222222222"
         )
         assert (
-            saved_wallet_approval.spender_address
+            saved_wallet_permit.spender_address
             == "0x3333333333333333333333333333333333333333"
         )
-        assert saved_wallet_approval.allowance_amount == "1000"
-        assert saved_wallet_approval.permit_deadline == datetime(2030, 1, 1, 9, 0, 0)
-        assert saved_wallet_approval.approval_tx_hash == "0x" + "d" * 64
-        assert saved_wallet_approval.approved_at is not None
+        assert saved_wallet_permit.allowance_amount == "1000"
+        assert saved_wallet_permit.permit_deadline == datetime(2030, 1, 1, 9, 0, 0)
+        assert saved_wallet_permit.permit_tx_hash == "0x" + "d" * 64
+        assert saved_wallet_permit.permitted_at is not None
         assert result is None
 
     @patch("app.services.user_service.WalletRepository")
-    def test_update_wallet_approval_state_wallet_not_found(
+    def test_update_wallet_permit_state_wallet_not_found(
         self,
         mock_repository_class,
     ) -> None:
@@ -262,7 +262,7 @@ class TestUpdateWalletApprovalState:
         mock_repository.get_wallet_by_id.return_value = None
 
         with pytest.raises(WalletNotFoundException):
-            UserService().update_wallet_approval_state(
+            UserService().update_wallet_permit_state(
                 mysql_session=mysql_session,
                 wallet_id=wallet_id,
                 value=1000,
@@ -280,14 +280,14 @@ class TestUpdateWalletApprovalState:
 
     @patch("app.services.user_service.Web3")
     @patch("app.services.user_service.get_payment_processor_config")
-    @patch("app.services.user_service.get_wallet_approval_config")
+    @patch("app.services.user_service.get_wallet_permit_config")
     @patch("app.services.user_service.get_chain_config")
     @patch("app.services.user_service.WalletRepository")
-    def test_update_wallet_approval_state_raises_when_allowance_is_insufficient(
+    def test_update_wallet_permit_state_raises_when_allowance_is_insufficient(
         self,
         mock_repository_class,
         mock_get_chain_config,
-        mock_get_wallet_approval_config,
+        mock_get_wallet_permit_config,
         mock_get_payment_processor_config,
         mock_web3_class,
     ) -> None:
@@ -297,12 +297,12 @@ class TestUpdateWalletApprovalState:
             wallet_id=wallet_id,
             wallet_address="0x1111111111111111111111111111111111111111",
             chain_id=11155111,
-            is_approval=False,
+            is_permitted=False,
         )
         mock_repository = mock_repository_class.return_value
         mock_repository.get_wallet_by_id.return_value = wallet_info
         mock_get_chain_config.return_value = SimpleNamespace(rpc_url="https://example.test")
-        mock_get_wallet_approval_config.return_value = SimpleNamespace(
+        mock_get_wallet_permit_config.return_value = SimpleNamespace(
             token_contract_address="0x2222222222222222222222222222222222222222",
             spender_address="0x3333333333333333333333333333333333333333",
         )
@@ -322,8 +322,8 @@ class TestUpdateWalletApprovalState:
         mock_contract.functions.permit.return_value.build_transaction.return_value = {"tx": "permit"}
         mock_contract.functions.allowance.return_value.call.return_value = 999
 
-        with pytest.raises(WalletNotApprovedException):
-            UserService().update_wallet_approval_state(
+        with pytest.raises(WalletNotPermittedException):
+            UserService().update_wallet_permit_state(
                 mysql_session=mysql_session,
                 wallet_id=wallet_id,
                 value=1000,
@@ -333,19 +333,19 @@ class TestUpdateWalletApprovalState:
                 signature_second_32_bytes="0x" + "b" * 64,
             )
 
-        assert wallet_info.is_approval is False
+        assert wallet_info.is_permitted is False
         mock_repository.update_wallet.assert_not_called()
 
     @patch("app.services.user_service.Web3")
     @patch("app.services.user_service.get_payment_processor_config")
-    @patch("app.services.user_service.get_wallet_approval_config")
+    @patch("app.services.user_service.get_wallet_permit_config")
     @patch("app.services.user_service.get_chain_config")
     @patch("app.services.user_service.WalletRepository")
-    def test_update_wallet_approval_state_raises_when_token_address_has_no_code(
+    def test_update_wallet_permit_state_raises_when_token_address_has_no_code(
         self,
         mock_repository_class,
         mock_get_chain_config,
-        mock_get_wallet_approval_config,
+        mock_get_wallet_permit_config,
         mock_get_payment_processor_config,
         mock_web3_class,
     ) -> None:
@@ -355,12 +355,12 @@ class TestUpdateWalletApprovalState:
             wallet_id=wallet_id,
             wallet_address="0x1111111111111111111111111111111111111111",
             chain_id=43113,
-            is_approval=False,
+            is_permitted=False,
         )
         mock_repository = mock_repository_class.return_value
         mock_repository.get_wallet_by_id.return_value = wallet_info
         mock_get_chain_config.return_value = SimpleNamespace(rpc_url="https://example.test")
-        mock_get_wallet_approval_config.return_value = SimpleNamespace(
+        mock_get_wallet_permit_config.return_value = SimpleNamespace(
             token_contract_address="0x2222222222222222222222222222222222222222",
             spender_address="0x3333333333333333333333333333333333333333",
         )
@@ -371,8 +371,8 @@ class TestUpdateWalletApprovalState:
         mock_web3.to_checksum_address.side_effect = lambda value: value
         mock_web3.eth.get_code.return_value = b""
 
-        with pytest.raises(WalletNotApprovedException, match="JPYCトークンアドレス"):
-            UserService().update_wallet_approval_state(
+        with pytest.raises(WalletNotPermittedException, match="JPYCトークンアドレス"):
+            UserService().update_wallet_permit_state(
                 mysql_session=mysql_session,
                 wallet_id=wallet_id,
                 value=1000,

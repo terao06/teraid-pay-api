@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 
 
-class WalletApprovalResponse(BaseModel):
+class WalletPermitResponse(BaseModel):
     wallet_address: str = Field(...)
     chain_id: int = Field(...)
     token_symbol: str = Field(...)

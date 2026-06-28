@@ -50,7 +50,7 @@ def client_with_db(
             "postgres_password": "vector_password",
             "postgres_host": "127.0.0.1",
             "postgres_port": 5432,
-            "sepolia_infra_api_key": "hogehoge",
+            "chain_11155111_rpc_url": "https://sepolia.infura.io/v3/hogehoge",
             "chain_1_jpyc_token_address": "0x2222222222222222222222222222222222222222",
             "chain_1_payment_processor_address": "0x3333333333333333333333333333333333333333",
             "chain_1_payment_operator_private_key": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",

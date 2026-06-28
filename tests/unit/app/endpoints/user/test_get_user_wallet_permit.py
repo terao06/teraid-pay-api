@@ -3,17 +3,17 @@ from unittest.mock import patch
 from fastapi import HTTPException
 import pytest
 
-from app.models.responses.wallet_approval_response import WalletApprovalResponse
+from app.models.responses.wallet_permit_response import WalletPermitResponse
 
 
-class TestGetUserWalletApproval:
-    @patch("app.endpoints.user.UserController.get_user_wallet_approval")
-    def test_get_user_wallet_approval_returns_wrapped_success(
+class TestGetUserWalletPermit:
+    @patch("app.endpoints.user.UserController.get_user_wallet_permit")
+    def test_get_user_wallet_permit_returns_wrapped_success(
         self,
-        mock_get_user_wallet_approval,
+        mock_get_user_wallet_permit,
         client,
     ) -> None:
-        mock_get_user_wallet_approval.return_value = WalletApprovalResponse(
+        mock_get_user_wallet_permit.return_value = WalletPermitResponse(
             wallet_address="0x1111111111111111111111111111111111111111",
             chain_id=11155111,
             token_symbol="JPYC",
@@ -21,7 +21,7 @@ class TestGetUserWalletApproval:
             spender_address="0x3333333333333333333333333333333333333333",
         )
 
-        response = client.get("/user/10/wallet/approval")
+        response = client.get("/user/10/wallet/permit")
 
         assert response.status_code == 200
         assert response.json() == {
@@ -34,16 +34,16 @@ class TestGetUserWalletApproval:
                 "spender_address": "0x3333333333333333333333333333333333333333",
             },
         }
-        mock_get_user_wallet_approval.assert_called_once()
-        assert mock_get_user_wallet_approval.call_args.kwargs["user_id"] == 10
+        mock_get_user_wallet_permit.assert_called_once()
+        assert mock_get_user_wallet_permit.call_args.kwargs["user_id"] == 10
 
-    @patch("app.endpoints.user.UserController.get_user_wallet_approval")
-    def test_get_user_wallet_approval_returns_http_exception_from_controller(
+    @patch("app.endpoints.user.UserController.get_user_wallet_permit")
+    def test_get_user_wallet_permit_returns_http_exception_from_controller(
         self,
-        mock_get_user_wallet_approval,
+        mock_get_user_wallet_permit,
         client,
     ) -> None:
-        mock_get_user_wallet_approval.side_effect = HTTPException(
+        mock_get_user_wallet_permit.side_effect = HTTPException(
             status_code=404,
             detail={
                 "status": "error",
@@ -51,7 +51,7 @@ class TestGetUserWalletApproval:
             },
         )
 
-        response = client.get("/user/10/wallet/approval")
+        response = client.get("/user/10/wallet/permit")
 
         assert response.status_code == 404
         assert response.json() == {
@@ -63,7 +63,7 @@ class TestGetUserWalletApproval:
 
     @pytest.mark.usefixtures("insert_users", "insert_wallets", "insert_user_wallets")
     def test_with_db(self, client_with_db) -> None:
-        response = client_with_db.get("/user/101/wallet/approval")
+        response = client_with_db.get("/user/101/wallet/permit")
 
         assert response.status_code == 200
         assert response.json() == {

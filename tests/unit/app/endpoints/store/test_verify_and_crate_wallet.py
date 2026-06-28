@@ -28,7 +28,7 @@ class TestVerifyAndCreateWallet:
             token_symbol="JPYC",
             chain_id=11155111,
             is_active=True,
-            is_approval=True,
+            is_permitted=True,
             verified_at="2026-04-13 12:00",
         )
 
@@ -54,7 +54,7 @@ class TestVerifyAndCreateWallet:
                 "token_symbol": "JPYC",
                 "chain_id": 11155111,
                 "is_active": True,
-                "is_approval": True,
+                "is_permitted": True,
                 "verified_at": "2026-04-13 12:00",
             },
         }
@@ -148,7 +148,7 @@ class TestVerifyAndCreateWallet:
                 "token_symbol": "JPYC",
                 "chain_id": 11155111,
                 "is_active": True,
-                "is_approval": True,
+                "is_permitted": True,
                 "verified_at": "2026-04-13 12:00",
             },
         }
@@ -167,7 +167,7 @@ class TestVerifyAndCreateWallet:
             .one()
         )
         assert created_wallet.is_active is True
-        assert created_wallet.is_approval is True
+        assert created_wallet.is_permitted is True
         assert created_wallet.verified_at == fixed_now
 
         updated_nonce = (
