@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.models.mysql.payment_request import PaymentRequest, PaymentStatus
 from app.models.responses.payment_transaction_hash_response import PaymentTransactionHashResponse
-from app.services.payment_service import JST, PAYMENT_PROCESSOR_ABI, PaymentService
+from app.services.payment_service import ERC20_BALANCE_ABI, JST, PAYMENT_PROCESSOR_ABI, PaymentService
 
 TEST_DATA_ROOT = Path(__file__).resolve().parents[3] / "test_data"
 FACE_IMAGE_PATH = TEST_DATA_ROOT / "images" / "scrfd" / "one_face.png"
@@ -189,6 +189,7 @@ class TestCreatePaymentFromFace:
         mock_sent_hash = mock_web3.eth.send_raw_transaction.return_value
         mock_sent_hash.hex.return_value = transaction_hash
         mock_payment_processor = mock_web3.eth.contract.return_value
+        mock_payment_processor.functions.balanceOf.return_value.call.return_value = 2000000000000000000000
         mock_pay_call = mock_payment_processor.functions.pay.return_value
         mock_pay_call.build_transaction.return_value = {"nonce": 7}
 
@@ -216,9 +217,13 @@ class TestCreatePaymentFromFace:
         mock_web3.eth.account.from_key.assert_called_once_with(
             "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         )
-        mock_web3.eth.contract.assert_called_once_with(
+        mock_web3.eth.contract.assert_any_call(
             address="0x5555555555555555555555555555555555555555",
             abi=PAYMENT_PROCESSOR_ABI,
+        )
+        mock_web3.eth.contract.assert_any_call(
+            address="0x4444444444444444444444444444444444444444",
+            abi=ERC20_BALANCE_ABI,
         )
         expected_payment_id = PaymentService._build_payment_id(
             SimpleNamespace(
@@ -236,6 +241,9 @@ class TestCreatePaymentFromFace:
             "0x6666666666666666666666666666666666666666",
             "0x1111111111111111111111111111111111111111",
             1500000000000000000000,
+        )
+        mock_payment_processor.functions.balanceOf.assert_called_once_with(
+            "0x6666666666666666666666666666666666666666"
         )
         mock_pay_call.build_transaction.assert_called_once_with({
             "from": mock_account.address,
