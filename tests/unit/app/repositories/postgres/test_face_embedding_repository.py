@@ -201,14 +201,13 @@ class TestGetNearestFaceEmbedding:
         self,
         postgres_session: Session,
     ) -> None:
-        """有効かつ未削除の候補から閾値内の最短ベクトルを取得することを確認する。"""
+        """有効な候補から最短ベクトルを取得することを確認する。"""
         repository = FaceEmbeddingRepository()
         query_embedding = [1.0] + [0.0] * 511
 
         result = repository.get_nearest_face_embedding(
             postgres_session=postgres_session,
             embedding=query_embedding,
-            threshold=0.5,
             exclusion_user_id=101,
         )
 
@@ -217,21 +216,22 @@ class TestGetNearestFaceEmbedding:
         assert result.distance == pytest.approx(0.0)
 
     @pytest.mark.usefixtures("insert_face_embeddings")
-    def test_get_nearest_face_embedding_returns_none_when_no_embedding_matches(
+    def test_get_nearest_face_embedding_returns_nearest_even_when_outside_threshold(
         self,
         postgres_session: Session,
     ) -> None:
-        """閾値内の候補が存在しない場合は None を返すことを確認する。"""
+        """閾値比較をせず、最も近い候補を返すことを確認する。"""
         repository = FaceEmbeddingRepository()
 
         result = repository.get_nearest_face_embedding(
             postgres_session=postgres_session,
             embedding=[-1.0] + [0.0] * 511,
-            threshold=0.5,
             exclusion_user_id=101,
         )
 
-        assert result is None
+        assert result is not None
+        assert result.user_id == 108
+        assert result.distance == pytest.approx(1.118033988749895)
 
     @pytest.mark.usefixtures("insert_face_embeddings")
     def test_get_nearest_face_embedding_does_not_exclude_when_exclusion_user_id_is_none(
@@ -244,7 +244,6 @@ class TestGetNearestFaceEmbedding:
         result = repository.get_nearest_face_embedding(
             postgres_session=postgres_session,
             embedding=[1.0] + [0.0] * 511,
-            threshold=0.5,
             exclusion_user_id=None,
         )
 
@@ -268,7 +267,6 @@ class TestGetNearestFaceEmbedding:
         result = repository.get_nearest_face_embedding(
             postgres_session=postgres_session,
             embedding=[1.0] + [0.0] * 511,
-            threshold=0.5,
             exclusion_user_id=102,
         )
 
@@ -287,6 +285,5 @@ class TestGetNearestFaceEmbedding:
             repository.get_nearest_face_embedding(
                 postgres_session=postgres_session,
                 embedding=[0.1] * 511,
-                threshold=0.7,
                 exclusion_user_id=101,
             )
