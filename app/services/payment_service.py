@@ -16,6 +16,7 @@ from app.core.aws.s3_client import S3Client
 from app.core.aws.ssm_manager import SsmClient
 from app.core.exceptions.custom_exception import (
     FaceEmbeddingNotFoundException,
+    InsufficientFundsError,
     PaymentRequestNotFoundException,
     UserNotFoundException,
     WalletNotPermittedException,
@@ -61,6 +62,16 @@ PAYMENT_PROCESSOR_ABI = [
         ],
         "name": "PaymentProcessed",
         "type": "event",
+    },
+]
+
+ERC20_BALANCE_ABI = [
+    {
+        "inputs": [{"internalType": "address", "name": "account", "type": "address"}],
+        "name": "balanceOf",
+        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function",
     },
 ]
 
@@ -218,21 +229,38 @@ class PaymentService:
 
         # オペレーター秘密鍵から送信者アカウントを復元し、コントラクト操作用のインスタンスを作成する。
         account = web3.eth.account.from_key(payment_processor_config.operator_private_key)
+        payment_processor_address = web3.to_checksum_address(
+            payment_processor_config.payment_processor_address
+        )
+        token_contract_address = web3.to_checksum_address(
+            payment_processor_config.token_contract_address
+        )
+        from_address = web3.to_checksum_address(target_payment_request.user_wallet_address)
+        to_address = web3.to_checksum_address(target_payment_request.store_wallet_address)
+
         payment_processor = web3.eth.contract(
-            address=web3.to_checksum_address(payment_processor_config.payment_processor_address),
+            address=payment_processor_address,
             abi=PAYMENT_PROCESSOR_ABI,
+        )
+        token_contract = web3.eth.contract(
+            address=token_contract_address,
+            abi=ERC20_BALANCE_ABI,
         )
 
         # コントラクトに渡す金額と paymentId を、オンチェーン形式に変換する。
         amount = int(Decimal(str(target_payment_request.amount)) * (Decimal(10) ** 18))
         payment_id = self._build_payment_id(target_payment_request)
 
+        balance = token_contract.functions.balanceOf(from_address).call()
+        if balance < amount:
+            raise InsufficientFundsError(f"残高が不足しています。 user_id: {target_payment_request.user_id}")
+
         # PaymentProcessor.pay を呼び出すトランザクションを組み立てる。
         transaction = payment_processor.functions.pay(
             payment_id,
-            web3.to_checksum_address(payment_processor_config.token_contract_address),
-            web3.to_checksum_address(target_payment_request.user_wallet_address),
-            web3.to_checksum_address(target_payment_request.store_wallet_address),
+            token_contract_address,
+            from_address,
+            to_address,
             amount,
         ).build_transaction({
             "from": account.address,

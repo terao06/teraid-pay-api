@@ -7,9 +7,10 @@ from fastapi import HTTPException
 import pytest
 from sqlalchemy.orm import Session
 
+from app.core.exceptions.message import INSUFFICIENT_FUNDS_ERROR
 from app.models.mysql.payment_request import PaymentRequest, PaymentStatus
 from app.models.responses.payment_transaction_hash_response import PaymentTransactionHashResponse
-from app.services.payment_service import JST, PAYMENT_PROCESSOR_ABI, PaymentService
+from app.services.payment_service import ERC20_BALANCE_ABI, JST, PAYMENT_PROCESSOR_ABI, PaymentService
 
 
 class TestCreatePayment:
@@ -106,6 +107,7 @@ class TestCreatePayment:
         mock_sent_hash = mock_web3.eth.send_raw_transaction.return_value
         mock_sent_hash.hex.return_value = transaction_hash
         mock_payment_processor = mock_web3.eth.contract.return_value
+        mock_payment_processor.functions.balanceOf.return_value.call.return_value = 2000000000000000000000
         mock_pay_call = mock_payment_processor.functions.pay.return_value
         mock_pay_call.build_transaction.return_value = {"nonce": 7}
 
@@ -133,9 +135,13 @@ class TestCreatePayment:
         mock_web3.eth.account.from_key.assert_called_once_with(
             "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         )
-        mock_web3.eth.contract.assert_called_once_with(
+        mock_web3.eth.contract.assert_any_call(
             address="0x5555555555555555555555555555555555555555",
             abi=PAYMENT_PROCESSOR_ABI,
+        )
+        mock_web3.eth.contract.assert_any_call(
+            address="0x4444444444444444444444444444444444444444",
+            abi=ERC20_BALANCE_ABI,
         )
         expected_payment_id = PaymentService._build_payment_id(
             SimpleNamespace(
@@ -153,6 +159,9 @@ class TestCreatePayment:
             "0x1111111111111111111111111111111111111111",
             "0x1111111111111111111111111111111111111111",
             1500000000000000000000,
+        )
+        mock_payment_processor.functions.balanceOf.assert_called_once_with(
+            "0x1111111111111111111111111111111111111111"
         )
         mock_pay_call.build_transaction.assert_called_once_with({
             "from": mock_account.address,
@@ -181,3 +190,47 @@ class TestCreatePayment:
         assert saved_payment_request.created_at is not None
         assert saved_payment_request.updated_at is not None
         assert saved_payment_request.deleted_at is None
+
+    @pytest.mark.usefixtures("insert_stores", "insert_users", "insert_wallets", "insert_store_wallets", "insert_user_wallets")
+    @patch("app.services.payment_service.Web3")
+    @patch("app.services.payment_service.HTTPProvider")
+    @patch("app.services.payment_service.datetime")
+    def test_with_db_returns_insufficient_funds_error(
+        self,
+        mock_datetime,
+        mock_http_provider_class,
+        mock_web3_class,
+        client_with_db,
+    ) -> None:
+        fixed_now = datetime(2026, 4, 12, 12, 0, 0, tzinfo=JST)
+        mock_datetime.now.return_value = fixed_now
+        mock_http_provider = mock_http_provider_class.return_value
+        mock_web3 = mock_web3_class.return_value
+        mock_web3.to_checksum_address.side_effect = lambda address: address
+        mock_account = mock_web3.eth.account.from_key.return_value
+        mock_account.address = "0x6666666666666666666666666666666666666666"
+        mock_web3.eth.account.from_key.return_value = mock_account
+        mock_web3.eth.get_transaction_count.return_value = 7
+        mock_payment_processor = mock_web3.eth.contract.return_value
+        mock_payment_processor.functions.balanceOf.return_value.call.return_value = 1499999999999999999999
+
+        response = client_with_db.post(
+            "/payment/request",
+            json={
+                "store_id": 101,
+                "user_id": 101,
+                "amount": 1500,
+            },
+        )
+
+        assert response.status_code == 400
+        assert response.json() == {
+            "detail": {
+                "status": "error",
+                "message": INSUFFICIENT_FUNDS_ERROR,
+            }
+        }
+        mock_payment_processor.functions.balanceOf.assert_called_once_with(
+            "0x1111111111111111111111111111111111111111"
+        )
+        mock_payment_processor.functions.pay.assert_not_called()
