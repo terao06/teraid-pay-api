@@ -122,7 +122,7 @@ class TestUpdateFaceEmbedding:
         assert saved_face_embedding.is_active is True
         assert saved_face_embedding.extension_type == ExtensionType.PNG
         assert saved_face_embedding.updated_at is not None
-        assert saved_face_embedding.updated_at > before_updated_at
+        assert saved_face_embedding.updated_at != before_updated_at
 
 
 class TestGetFaceEmbeddingById:

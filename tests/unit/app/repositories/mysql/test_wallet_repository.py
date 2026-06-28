@@ -94,7 +94,7 @@ class TestCreateWallet:
         assert saved_wallet.token_symbol == "JPYC"
         assert saved_wallet.chain_id == 11155111
         assert saved_wallet.is_active is True
-        assert saved_wallet.is_approval is True
+        assert saved_wallet.is_permitted is True
         assert saved_wallet.verified_at == datetime(2026, 4, 13, 12, 0, 0)
 
 

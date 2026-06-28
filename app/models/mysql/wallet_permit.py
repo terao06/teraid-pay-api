@@ -10,16 +10,16 @@ from sqlalchemy import (
 from .base_model import Base
 
 
-class WalletApproval(Base):
-    """ウォレットの決済承認情報を表す ORM モデルです。"""
+class WalletPermit(Base):
+    """ウォレットの permit 許可情報を表す ORM モデルです。"""
 
-    __tablename__ = "wallet_approvals"
+    __tablename__ = "wallet_permits"
 
-    wallet_approval_id = Column(
+    wallet_permit_id = Column(
         BigInteger,
         primary_key=True,
         autoincrement=True,
-        comment="ウォレット承認ID",
+        comment="ウォレット permit 許可ID",
     )
     wallet_id = Column(
         BigInteger,
@@ -30,7 +30,7 @@ class WalletApproval(Base):
     token_contract_address = Column(
         String(42),
         nullable=False,
-        comment="承認対象のトークンコントラクトアドレス",
+        comment="permit 対象のトークンコントラクトアドレス",
     )
     spender_address = Column(
         String(42),
@@ -40,22 +40,22 @@ class WalletApproval(Base):
     allowance_amount = Column(
         String(78),
         nullable=False,
-        comment="トークン最小単位の承認上限金額",
+        comment="permit で許可したトークン最小単位の上限金額",
     )
     permit_deadline = Column(
         DateTime,
         nullable=False,
         comment="permit 署名の有効期限",
     )
-    approval_tx_hash = Column(
+    permit_tx_hash = Column(
         String(66),
         nullable=True,
-        comment="承認トランザクションハッシュ",
+        comment="permit トランザクションハッシュ",
     )
-    approved_at = Column(
+    permitted_at = Column(
         DateTime,
         nullable=True,
-        comment="承認日時",
+        comment="permit 許可日時",
     )
     created_at = Column(
         DateTime,

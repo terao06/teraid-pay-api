@@ -18,7 +18,7 @@ from app.core.exceptions.custom_exception import (
     FaceEmbeddingNotFoundException,
     PaymentRequestNotFoundException,
     UserNotFoundException,
-    WalletNotApprovedException,
+    WalletNotPermittedException,
     WalletNotFoundException
 )
 from app.core.utils.datetime import JST
@@ -158,8 +158,8 @@ class PaymentService:
         if (store_wallet.chain_id != user_wallet.chain_id) or (store_wallet.token_symbol != user_wallet.token_symbol):
             raise ValueError("値が一致しません。")
 
-        if not user_wallet.is_approval:
-            raise WalletNotApprovedException("対象のウォレットは利用許可がされていません。")
+        if not user_wallet.is_permitted:
+            raise WalletNotPermittedException("対象のウォレットは利用許可がされていません。")
 
         payment_repository = PaymentRepository()
         now = datetime.now(JST)

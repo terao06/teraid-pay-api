@@ -31,7 +31,7 @@ class TestGetStoreWallet:
             token_symbol="JPYC",
             chain_id=1,
             is_active=True,
-            is_approval=False,
+            is_permitted=False,
             verified_at=datetime(2024, 2, 10, 12, 0, 0),
             created_at=datetime(2024, 2, 1, 9, 30, 0),
             updated_at=datetime(2024, 2, 15, 18, 45, 0),
@@ -53,7 +53,7 @@ class TestGetStoreWallet:
             token_symbol="JPYC",
             chain_id=1,
             is_active=True,
-            is_approval=False,
+            is_permitted=False,
             verified_at="2024-02-10 12:00",
             created_at="2024-02-01 09:30",
             updated_at="2024-02-15 18:45",
@@ -432,7 +432,7 @@ class TestCreateStoreWallet:
         assert created_wallet.chain_id == chain_id
         assert created_wallet.verified_at == fixed_now
         assert created_wallet.is_active is True
-        assert created_wallet.is_approval is True
+        assert created_wallet.is_permitted is True
 
         mock_store_repository.create_store_wallet.assert_called_once()
         create_store_wallet_kwargs = mock_store_repository.create_store_wallet.call_args.kwargs
@@ -453,7 +453,7 @@ class TestCreateStoreWallet:
             token_symbol=token_symbol,
             chain_id=chain_id,
             is_active=True,
-            is_approval=True,
+            is_permitted=True,
             verified_at="2026-04-12 12:34",
         )
 

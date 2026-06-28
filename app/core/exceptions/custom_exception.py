@@ -28,7 +28,7 @@ class WalletNotFoundException(Exception):
     pass
 
 
-class WalletNotApprovedException(Exception):
+class WalletNotPermittedException(Exception):
     pass
 
 

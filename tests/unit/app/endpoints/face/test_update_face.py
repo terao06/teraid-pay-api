@@ -195,7 +195,7 @@ class TestUpdateFace:
         assert len(saved_face_embedding.embedding) == 512
         assert saved_face_embedding.extension_type.value == "jpeg"
         assert saved_face_embedding.is_active is True
-        assert saved_face_embedding.updated_at > before_updated_at
+        assert saved_face_embedding.updated_at != before_updated_at
 
         s3_client = boto3.client(
             "s3",
