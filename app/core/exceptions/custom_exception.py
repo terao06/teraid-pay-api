@@ -12,6 +12,7 @@ class UserNotFoundException(Exception):
 class FaceEmbeddingNotFoundException(Exception):
     pass
 
+
 class FaceEmbeddingAlreadyRegisterException(Exception):
     pass
 
@@ -33,6 +34,10 @@ class WalletNotPermittedException(Exception):
 
 
 class PaymentRequestNotFoundException(Exception):
+    pass
+
+
+class InsufficientFundsError(Exception):
     pass
 
 

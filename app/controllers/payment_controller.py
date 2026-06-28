@@ -4,6 +4,7 @@ from app.core.exceptions.custom_exception import (
     CustomHttpException,
     FaceEmbeddingNotFoundException,
     FaceNotFoundException,
+    InsufficientFundsError,
     PaymentRequestNotFoundException,
     UserNotFoundException,
     WalletNotPermittedException,
@@ -12,6 +13,7 @@ from app.core.exceptions.custom_exception import (
 from app.core.exceptions.message import (
     FACE_NOT_REGISTERED_ERROR,
     FACE_NOTE_FOUND_ERROR,
+    INSUFFICIENT_FUNDS_ERROR,
     NOT_MATCH_ERROR,
     PAYMENT_ERROR,
     PAYMENT_INFO_NOT_FOUND,
@@ -78,6 +80,11 @@ class PaymentController:
             raise CustomHttpException.get_http_exception(
                 status_code=404,
                 message=PAYMENT_INFO_NOT_FOUND
+            )
+        except InsufficientFundsError:
+            raise CustomHttpException.get_http_exception(
+                status_code=400,
+                message=INSUFFICIENT_FUNDS_ERROR
             )
         except Exception:
             raise CustomHttpException.get_http_exception(
@@ -149,6 +156,10 @@ class PaymentController:
             raise CustomHttpException.get_http_exception(
                 status_code=404,
                 message=PAYMENT_INFO_NOT_FOUND)
+        except InsufficientFundsError:
+            raise CustomHttpException.get_http_exception(
+                status_code=400,
+                message=INSUFFICIENT_FUNDS_ERROR)
         except Exception:
             raise CustomHttpException.get_http_exception(
                 status_code=500,

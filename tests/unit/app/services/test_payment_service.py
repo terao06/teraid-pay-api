@@ -19,7 +19,7 @@ from app.core.exceptions.custom_exception import (
 from app.models.mysql.payment_request import PaymentRequest, PaymentStatus
 from app.models.responses.payment_transaction_hash_response import PaymentTransactionHashResponse
 from app.models.responses.payment_verify_response import PaymentVerifyResponse
-from app.services.payment_service import JST, PaymentService
+from app.services.payment_service import ERC20_BALANCE_ABI, JST, PAYMENT_PROCESSOR_ABI, PaymentService
 
 
 class TestGetUserIdFromFaceImage:
@@ -519,6 +519,9 @@ class TestExecutePayment:
         mock_payment_processor = Mock()
         mock_pay_call = Mock()
         mock_pay_call.build_transaction.return_value = {"nonce": 7}
+        mock_payment_processor.functions.balanceOf.return_value.call.return_value = (
+            int(Decimal(str(target_payment_request.amount)) * (Decimal(10) ** 18))
+        )
         mock_payment_processor.functions.pay.return_value = mock_pay_call
         mock_web3.eth.contract.return_value = mock_payment_processor
 
@@ -536,7 +539,17 @@ class TestExecutePayment:
         mock_get_payment_processor_config.assert_called_once_with(chain_id=target_payment_request.chain_id)
         mock_http_provider_class.assert_called_once_with("https://example.invalid")
         mock_web3_class.assert_called_once_with("provider")
-        mock_web3.eth.contract.assert_called_once()
+        mock_web3.eth.contract.assert_any_call(
+            address="0x4444444444444444444444444444444444444444",
+            abi=PAYMENT_PROCESSOR_ABI,
+        )
+        mock_web3.eth.contract.assert_any_call(
+            address="0x3333333333333333333333333333333333333333",
+            abi=ERC20_BALANCE_ABI,
+        )
+        mock_payment_processor.functions.balanceOf.assert_called_once_with(
+            target_payment_request.user_wallet_address
+        )
         mock_payment_processor.functions.pay.assert_called_once_with(
             PaymentService._build_payment_id(target_payment_request),
             "0x3333333333333333333333333333333333333333",

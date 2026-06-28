@@ -7,6 +7,7 @@ from app.controllers.payment_controller import PaymentController
 from app.core.exceptions.custom_exception import (
     FaceEmbeddingNotFoundException,
     FaceNotFoundException,
+    InsufficientFundsError,
     PaymentRequestNotFoundException,
     UserNotFoundException,
     WalletNotPermittedException,
@@ -15,6 +16,7 @@ from app.core.exceptions.custom_exception import (
 from app.core.exceptions.message import (
     FACE_NOT_REGISTERED_ERROR,
     FACE_NOTE_FOUND_ERROR,
+    INSUFFICIENT_FUNDS_ERROR,
     NOT_MATCH_ERROR,
     PAYMENT_ERROR,
     PAYMENT_INFO_NOT_FOUND,
@@ -109,6 +111,7 @@ class TestCreateAndExecutePayment:
         ("side_effect", "expected_status_code", "expected_message"),
         [
             (PaymentRequestNotFoundException("payment request not found"), 404, PAYMENT_INFO_NOT_FOUND),
+            (InsufficientFundsError("insufficient funds"), 400, INSUFFICIENT_FUNDS_ERROR),
             (Exception("unexpected error"), 500, SERVER_ERROR),
         ],
     )
@@ -277,6 +280,7 @@ class TestCreateAndExecutePaymentFromFace:
         ("side_effect", "expected_status_code", "expected_message"),
         [
             (PaymentRequestNotFoundException("payment request not found"), 404, PAYMENT_INFO_NOT_FOUND),
+            (InsufficientFundsError("insufficient funds"), 400, INSUFFICIENT_FUNDS_ERROR),
             (Exception("unexpected error"), 500, SERVER_ERROR),
         ],
     )
