@@ -92,7 +92,7 @@ class PaymentService:
             mysql_session: Session,
             postgres_session: Session,
             content: str,
-            threshold: float = 0.7) -> int:
+            threshold: float = 1.0) -> int:
         """顔画像からuser_idを取得する
 
         Args:
@@ -123,7 +123,7 @@ class PaymentService:
             raise FaceEmbeddingNotFoundException("顔画像が登録されていません。")
 
         if face_info.distance > threshold:
-            TeraidPayApiLog.warning(f"顔画像が閾値を超えていません。 threshold: {threshold}")
+            TeraidPayApiLog.warning(f"顔画像が閾値を超えていません。 distance: {face_info.distance}")
             raise FaceEmbeddingNotFoundException("顔画像が登録されていません。")
 
         user = UserRepository().get_user_by_id(
