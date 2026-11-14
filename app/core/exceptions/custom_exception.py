@@ -25,6 +25,10 @@ class UnauthorizedException(Exception):
     pass
 
 
+class StoreManagerInactiveException(Exception):
+    pass
+
+
 class WalletNotFoundException(Exception):
     pass
 
@@ -55,7 +59,11 @@ class FaceConflictException(Exception):
 
 class CustomHttpException:
     @staticmethod
-    def get_http_exception(status_code: int, message: str) -> HTTPException:
+    def get_http_exception(
+        status_code: int,
+        message: str,
+        headers: dict[str, str] | None = None,
+    ) -> HTTPException:
         """共通エラーレスポンス形式の HTTPException を生成する。
 
         Args:
@@ -69,4 +77,8 @@ class CustomHttpException:
             "status": "error",
             "message": message
         }
-        return HTTPException(status_code=status_code, detail=detail)
+        return HTTPException(
+            status_code=status_code,
+            detail=detail,
+            headers=headers,
+        )

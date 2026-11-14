@@ -111,6 +111,10 @@ def insert_stores(engine) -> str:
     return _execute_sql_file(engine, "stores.sql")
 
 
+def insert_store_managers(engine) -> str:
+    return _execute_sql_file(engine, "store_managers.sql")
+
+
 def insert_users(engine) -> str:
     return _execute_sql_file(engine, "users.sql")
 
@@ -146,6 +150,7 @@ def insert_payment_requests(engine) -> str:
 def insert_sample_data(engine) -> list[str]:
     return [
         insert_stores(engine),
+        insert_store_managers(engine),
         insert_users(engine),
         insert_wallets(engine),
         insert_user_wallets(engine),

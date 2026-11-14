@@ -6,12 +6,47 @@ from app.models.mysql.store import Store
 from app.models.mysql.wallet import Wallet
 from app.models.mysql.store_wallet import StoreWallet
 from app.models.mysql.store_nonce import StoreNonce
+from app.models.mysql.store_manager import StoreManager
 from app.models.mysql.nonce import Nonce
 from app.core.utils.datetime import JST
 
 
 class StoreRepository:
     """店舗ウォレット情報を取得するリポジトリです。"""
+
+    def get_store_manager_by_id(
+        self,
+        mysql_session: Session,
+        store_manager_id: int,
+    ) -> StoreManager | None:
+        """店舗管理者IDに一致する未削除の管理者を取得する。"""
+        return (
+            mysql_session.query(StoreManager)
+            .join(Store, StoreManager.store_id == Store.store_id)
+            .filter(
+                StoreManager.store_manager_id == store_manager_id,
+                StoreManager.deleted_at.is_(None),
+                Store.deleted_at.is_(None),
+            )
+            .one_or_none()
+        )
+
+    def get_store_manager_by_email(
+        self,
+        mysql_session: Session,
+        email: str,
+    ) -> StoreManager | None:
+        """有効な店舗に所属する店舗管理者をメールアドレスで取得する。"""
+        return (
+            mysql_session.query(StoreManager)
+            .join(Store, StoreManager.store_id == Store.store_id)
+            .filter(
+                StoreManager.email == email,
+                StoreManager.deleted_at.is_(None),
+                Store.deleted_at.is_(None),
+            )
+            .one_or_none()
+        )
 
     def get_store_wallet(self, mysql_session: Session, store_id: int) -> Wallet | None:
         """店舗に紐づくウォレットを取得します。

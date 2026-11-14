@@ -3,12 +3,16 @@ from sqlalchemy.orm import Session
 from app.middlewares.transaction import mysql_transaction
 from app.models.requests.wallet_nonce_create_request import WalletNonceCreateRequest
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
+from app.models.requests.store_manager_login_request import StoreManagerLoginRequest
+from app.models.responses.store_manager_login_response import StoreManagerLoginResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
 from app.services.store_service import StoreService
 from app.models.responses.wallet_response import WalletResponse
 from app.core.exceptions.message import (
     SERVER_ERROR,
+    LOGIN_FAILED_ERROR,
+    STORE_MANAGER_INACTIVE_ERROR,
     STORE_NOT_FOUND_ERROR,
     VERIFY_ERROR,
     WALLET_CONFLICT_ERROR,
@@ -16,6 +20,7 @@ from app.core.exceptions.message import (
 )
 from app.core.exceptions.custom_exception import (
     CustomHttpException,
+    StoreManagerInactiveException,
     StoreNotFoundException,
     UnauthorizedException,
     WalletConflictException
@@ -24,6 +29,35 @@ from app.core.exceptions.custom_exception import (
 
 class StoreController:
     """店舗ウォレット取得 API のリクエストを処理するコントローラーです。"""
+
+    @mysql_transaction
+    def login_store_manager(
+        self,
+        mysql_session: Session,
+        request: StoreManagerLoginRequest,
+    ) -> StoreManagerLoginResponse:
+        """店舗管理者を認証し、アクセストークンを返す。"""
+        try:
+            return StoreService().login_store_manager(
+                mysql_session=mysql_session,
+                email=request.email,
+                password=request.password,
+            )
+        except UnauthorizedException:
+            raise CustomHttpException.get_http_exception(
+                status_code=401,
+                message=LOGIN_FAILED_ERROR,
+            )
+        except StoreManagerInactiveException:
+            raise CustomHttpException.get_http_exception(
+                status_code=403,
+                message=STORE_MANAGER_INACTIVE_ERROR,
+            )
+        except Exception:
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR,
+            )
 
     @mysql_transaction
     def get_store_wallet(self, mysql_session: Session, store_id: int) -> WalletResponse | None:

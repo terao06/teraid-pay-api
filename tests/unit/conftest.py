@@ -16,6 +16,7 @@ from tests.unit.test_data.mysql.build_local_db import (
     import_mysql_models,
     insert_nonces as load_nonces,
     insert_payment_requests as load_payment_requests,
+    insert_store_managers as load_store_managers,
     insert_store_nonces as load_store_nonces,
     insert_stores as load_stores,
     insert_user_nonces as load_user_nonces,
@@ -26,6 +27,7 @@ from tests.unit.test_data.mysql.build_local_db import (
 )
 from tests.unit.test_data.postgres.build_local_db import (
     build_database_url as build_postgres_database_url,
+    ensure_database_exists as ensure_postgres_database_exists,
     import_postgres_models,
     insert_face_embeddings as load_face_embeddings,
 )
@@ -146,7 +148,9 @@ def mysql_session(mysql_engine) -> Generator[Session, None, None]:
 @pytest.fixture(scope="session")
 def postgres_engine():
     import_postgres_models()
-    engine = create_engine(build_postgres_database_url(), echo=False, future=True)
+    database_url = build_postgres_database_url()
+    ensure_postgres_database_exists(database_url)
+    engine = create_engine(database_url, echo=False, future=True)
     with engine.begin() as connection:
         connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         PostgresBase.metadata.drop_all(bind=connection, tables=[FaceEmbedding.__table__])
@@ -168,6 +172,11 @@ def postgres_session(postgres_engine) -> Generator[Session, None, None]:
 @pytest.fixture()
 def insert_stores(mysql_engine) -> str:
     return load_stores(mysql_engine)
+
+
+@pytest.fixture()
+def insert_store_managers(mysql_engine, insert_stores) -> str:
+    return load_store_managers(mysql_engine)
 
 
 @pytest.fixture()

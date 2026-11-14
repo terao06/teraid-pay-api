@@ -4,10 +4,13 @@ import secrets
 from sqlalchemy.orm import Session
 
 from app.core.exceptions.custom_exception import (
+    StoreManagerInactiveException,
     StoreNotFoundException,
     WalletConflictException,
     UnauthorizedException
 )
+from app.core.config.store_manager_auth import get_store_manager_auth_config
+from app.core.utils.store_manager_auth import StoreManagerAuthUtil
 from app.core.utils.datetime import DateTimeUtil
 from app.core.utils.logging import TeraidPayApiLog
 from app.core.utils.wallet import WalletUtil
@@ -18,6 +21,10 @@ from app.models.mysql.wallet import Wallet
 from app.models.responses.wallet_response import WalletResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
+from app.models.responses.store_manager_login_response import (
+    StoreManagerInfoResponse,
+    StoreManagerLoginResponse,
+)
 from app.repositories.mysql.nonce_repository import NonceRepository
 from app.repositories.mysql.store_repository import StoreRepository
 from app.core.utils.datetime import JST
@@ -26,6 +33,51 @@ from app.repositories.mysql.wallet_repository import WalletRepository
 
 class StoreService:
     """店舗ウォレット関連処理を担当するサービス。"""
+
+    def login_store_manager(
+        self,
+        mysql_session: Session,
+        email: str,
+        password: str,
+    ) -> StoreManagerLoginResponse:
+        """店舗管理者を認証し、JWTアクセストークンを発行する。"""
+        normalized_email = email.strip().lower()
+        store_manager = StoreRepository().get_store_manager_by_email(
+            mysql_session=mysql_session,
+            email=normalized_email,
+        )
+
+        if store_manager is None:
+            # NOTE: 管理者が存在する場合と応答時間を近づけ、メールアドレス列挙攻撃を防ぐためダミー照合を行う。
+            StoreManagerAuthUtil.perform_dummy_password_check(password)
+            raise UnauthorizedException("店舗管理者の認証に失敗しました。")
+
+        if not StoreManagerAuthUtil.verify_password(
+            password=password,
+            password_hash=store_manager.password_hash,
+        ):
+            raise UnauthorizedException("店舗管理者の認証に失敗しました。")
+
+        if not store_manager.is_active:
+            raise StoreManagerInactiveException(
+                "店舗管理者アカウントが無効です。"
+            )
+
+        auth_config = get_store_manager_auth_config()
+        access_token = StoreManagerAuthUtil.create_access_token(
+            store_manager=store_manager,
+            config=auth_config,
+        )
+        return StoreManagerLoginResponse(
+            access_token=access_token,
+            expires_in=auth_config.access_token_expire_seconds,
+            store_manager=StoreManagerInfoResponse(
+                store_manager_id=store_manager.store_manager_id,
+                store_id=store_manager.store_id,
+                name=store_manager.name,
+                roll_id=store_manager.roll_id,
+            ),
+        )
 
     def get_store_wallet(self, mysql_session: Session, store_id: int) -> WalletResponse | None:
         """店舗 ID に紐づくウォレット情報を取得する。
