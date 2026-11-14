@@ -26,6 +26,10 @@ from app.models.responses.store_manager_login_response import (
     StoreManagerInfoResponse,
     StoreManagerLoginResponse,
 )
+from app.models.responses.menu_category_response import (
+    MenuCategoryListResponse,
+    MenuCategoryResponse,
+)
 from app.repositories.mysql.nonce_repository import NonceRepository
 from app.repositories.mysql.store_repository import StoreRepository
 from app.core.utils.datetime import JST
@@ -110,6 +114,35 @@ class StoreService:
             verified_at=DateTimeUtil.change_datetime_to_string(wallet_info.verified_at),
             created_at=DateTimeUtil.change_datetime_to_string(wallet_info.created_at),
             updated_at=DateTimeUtil.change_datetime_to_string(wallet_info.updated_at)
+        )
+
+    def get_menu_categories(
+        self,
+        mysql_session: Session,
+        store_id: int,
+    ) -> MenuCategoryListResponse:
+        """店舗に紐づく有効なメニューカテゴリー一覧を取得する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            store_id: 対象店舗の ID。
+
+        Returns:
+            メニューカテゴリー一覧のレスポンス。
+        """
+        menu_categories = StoreRepository().get_active_menu_categories(
+            mysql_session=mysql_session,
+            store_id=store_id,
+        )
+        return MenuCategoryListResponse(
+            menu_categories=[
+                MenuCategoryResponse(
+                    menu_category_id=menu_category.menu_category_id,
+                    name=menu_category.name,
+                    display_order=menu_category.display_order,
+                )
+                for menu_category in menu_categories
+            ]
         )
 
     def create_wallet_nonce(

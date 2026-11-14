@@ -1,0 +1,38 @@
+-- テスト用データ
+INSERT INTO menu_categories (
+    menu_category_id,
+    store_id,
+    name,
+    display_order,
+    is_active,
+    created_at,
+    updated_at,
+    deleted_at
+) VALUES
+    (11, 101, 'ドリンク', 2, TRUE, '2026-01-01 09:00:00', '2026-01-01 09:00:00', NULL),
+    (12, 101, 'フード', 1, TRUE, '2026-01-02 09:00:00', '2026-01-02 09:00:00', NULL),
+    (13, 101, 'デザート', 1, TRUE, '2026-01-03 09:00:00', '2026-01-03 09:00:00', NULL),
+    (14, 101, '無効カテゴリー', 0, FALSE, '2026-01-04 09:00:00', '2026-01-04 09:00:00', NULL),
+    (15, 101, '削除済みカテゴリー', 0, TRUE, '2026-01-05 09:00:00', '2026-01-05 09:00:00', '2026-02-01 00:00:00'),
+    (16, 102, '別店舗カテゴリー', 0, TRUE, '2026-01-06 09:00:00', '2026-01-06 09:00:00', NULL);
+
+-- API動作確認用データ
+INSERT INTO menu_categories (
+    menu_category_id,
+    store_id,
+    name,
+    display_order,
+    is_active,
+    created_at,
+    updated_at,
+    deleted_at
+) VALUES (
+    9001,
+    9001,
+    'API Demo Category',
+    1,
+    TRUE,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP,
+    NULL
+);

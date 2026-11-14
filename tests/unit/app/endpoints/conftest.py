@@ -136,3 +136,24 @@ def store_client_with_db_without_wallet_manager(
         {"Authorization": f"Bearer {access_token}"}
     )
     return store_client_with_db
+
+
+@pytest.fixture()
+def store_client_with_db_for_wallet_create(
+    client_with_db: TestClient,
+    insert_store_managers,
+) -> TestClient:
+    """ウォレット登録テスト専用店舗105の管理者JWTを設定したクライアントを返す。"""
+    login_response = client_with_db.post(
+        "/store/manager/login",
+        json={
+            "email": "wallet-create-manager@example.com",
+            "password": "password123",
+        },
+    )
+    assert login_response.status_code == 200
+    access_token = login_response.json()["data"]["access_token"]
+    client_with_db.headers.update(
+        {"Authorization": f"Bearer {access_token}"}
+    )
+    return client_with_db

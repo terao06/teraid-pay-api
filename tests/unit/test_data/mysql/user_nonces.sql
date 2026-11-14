@@ -87,9 +87,26 @@ INSERT INTO user_nonces (
     deleted_at
 ) VALUES (
     6,
-    101,
+    108,
     6,
     '2026-04-13 11:20:00',
     '2026-04-13 11:20:00',
+    NULL
+);
+
+-- 削除系テスト専用データ
+INSERT INTO user_nonces (
+    user_nonce_id,
+    user_id,
+    nonce_id,
+    created_at,
+    updated_at,
+    deleted_at
+) VALUES (
+    9,
+    101,
+    9,
+    '2026-04-13 11:35:00',
+    '2026-04-13 11:35:00',
     NULL
 );

@@ -15,6 +15,10 @@ from app.models.responses.store_manager_login_response import (
     StoreManagerInfoResponse,
     StoreManagerLoginResponse,
 )
+from app.models.responses.menu_category_response import (
+    MenuCategoryListResponse,
+    MenuCategoryResponse,
+)
 from app.models.responses.wallet_response import WalletResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
@@ -188,6 +192,56 @@ class TestGetStoreWallet:
             store_id=store_id,
         )
         assert result is None
+
+
+class TestGetMenuCategories:
+    """StoreService のメニューカテゴリー取得処理を検証する。"""
+
+    @patch("app.services.store_service.StoreRepository")
+    def test_get_menu_categories(self, mock_repository_class) -> None:
+        mysql_session = Mock()
+        mock_repository_class.return_value.get_active_menu_categories.return_value = [
+            SimpleNamespace(menu_category_id=1, name="ハンバーガー", display_order=1),
+            SimpleNamespace(menu_category_id=2, name="ドリンク", display_order=2),
+        ]
+
+        result = StoreService().get_menu_categories(
+            mysql_session=mysql_session,
+            store_id=101,
+        )
+
+        assert result == MenuCategoryListResponse(
+            menu_categories=[
+                MenuCategoryResponse(
+                    menu_category_id=1,
+                    name="ハンバーガー",
+                    display_order=1,
+                ),
+                MenuCategoryResponse(
+                    menu_category_id=2,
+                    name="ドリンク",
+                    display_order=2,
+                ),
+            ]
+        )
+        mock_repository_class.return_value.get_active_menu_categories.assert_called_once_with(
+            mysql_session=mysql_session,
+            store_id=101,
+        )
+
+    @patch("app.services.store_service.StoreRepository")
+    def test_get_menu_categories_returns_empty_list(
+        self,
+        mock_repository_class,
+    ) -> None:
+        mock_repository_class.return_value.get_active_menu_categories.return_value = []
+
+        result = StoreService().get_menu_categories(
+            mysql_session=Mock(),
+            store_id=101,
+        )
+
+        assert result == MenuCategoryListResponse(menu_categories=[])
 
 
 class TestCreateWalletNonce:

@@ -1,7 +1,6 @@
 import importlib
 import os
 import pkgutil
-import re
 import sys
 import time
 from pathlib import Path
@@ -93,15 +92,7 @@ def _execute_sql_file(engine, sql_file_name: str) -> str:
     statements = _parse_sql_statements(sql_file_name)
 
     with engine.begin() as connection:
-        altered_tables = set()
         for statement in statements:
-            match = re.match(r"INSERT\s+INTO\s+`?([a-zA-Z0-9_]+)`?", statement, re.IGNORECASE)
-            if match:
-                table_name = match.group(1)
-                if table_name not in altered_tables:
-                    connection.exec_driver_sql(f"DELETE FROM `{table_name}`")
-                    connection.exec_driver_sql(f"ALTER TABLE `{table_name}` AUTO_INCREMENT = 1")
-                    altered_tables.add(table_name)
             connection.exec_driver_sql(statement)
 
     return sql_file_name
@@ -113,6 +104,10 @@ def insert_stores(engine) -> str:
 
 def insert_store_managers(engine) -> str:
     return _execute_sql_file(engine, "store_managers.sql")
+
+
+def insert_menu_categories(engine) -> str:
+    return _execute_sql_file(engine, "menu_categories.sql")
 
 
 def insert_users(engine) -> str:
@@ -151,6 +146,7 @@ def insert_sample_data(engine) -> list[str]:
     return [
         insert_stores(engine),
         insert_store_managers(engine),
+        insert_menu_categories(engine),
         insert_users(engine),
         insert_wallets(engine),
         insert_user_wallets(engine),

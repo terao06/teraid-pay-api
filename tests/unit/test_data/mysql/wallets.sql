@@ -167,6 +167,28 @@ INSERT INTO wallets (
     NULL
 );
 
+-- 更新・削除系テスト専用データ
+INSERT INTO wallets (
+    wallet_id,
+    wallet_address,
+    chain_type,
+    network_name,
+    token_symbol,
+    chain_id,
+    wallet_name,
+    is_active,
+    is_permitted,
+    verified_at,
+    created_at,
+    updated_at,
+    deleted_at
+) VALUES
+    (311, '0x3110000000000000000000000000000000000000', 'ETH', 'sepolia', 'JPYC', 11155111, NULL, TRUE, TRUE, '2024-07-01 00:00:00', '2024-07-01 00:00:00', '2024-07-01 00:00:00', NULL),
+    (312, '0x3120000000000000000000000000000000000000', 'ETH', 'sepolia', 'JPYC', 11155111, NULL, TRUE, TRUE, '2024-07-02 00:00:00', '2024-07-02 00:00:00', '2024-07-02 00:00:00', NULL),
+    (313, '0x3130000000000000000000000000000000000000', 'ETH', 'sepolia', 'JPYC', 11155111, NULL, TRUE, TRUE, '2024-07-03 00:00:00', '2024-07-03 00:00:00', '2024-07-03 00:00:00', NULL),
+    (314, '0x3140000000000000000000000000000000000000', 'ETH', 'sepolia', 'JPYC', 11155111, NULL, TRUE, FALSE, '2024-07-04 00:00:00', '2024-07-04 00:00:00', '2024-07-04 00:00:00', NULL),
+    (315, '0x3150000000000000000000000000000000000000', 'ETH', 'sepolia', 'JPYC', 11155111, NULL, TRUE, TRUE, '2024-07-05 00:00:00', '2024-07-05 00:00:00', '2024-07-05 00:00:00', NULL);
+
 -- API動作確認用データ
 INSERT INTO wallets (
     wallet_id,
@@ -196,15 +218,4 @@ INSERT INTO wallets (
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP,
     NULL
-)
-ON DUPLICATE KEY UPDATE
-    wallet_address = VALUES(wallet_address),
-    chain_type = VALUES(chain_type),
-    network_name = VALUES(network_name),
-    token_symbol = VALUES(token_symbol),
-    chain_id = VALUES(chain_id),
-    wallet_name = VALUES(wallet_name),
-    is_active = TRUE,
-    is_permitted = TRUE,
-    updated_at = CURRENT_TIMESTAMP,
-    deleted_at = NULL;
+);

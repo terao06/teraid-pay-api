@@ -7,6 +7,7 @@ from app.models.mysql.wallet import Wallet
 from app.models.mysql.store_wallet import StoreWallet
 from app.models.mysql.store_nonce import StoreNonce
 from app.models.mysql.store_manager import StoreManager
+from app.models.mysql.menu_category import MenuCategory
 from app.models.mysql.nonce import Nonce
 from app.core.utils.datetime import JST
 
@@ -63,6 +64,34 @@ class StoreRepository:
                 Store.deleted_at.is_(None),
             )
             .one_or_none()
+        )
+
+    def get_active_menu_categories(
+        self,
+        mysql_session: Session,
+        store_id: int,
+    ) -> list[MenuCategory]:
+        """店舗に紐づく有効かつ未削除のメニューカテゴリーを取得する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            store_id: 対象店舗の ID。
+
+        Returns:
+            表示順で並べたメニューカテゴリー。存在しない場合は空のリスト。
+        """
+        return (
+            mysql_session.query(MenuCategory)
+            .filter(
+                MenuCategory.store_id == store_id,
+                MenuCategory.is_active.is_(True),
+                MenuCategory.deleted_at.is_(None),
+            )
+            .order_by(
+                MenuCategory.display_order.asc(),
+                MenuCategory.menu_category_id.asc(),
+            )
+            .all()
         )
 
     def get_store_wallet(self, mysql_session: Session, store_id: int) -> Wallet | None:

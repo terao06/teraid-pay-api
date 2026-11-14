@@ -116,8 +116,19 @@ class TestCreateWalletNonce:
         }
         mock_token_urlsafe.assert_called_once_with(32)
 
-        saved_nonce = mysql_session.query(Nonce).one()
-        saved_store_nonce = mysql_session.query(StoreNonce).one()
+        saved_nonce = (
+            mysql_session.query(Nonce)
+            .filter(Nonce.nonce == "generated-nonce")
+            .one()
+        )
+        saved_store_nonce = (
+            mysql_session.query(StoreNonce)
+            .filter(
+                StoreNonce.store_id == 101,
+                StoreNonce.nonce_id == saved_nonce.nonce_id,
+            )
+            .one()
+        )
 
         assert saved_nonce.wallet_address == "0xabcdef1234567890abcdef1234567890abcdef12"
         assert saved_nonce.chain_type == "ethereum"

@@ -39,6 +39,23 @@ def get_wallet_nonce(
     return StoreController().get_store_wallet(store_id=auth_context.store_id)
 
 
+@store_router.get("/menu/categories")
+@response_rapper()
+@request_rapper()
+def get_menu_categories(
+    auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
+):
+    """認証済み管理者の店舗に紐づく有効なメニューカテゴリーを取得する。
+
+    Args:
+        auth_context: JWT認証で取得した店舗管理者情報。
+
+    Returns:
+        共通レスポンス形式で整形されるメニューカテゴリー一覧。
+    """
+    return StoreController().get_menu_categories(store_id=auth_context.store_id)
+
+
 @store_router.post("/wallet/nonce")
 @response_rapper()
 @request_rapper()

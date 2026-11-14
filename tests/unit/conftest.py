@@ -14,16 +14,7 @@ from app.models.postgres.face_embedding import FaceEmbedding
 from tests.unit.test_data.mysql.build_local_db import (
     build_database_url,
     import_mysql_models,
-    insert_nonces as load_nonces,
-    insert_payment_requests as load_payment_requests,
-    insert_store_managers as load_store_managers,
-    insert_store_nonces as load_store_nonces,
-    insert_stores as load_stores,
-    insert_user_nonces as load_user_nonces,
-    insert_users as load_users,
-    insert_user_wallets as load_user_wallets,
-    insert_wallets as load_wallets,
-    insert_store_wallets as load_store_wallets,
+    insert_sample_data as load_mysql_sample_data,
 )
 from tests.unit.test_data.postgres.build_local_db import (
     build_database_url as build_postgres_database_url,
@@ -124,13 +115,9 @@ def initialize_secret(initialize_aws_env: bool) -> None:
 def mysql_engine():
     import_mysql_models()
     engine = create_engine(build_database_url(), echo=False, future=True)
-    with engine.begin() as connection:
-        connection.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
-        connection.execute(text("DROP TABLE IF EXISTS wallet_approvals"))
-        connection.execute(text("DROP TABLE IF EXISTS store_wallet_nonces"))
-        connection.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
     MySQLBase.metadata.drop_all(bind=engine)
     MySQLBase.metadata.create_all(bind=engine)
+    load_mysql_sample_data(engine)
     yield engine
     engine.dispose()
 
@@ -171,54 +158,57 @@ def postgres_session(postgres_engine) -> Generator[Session, None, None]:
 
 @pytest.fixture()
 def insert_stores(mysql_engine) -> str:
-    return load_stores(mysql_engine)
+    return "stores.sql"
 
 
 @pytest.fixture()
 def insert_store_managers(mysql_engine, insert_stores) -> str:
-    return load_store_managers(mysql_engine)
+    return "store_managers.sql"
+
+
+@pytest.fixture()
+def insert_menu_categories(mysql_engine, insert_stores) -> str:
+    return "menu_categories.sql"
 
 
 @pytest.fixture()
 def insert_store_wallets(mysql_engine) -> str:
-    return load_store_wallets(mysql_engine)
+    return "store_wallets.sql"
 
 
 @pytest.fixture()
 def insert_wallets(mysql_engine) -> str:
-    return load_wallets(mysql_engine)
+    return "wallets.sql"
 
 
 @pytest.fixture()
 def insert_users(mysql_engine) -> str:
-    return load_users(mysql_engine)
+    return "users.sql"
 
 
 @pytest.fixture()
 def insert_user_wallets(mysql_engine) -> str:
-    return load_user_wallets(mysql_engine)
+    return "user_wallets.sql"
 
 
 @pytest.fixture()
 def insert_nonces(mysql_engine) -> str:
-    return load_nonces(mysql_engine)
+    return "nonces.sql"
 
 
 @pytest.fixture()
 def insert_user_nonces(mysql_engine) -> str:
-    return load_user_nonces(mysql_engine)
+    return "user_nonces.sql"
 
 
 @pytest.fixture()
 def insert_store_nonces(mysql_engine) -> str:
-    return load_store_nonces(mysql_engine)
+    return "store_nonces.sql"
 
 
 @pytest.fixture()
 def insert_payment_requests(mysql_engine) -> str:
-    load_stores(mysql_engine)
-    load_users(mysql_engine)
-    return load_payment_requests(mysql_engine)
+    return "payment_requests.sql"
 
 
 @pytest.fixture()

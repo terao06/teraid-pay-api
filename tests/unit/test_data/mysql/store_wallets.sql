@@ -15,6 +15,18 @@ INSERT INTO store_wallets (
     NULL
 );
 
+-- 削除系テスト専用データ
+INSERT INTO store_wallets (
+    store_wallet_id,
+    store_id,
+    wallet_id,
+    created_at,
+    updated_at,
+    deleted_at
+) VALUES
+    (211, 101, 311, '2024-07-01 00:00:00', '2024-07-01 00:00:00', NULL),
+    (212, 101, 312, '2024-07-02 00:00:00', '2024-07-02 00:00:00', NULL);
+
 INSERT INTO store_wallets (
     store_wallet_id,
     store_id,
@@ -94,9 +106,4 @@ INSERT INTO store_wallets (
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP,
     NULL
-)
-ON DUPLICATE KEY UPDATE
-    store_id = VALUES(store_id),
-    wallet_id = VALUES(wallet_id),
-    updated_at = CURRENT_TIMESTAMP,
-    deleted_at = NULL;
+);

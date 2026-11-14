@@ -63,7 +63,7 @@ class TestDeleteWallet:
         mysql_session: Session,
     ) -> None:
         """DB 連携で wallet と store_wallet の論理削除が行われることを検証する。"""
-        wallet_id = 301
+        wallet_id = 311
 
         before_wallet = mysql_session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
         before_store_wallet = (

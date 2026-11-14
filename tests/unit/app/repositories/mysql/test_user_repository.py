@@ -258,7 +258,7 @@ class TestDeleteUserNonceByNonceId:
     ) -> None:
         """存在する nonce_id を指定した場合、対象 UserNonce の deleted_at が設定されること。"""
         repository = UserRepository()
-        target_nonce_id = 1
+        target_nonce_id = 9
 
         before = (
             mysql_session.query(UserNonce)
@@ -288,6 +288,11 @@ class TestDeleteUserNonceByNonceId:
         """存在しない nonce_id を指定した場合、いずれの UserNonce も更新されないこと。"""
         repository = UserRepository()
         non_existent_nonce_id = 99999
+        before_count = (
+            mysql_session.query(UserNonce)
+            .filter(UserNonce.deleted_at.isnot(None))
+            .count()
+        )
 
         repository.delete_user_nonce_by_nonce_id(mysql_session, non_existent_nonce_id)
         mysql_session.flush()
@@ -298,7 +303,7 @@ class TestDeleteUserNonceByNonceId:
             .filter(UserNonce.deleted_at.isnot(None))
             .all()
         )
-        assert len(updated) == 0
+        assert len(updated) == before_count
 
 
 @pytest.mark.usefixtures("insert_users", "insert_wallets", "insert_user_wallets")
@@ -309,7 +314,7 @@ class TestDeleteUserWalletByWalletId:
     ) -> None:
         """存在する wallet_id を指定した場合、対象 UserWallet の deleted_at が設定されること。"""
         repository = UserRepository()
-        target_wallet_id = 301
+        target_wallet_id = 315
 
         before = (
             mysql_session.query(UserWallet)

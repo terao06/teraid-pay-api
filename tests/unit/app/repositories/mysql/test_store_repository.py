@@ -102,6 +102,35 @@ class TestGetStoreById:
         assert result.store_id == expected_store_id
 
 
+@pytest.mark.usefixtures("insert_menu_categories")
+class TestGetActiveMenuCategories:
+    """店舗の有効なメニューカテゴリー取得を検証する。"""
+
+    @pytest.mark.parametrize(
+        ("store_id", "expected_menu_category_ids"),
+        [
+            (101, [12, 13, 11]),
+            (104, []),
+        ],
+    )
+    def test_get_active_menu_categories(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        expected_menu_category_ids: list[int],
+    ) -> None:
+        repository = StoreRepository()
+
+        result = repository.get_active_menu_categories(
+            mysql_session=mysql_session,
+            store_id=store_id,
+        )
+
+        assert [category.menu_category_id for category in result] == (
+            expected_menu_category_ids
+        )
+
+
 @pytest.mark.usefixtures("insert_stores", "insert_wallets", "insert_store_wallets")
 class TestGetWalletByStoreId:
     @pytest.mark.parametrize(
@@ -267,7 +296,7 @@ class TestDeleteStoreNonceByNonceId:
     ) -> None:
         """存在する nonce_id を指定した場合、対象 StoreNonce の deleted_at が設定されること。"""
         repository = StoreRepository()
-        target_nonce_id = 1
+        target_nonce_id = 8
 
         before = (
             mysql_session.query(StoreNonce)
@@ -297,6 +326,11 @@ class TestDeleteStoreNonceByNonceId:
         """存在しない nonce_id を指定した場合、いずれの StoreNonce も更新されないこと。"""
         repository = StoreRepository()
         non_existent_nonce_id = 99999
+        before_count = (
+            mysql_session.query(StoreNonce)
+            .filter(StoreNonce.deleted_at.isnot(None))
+            .count()
+        )
 
         repository.delete_store_nonce_by_nonce_id(mysql_session, non_existent_nonce_id)
         mysql_session.flush()
@@ -307,7 +341,7 @@ class TestDeleteStoreNonceByNonceId:
             .filter(StoreNonce.deleted_at.isnot(None))
             .all()
         )
-        assert len(updated) == 0
+        assert len(updated) == before_count
 
 
 @pytest.mark.usefixtures("insert_stores", "insert_wallets", "insert_store_wallets")
@@ -318,7 +352,7 @@ class TestDeleteStoreWalletByWalletId:
     ) -> None:
         """存在する wallet_id を指定した場合、対象 StoreWallet の deleted_at と updated_at が設定されること。"""
         repository = StoreRepository()
-        target_wallet_id = 301
+        target_wallet_id = 312
 
         before = (
             mysql_session.query(StoreWallet)

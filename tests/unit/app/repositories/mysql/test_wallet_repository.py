@@ -133,7 +133,7 @@ class TestDeleteWallet:
         mysql_session: Session,
     ) -> None:
         repository = WalletRepository()
-        wallet_id = 301
+        wallet_id = 313
 
         before = mysql_session.query(Wallet).where(Wallet.wallet_id == wallet_id).one()
         assert before.deleted_at is None

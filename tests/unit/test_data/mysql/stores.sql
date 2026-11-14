@@ -3,6 +3,7 @@ INSERT INTO stores (store_id, name, email, created_at, updated_at, deleted_at) V
 INSERT INTO stores (store_id, name, email, created_at, updated_at, deleted_at) VALUES (102, 'Sample Store 2', 'store2@example.com', NOW(), NOW(), NULL);
 INSERT INTO stores (store_id, name, email, created_at, updated_at, deleted_at) VALUES (103, 'Deleted Store', 'deleted-store@example.com', NOW(), NOW(), '2023-01-01 00:00:00');
 INSERT INTO stores (store_id, name, email, created_at, updated_at, deleted_at) VALUES (104, 'Deleted Store', 'deleted-store@example.com', NOW(), NOW(), NULL);
+INSERT INTO stores (store_id, name, email, created_at, updated_at, deleted_at) VALUES (105, 'Wallet Create Test Store', 'wallet-create-store@example.com', NOW(), NOW(), NULL);
 
 -- API動作確認用データ
 INSERT INTO stores (
@@ -19,9 +20,4 @@ INSERT INTO stores (
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP,
     NULL
-)
-ON DUPLICATE KEY UPDATE
-    name = VALUES(name),
-    email = VALUES(email),
-    updated_at = CURRENT_TIMESTAMP,
-    deleted_at = NULL;
+);
