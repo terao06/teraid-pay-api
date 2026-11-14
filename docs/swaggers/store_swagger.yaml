@@ -1,225 +1,342 @@
 openapi: 3.0.3
 info:
-  title: Teraid Pay API
-  version: 1.0.0
-  description: 店舗ウォレット API の Swagger 定義。
+  title: Teraid Pay Store API
+  version: 1.1.0
+  description: 店舗管理者のログインおよび店舗ウォレット管理APIのOpenAPI定義。
 servers:
   - url: http://localhost:8005
-    description: ローカル開発環境
+    description: Dockerローカル開発環境
 
 tags:
-  - name: Store
-    description: 店舗ウォレット操作
+  - name: StoreManager
+    description: 店舗管理者認証
+  - name: StoreWallet
+    description: 店舗ウォレット管理
 
 paths:
-  /store/{store_id}/wallet:
-    get:
-      tags:
-        - Store
-      summary: 店舗ウォレット取得
-      operationId: getStoreWallet
-      parameters:
-        - name: store_id
-          in: path
-          required: true
-          description: 店舗ID
-          schema:
-            type: integer
+  /store/manager/login:
+    post:
+      tags: [StoreManager]
+      summary: 店舗管理者ログイン
+      description: メールアドレスとパスワードを検証し、店舗管理者用JWTを発行する。
+      operationId: loginStoreManager
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreManagerLoginRequest'
+            example:
+              email: api-manager@example.com
+              password: password123
       responses:
         '200':
-          description: 成功レスポンス
+          description: ログイン成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GetWalletResponse'
+                $ref: '#/components/schemas/StoreManagerLoginWrappedResponse'
+              example:
+                status: success
+                data:
+                  access_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  token_type: Bearer
+                  expires_in: 3600
+                  store_manager:
+                    store_manager_id: 9001
+                    store_id: 9001
+                    name: API Demo Store Manager
+                    roll_id: 1
+        '401':
+          $ref: '#/components/responses/LoginUnauthorized'
+        '403':
+          $ref: '#/components/responses/ManagerInactive'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /store/wallet:
+    get:
+      tags: [StoreWallet]
+      summary: 店舗ウォレット取得
+      description: JWTで認証した店舗管理者のstore_idを使用して店舗ウォレットを取得する。
+      operationId: getStoreWallet
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 取得成功。ウォレット未登録の場合はdataがnullになる。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetWalletWrappedResponse'
               examples:
                 found:
-                  summary: ウォレットが見つかりました
+                  summary: ウォレット登録済み
                   value:
                     status: success
                     data:
-                      wallet_id: 201
-                      wallet_address: 0x1111111111111111111111111111111111111111
+                      wallet_id: 9001
+                      wallet_address: '0x9001000000000000000000000000000000000001'
                       chain_type: ethereum
                       network_name: sepolia
                       token_symbol: JPYC
                       chain_id: 11155111
                       is_active: true
-                      verified_at: '2024-01-10 12:00'
-                      created_at: '2024-01-01 09:00'
-                      updated_at: '2024-01-11 10:30'
-                notFoundAsNull:
-                  summary: ウォレットが存在しない場合（業務レスポンス）
+                      is_permitted: true
+                      verified_at: '2026-11-14 12:00'
+                      created_at: '2026-11-14 12:00'
+                      updated_at: '2026-11-14 12:00'
+                notRegistered:
+                  summary: ウォレット未登録
                   value:
                     status: success
                     data: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '500':
-          description: サーバーエラー
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+          $ref: '#/components/responses/ServerError'
 
     post:
-      tags:
-        - Store
-      summary: nonce を検証してウォレットを作成
-      operationId: verifyAndCreateWallet
-      parameters:
-        - name: store_id
-          in: path
-          required: true
-          description: 店舗ID
-          schema:
-            type: integer
+      tags: [StoreWallet]
+      summary: 店舗ウォレット認証・登録
+      description: 発行済みnonceの署名を検証し、JWTで認証した店舗へウォレットを登録する。
+      operationId: verifyAndCreateStoreWallet
+      security:
+        - BearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/WalletVerifyRequest'
-            examples:
-              default:
-                value:
-                  wallet_address: 0xABCDEF1234567890ABCDEF1234567890ABCDEF12
-                  signature: signed-message
-                  chain_type: ethereum
-                  network_name: sepolia
-                  token_symbol: JPYC
-                  chain_id: 11155111
+            example:
+              wallet_address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
+              signature: '0x署名値'
+              chain_type: ethereum
+              network_name: sepolia
+              token_symbol: JPYC
+              chain_id: 11155111
       responses:
         '200':
-          description: nonce 検証・ウォレット作成に成功
+          description: ウォレット登録成功
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/StoreWalletVerifyWrappedResponse'
         '401':
-          description: 認証失敗
+          description: JWTまたはウォレット署名の認証失敗
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: 店舗が存在しない
+          description: JWTに紐づく店舗が存在しない
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: ウォレットがすでに存在する
+          description: 対象店舗に同一チェーンのウォレットが登録済み
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '500':
-          description: サーバーエラー
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+          $ref: '#/components/responses/ServerError'
 
-  /store/{store_id}/wallet/{wallet_id}:
-    delete:
-      tags:
-        - Store
-      summary: 店舗ウォレット削除
-      operationId: deleteWallet
-      parameters:
-        - name: store_id
-          in: path
-          required: true
-          description: 店舗ID
-          schema:
-            type: integer
-        - name: wallet_id
-          in: path
-          required: true
-          description: ウォレットID
-          schema:
-            type: integer
-      responses:
-        '200':
-          description: ウォレット削除に成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeleteWalletWrappedResponse'
-              examples:
-                success:
-                  summary: 削除成功
-                  value:
-                    status: success
-                    data: null
-        '500':
-          description: サーバーエラー
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /store/{store_id}/wallet/nonce:
+  /store/wallet/nonce:
     post:
-      tags:
-        - Store
-      summary: ウォレット nonce を作成
-      operationId: createWalletNonce
-      parameters:
-        - name: store_id
-          in: path
-          required: true
-          description: 店舗ID
-          schema:
-            type: integer
+      tags: [StoreWallet]
+      summary: ウォレット認証用nonce発行
+      description: JWTで認証した店舗向けに、ウォレット署名で使用するnonceを発行する。
+      operationId: createStoreWalletNonce
+      security:
+        - BearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/WalletNonceCreateRequest'
-            examples:
-              default:
-                value:
-                  wallet_address: 0xABCDEF1234567890ABCDEF1234567890ABCDEF12
-                  chain_type: ethereum
-                  network_name: sepolia
+            example:
+              wallet_address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
+              chain_type: ethereum
+              network_name: sepolia
       responses:
         '200':
-          description: nonce の生成に成功
+          description: nonce発行成功
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/WalletNonceCreateWrappedResponse'
+              example:
+                status: success
+                data:
+                  nonce: generated-nonce
+                  expires_at: '2026-11-14 12:10'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
-          description: 店舗が存在しない
+          description: 店舗が存在しない、またはウォレットアドレスが使用済み
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '500':
-          description: サーバーエラー
+          $ref: '#/components/responses/ServerError'
+
+  /store/wallet/{wallet_id}:
+    delete:
+      tags: [StoreWallet]
+      summary: 店舗ウォレット削除
+      description: JWTで認証した店舗に紐づくウォレットを論理削除する。
+      operationId: deleteStoreWallet
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: wallet_id
+          in: path
+          required: true
+          description: 削除対象のウォレットID
+          schema:
+            type: integer
+          example: 9001
+      responses:
+        '200':
+          description: ウォレット削除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteWalletWrappedResponse'
+              example:
+                status: success
+                data: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: 認証店舗に紐づくウォレットが存在しない
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/ServerError'
 
 components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 店舗管理者ログインAPIで発行されたJWT。
+
+  responses:
+    LoginUnauthorized:
+      description: メールアドレスまたはパスワードが不正
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ManagerInactive:
+      description: 店舗管理者アカウントが利用不可
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: JWTが未指定、不正、または期限切れ
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ValidationError:
+      description: リクエスト形式不正
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+    ServerError:
+      description: サーバーエラー
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
   schemas:
+    StoreManagerLoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          minLength: 3
+          maxLength: 255
+          description: 店舗管理者のメールアドレス
+          example: api-manager@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+          description: 店舗管理者のパスワード
+          example: password123
+
+    StoreManagerInfo:
+      type: object
+      required: [store_manager_id, store_id, name, roll_id]
+      properties:
+        store_manager_id:
+          type: integer
+          description: 店舗管理者ID
+        store_id:
+          type: integer
+          description: 所属店舗ID
+        name:
+          type: string
+          description: 店舗管理者名
+        roll_id:
+          type: integer
+          description: ロールID
+
+    StoreManagerLogin:
+      type: object
+      required: [access_token, token_type, expires_in, store_manager]
+      properties:
+        access_token:
+          type: string
+          description: JWTアクセストークン
+        token_type:
+          type: string
+          enum: [Bearer]
+        expires_in:
+          type: integer
+          description: アクセストークンの有効期間（秒）
+        store_manager:
+          $ref: '#/components/schemas/StoreManagerInfo'
+
     WalletNonceCreateRequest:
       type: object
-      required:
-        - wallet_address
+      required: [wallet_address]
       properties:
         wallet_address:
           type: string
           minLength: 42
           maxLength: 42
-          description: ウォレットアドレス
+          description: 署名に使用するウォレットアドレス
         chain_type:
           type: string
           maxLength: 50
           default: ethereum
-          description: ブロックチェーンの種別
+          description: ブロックチェーン種別
         network_name:
           type: string
           maxLength: 50
@@ -228,44 +345,37 @@ components:
 
     WalletVerifyRequest:
       type: object
-      required:
-        - wallet_address
-        - signature
-        - chain_type
-        - network_name
-        - token_symbol
-        - chain_id
+      required: [wallet_address, signature, chain_type, network_name, token_symbol, chain_id]
       properties:
         wallet_address:
           type: string
           minLength: 42
           maxLength: 42
-          description: ウォレットアドレス
+          description: nonce発行時と同じウォレットアドレス
         signature:
           type: string
           minLength: 1
-          description: 署名
+          description: 発行されたnonceをEIP-191形式で署名した値
         chain_type:
           type: string
           minLength: 1
           maxLength: 50
-          description: ブロックチェーンの種別
+          description: ブロックチェーン種別
         network_name:
           type: string
           minLength: 1
           maxLength: 50
           description: ブロックチェーンのネットワーク名
-
         token_symbol:
           type: string
           minLength: 1
           maxLength: 20
           description: トークンシンボル
-
         chain_id:
           type: integer
           minimum: 1
           description: チェーンID
+
     StoreWallet:
       type: object
       required:
@@ -277,6 +387,7 @@ components:
         - chain_id
         - is_active
         - is_permitted
+        - verified_at
         - created_at
         - updated_at
       properties:
@@ -288,46 +399,43 @@ components:
           description: ウォレットアドレス
         chain_type:
           type: string
-          description: ブロックチェーンの種別
+          description: ブロックチェーン種別
         network_name:
           type: string
-          description: ブロックチェーンのネットワーク名
-        is_active:
-          type: boolean
-          description: ウォレットが有効かどうか
-        is_permitted:
-          type: boolean
-          description: permit 許可済みかどうか
-        verified_at:
-          type: string
-          nullable: true
-          description: ウォレットが検証された日時
-        created_at:
-          type: string
-          description: ウォレットが作成された日時
-        updated_at:
-          type: string
-          description: ウォレットが最後に更新された日時
-
+          description: ネットワーク名
         token_symbol:
           type: string
           description: トークンシンボル
-
         chain_id:
           type: integer
           description: チェーンID
+        is_active:
+          type: boolean
+          description: ウォレットが有効か
+        is_permitted:
+          type: boolean
+          description: permit許可済みか
+        verified_at:
+          type: string
+          nullable: true
+          description: ウォレット認証日時（YYYY-MM-DD HH:mm）
+        created_at:
+          type: string
+          description: 作成日時（YYYY-MM-DD HH:mm）
+        updated_at:
+          type: string
+          description: 更新日時（YYYY-MM-DD HH:mm）
+
     WalletNonceCreate:
       type: object
-      required:
-        - nonce
-        - expires_at
+      required: [nonce, expires_at]
       properties:
         nonce:
           type: string
-          description: ワンタイムトークン（nonce）
+          description: ウォレット署名に使用するnonce
         expires_at:
           type: string
-          description: nonce の有効期限日時
+          description: nonce有効期限（YYYY-MM-DD HH:mm）
 
     StoreWalletVerify:
       type: object
@@ -343,35 +451,35 @@ components:
       properties:
         wallet_address:
           type: string
-          description: ウォレットアドレス
         chain_type:
           type: string
-          description: ブロックチェーンの種別
         network_name:
           type: string
-          description: ブロックチェーンのネットワーク名
-        is_active:
-          type: boolean
-          description: ウォレットが有効かどうか
-        is_permitted:
-          type: boolean
-          description: permit 許可済みかどうか
-        verified_at:
-          type: string
-          description: ウォレットが検証された日時
-
         token_symbol:
           type: string
-          description: トークンシンボル
-
         chain_id:
           type: integer
-          description: チェーンID
-    GetWalletResponse:
+        is_active:
+          type: boolean
+        is_permitted:
+          type: boolean
+        verified_at:
+          type: string
+          description: ウォレット認証日時（YYYY-MM-DD HH:mm）
+
+    StoreManagerLoginWrappedResponse:
       type: object
-      required:
-        - status
-        - data
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/StoreManagerLogin'
+
+    GetWalletWrappedResponse:
+      type: object
+      required: [status, data]
       properties:
         status:
           type: string
@@ -383,9 +491,7 @@ components:
 
     WalletNonceCreateWrappedResponse:
       type: object
-      required:
-        - status
-        - data
+      required: [status, data]
       properties:
         status:
           type: string
@@ -395,9 +501,7 @@ components:
 
     StoreWalletVerifyWrappedResponse:
       type: object
-      required:
-        - status
-        - data
+      required: [status, data]
       properties:
         status:
           type: string
@@ -407,21 +511,19 @@ components:
 
     DeleteWalletWrappedResponse:
       type: object
-      required:
-        - status
-        - data
+      required: [status, data]
       properties:
         status:
           type: string
           enum: [success]
         data:
+          type: object
           nullable: true
+          description: 常にnull
 
     ErrorDetail:
       type: object
-      required:
-        - status
-        - message
+      required: [status, message]
       properties:
         status:
           type: string
@@ -432,8 +534,31 @@ components:
 
     ErrorResponse:
       type: object
-      required:
-        - detail
+      required: [detail]
       properties:
         detail:
           $ref: '#/components/schemas/ErrorDetail'
+
+    ValidationErrorItem:
+      type: object
+      required: [loc, msg, type]
+      properties:
+        loc:
+          type: array
+          items:
+            oneOf:
+              - type: string
+              - type: integer
+        msg:
+          type: string
+        type:
+          type: string
+
+    ValidationErrorResponse:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationErrorItem'
