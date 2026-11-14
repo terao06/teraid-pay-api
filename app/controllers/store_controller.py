@@ -8,6 +8,7 @@ from app.models.requests.menu_create_request import MenuCreateRequest
 from app.models.responses.store_manager_login_response import StoreManagerLoginResponse
 from app.models.responses.menu_category_response import MenuCategoryListResponse
 from app.models.responses.menu_create_response import MenuCreateResponse
+from app.models.responses.menu_list_response import MenuListResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
 from app.services.store_service import StoreService
@@ -107,6 +108,32 @@ class StoreController:
         """
         try:
             return StoreService().get_menu_categories(
+                mysql_session=mysql_session,
+                store_id=store_id,
+            )
+        except Exception:
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR,
+            )
+
+    @mysql_transaction
+    def get_menus(
+        self,
+        mysql_session: Session,
+        store_id: int,
+    ) -> MenuListResponse:
+        """認証済み管理者の店舗に紐づくメニュー商品を取得する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッションです。
+            store_id: 取得対象の店舗 IDです。
+
+        Returns:
+            MenuListResponse: メニュー商品一覧レスポンスです。
+        """
+        try:
+            return StoreService().get_menus(
                 mysql_session=mysql_session,
                 store_id=store_id,
             )

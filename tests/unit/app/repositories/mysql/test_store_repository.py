@@ -172,6 +172,55 @@ class TestGetActiveMenuCategory:
         assert result.menu_category_id == expected_menu_category_id
 
 
+@pytest.mark.usefixtures("insert_menu_items")
+class TestGetMenuItems:
+    """店舗のメニュー商品一覧取得を検証する。"""
+
+    @pytest.mark.parametrize(
+        ("store_id", "expected_menu_items"),
+        [
+            (
+                101,
+                [
+                    (21, "フード"),
+                    (22, "ドリンク"),
+                    (23, None),
+                    (24, None),
+                ],
+            ),
+            (104, []),
+        ],
+    )
+    def test_get_menu_items(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        expected_menu_items: list[tuple[int, str | None]],
+    ) -> None:
+        """店舗の未削除商品と未削除カテゴリー名を表示順で取得することを確認する。"""
+        result = StoreRepository().get_menu_items(
+            mysql_session=mysql_session,
+            store_id=store_id,
+        )
+
+        actual_menu_items = [
+            (menu_item.menu_item_id, menu_category_name)
+            for menu_item, menu_category_name in result
+        ]
+        if store_id == 104:
+            assert actual_menu_items == expected_menu_items
+            return
+
+        fixture_menu_items = [
+            menu_item
+            for menu_item in actual_menu_items
+            if menu_item[0] in {21, 22, 23, 24}
+        ]
+        assert fixture_menu_items == expected_menu_items
+        assert 25 not in [menu_item[0] for menu_item in actual_menu_items]
+        assert 26 not in [menu_item[0] for menu_item in actual_menu_items]
+
+
 @pytest.mark.usefixtures("insert_stores", "insert_menu_categories")
 class TestCreateMenu:
     """メニュー商品、オプショングループ、オプションの登録を検証する。"""

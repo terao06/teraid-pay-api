@@ -172,6 +172,11 @@ def insert_menu_categories(mysql_engine, insert_stores) -> str:
 
 
 @pytest.fixture()
+def insert_menu_items(mysql_engine, insert_menu_categories) -> str:
+    return "menu_items.sql"
+
+
+@pytest.fixture()
 def insert_store_wallets(mysql_engine) -> str:
     return "store_wallets.sql"
 

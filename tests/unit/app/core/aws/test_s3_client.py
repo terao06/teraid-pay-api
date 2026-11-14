@@ -1,4 +1,5 @@
 from io import BytesIO
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 from botocore.exceptions import ClientError
@@ -30,6 +31,18 @@ class TestS3Client:
             s3_client.get_object(bucket_name="weights", key="missing-object")
 
         assert exc_info.value.response["Error"]["Code"] == "NoSuchKey"
+
+    @pytest.mark.usefixtures("initialize_s3")
+    def test_get_menu_image(self) -> None:
+        """動作確認用メニュー画像をS3から取得できることを確認する。"""
+        s3_client = S3Client()
+
+        content = s3_client.get_object(
+            bucket_name="menus",
+            key="test/test_menu.png",
+        )
+
+        assert content.startswith(b"\x89PNG\r\n\x1a\n")
 
     @pytest.mark.usefixtures("initialize_s3")
     def test_upload_object(self) -> None:
@@ -79,6 +92,23 @@ class TestS3Client:
             )
 
         assert exc_info.value.response["Error"]["Code"] == "NoSuchBucket"
+
+    @pytest.mark.usefixtures("initialize_s3")
+    def test_generate_presigned_get_url(self) -> None:
+        """指定したS3オブジェクトの署名付きGET URLを生成することを確認する。"""
+        s3_client = S3Client()
+
+        result = s3_client.generate_presigned_get_url(
+            bucket_name="menus",
+            file_name="101/10.png",
+            expires_in=3600,
+        )
+        parsed_url = urlparse(result)
+        query = parse_qs(parsed_url.query)
+
+        assert result.startswith(f"{ENDPOINT_URL}/menus/101/10.png?")
+        assert "Signature" in query
+        assert "Expires" in query
 
     @pytest.mark.usefixtures("initialize_s3")
     def test_delete_object(self) -> None:

@@ -57,6 +57,23 @@ def get_menu_categories(
     return StoreController().get_menu_categories(store_id=auth_context.store_id)
 
 
+@store_router.get("/menu")
+@response_rapper()
+@request_rapper()
+def get_menus(
+    auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
+):
+    """認証済み管理者の店舗に紐づくメニュー商品を取得する。
+
+    Args:
+        auth_context: JWT認証で取得した店舗管理者情報。
+
+    Returns:
+        共通レスポンス形式で整形されるメニュー商品一覧。
+    """
+    return StoreController().get_menus(store_id=auth_context.store_id)
+
+
 @store_router.post("/menu", status_code=201)
 @response_rapper()
 @request_rapper()

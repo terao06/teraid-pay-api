@@ -45,6 +45,10 @@ from app.models.responses.menu_create_response import (
     MenuCreateResponse,
     MenuOptionGroupCreateResponse,
 )
+from app.models.responses.menu_list_response import (
+    MenuItemResponse,
+    MenuListResponse,
+)
 from app.repositories.mysql.nonce_repository import NonceRepository
 from app.repositories.mysql.store_repository import StoreRepository
 from app.core.utils.datetime import JST
@@ -159,6 +163,61 @@ class StoreService:
                 for menu_category in menu_categories
             ]
         )
+
+    def get_menus(
+        self,
+        mysql_session: Session,
+        store_id: int,
+    ) -> MenuListResponse:
+        """店舗に紐づく未削除のメニュー商品一覧を取得する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            store_id: 対象店舗の ID。
+
+        Returns:
+            メニュー商品一覧のレスポンス。
+        """
+        menu_items = StoreRepository().get_menu_items(
+            mysql_session=mysql_session,
+            store_id=store_id,
+        )
+        if not menu_items:
+            return MenuListResponse(menu_items=[])
+
+        ssm_params = SsmClient()
+        s3_client = S3Client(s3_endpoint=ssm_params.s3_endpoint)
+        menu_item_responses = []
+        for menu_item, menu_category_name in menu_items:
+            image_object_key = (
+                f"{store_id}/{menu_item.menu_item_id}."
+                f"{menu_item.image_extension}"
+            )
+            image_url = s3_client.generate_presigned_get_url(
+                bucket_name=ssm_params.menu_image_bucket,
+                file_name=image_object_key,
+                expires_in=ssm_params.menu_image_url_expires_in,
+            )
+            menu_item_responses.append(
+                MenuItemResponse(
+                    menu_item_id=menu_item.menu_item_id,
+                    menu_category_id=(
+                        menu_item.menu_category_id
+                        if menu_category_name is not None
+                        else None
+                    ),
+                    menu_category_name=menu_category_name,
+                    name=menu_item.name,
+                    description=menu_item.description,
+                    price=f"{menu_item.price:.6f}",
+                    token_symbol=menu_item.token_symbol,
+                    image_url=image_url,
+                    is_available=menu_item.is_available,
+                    display_order=menu_item.display_order,
+                )
+            )
+
+        return MenuListResponse(menu_items=menu_item_responses)
 
     def create_menu(
         self,

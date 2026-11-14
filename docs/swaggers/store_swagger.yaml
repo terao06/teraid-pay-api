@@ -87,6 +87,39 @@ paths:
           $ref: '#/components/responses/ServerError'
 
   /store/menu:
+    get:
+      tags: [StoreMenu]
+      summary: メニュー一覧取得
+      description: JWTで認証した店舗管理者のstore_idに紐づく、未削除のメニュー商品を表示順で取得する。商品画像は署名付きURLで返す。
+      operationId: getMenus
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: メニュー一覧取得成功。該当する商品がない場合は空配列を返す。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuListWrappedResponse'
+              example:
+                status: success
+                data:
+                  menu_items:
+                    - menu_item_id: 10
+                      menu_category_id: 1
+                      menu_category_name: ハンバーガー
+                      name: チーズバーガー
+                      description: チェダーチーズ入り
+                      price: '800.000000'
+                      token_symbol: JPYC
+                      image_url: https://example.com/menus/101/10.jpeg?signature=...
+                      is_available: true
+                      display_order: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
     post:
       tags: [StoreMenu]
       summary: メニュー登録
@@ -425,6 +458,69 @@ components:
           items:
             $ref: '#/components/schemas/MenuCategory'
 
+    MenuItem:
+      type: object
+      required:
+        - menu_item_id
+        - menu_category_id
+        - menu_category_name
+        - name
+        - description
+        - price
+        - token_symbol
+        - image_url
+        - is_available
+        - display_order
+      properties:
+        menu_item_id:
+          type: integer
+          minimum: 1
+          description: メニュー商品ID
+        menu_category_id:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: メニューカテゴリーID。未分類またはカテゴリー削除済みの場合はnull。
+        menu_category_name:
+          type: string
+          nullable: true
+          description: メニューカテゴリー名。未分類またはカテゴリー削除済みの場合はnull。
+        name:
+          type: string
+          description: 商品名
+        description:
+          type: string
+          nullable: true
+          description: 商品説明
+        price:
+          type: string
+          pattern: '^\d{1,14}(\.\d{6})$'
+          description: 基本価格。小数点以下6桁の文字列。
+        token_symbol:
+          type: string
+          description: トークンシンボル
+        image_url:
+          type: string
+          format: uri
+          description: 商品画像を取得する有効期限付き署名付きURL
+        is_available:
+          type: boolean
+          description: 販売可能フラグ
+        display_order:
+          type: integer
+          minimum: 0
+          description: 表示順
+
+    MenuList:
+      type: object
+      required: [menu_items]
+      properties:
+        menu_items:
+          type: array
+          description: 認証店舗の未削除メニュー商品一覧
+          items:
+            $ref: '#/components/schemas/MenuItem'
+
     MenuOptionCreateRequest:
       type: object
       required: [name]
@@ -758,6 +854,16 @@ components:
           enum: [success]
         data:
           $ref: '#/components/schemas/MenuCategoryList'
+
+    MenuListWrappedResponse:
+      type: object
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/MenuList'
 
     MenuCreateWrappedResponse:
       type: object

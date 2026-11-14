@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from app.models.mysql.store import Store
@@ -122,6 +123,44 @@ class StoreRepository:
                 MenuCategory.deleted_at.is_(None),
             )
             .one_or_none()
+        )
+
+    def get_menu_items(
+        self,
+        mysql_session: Session,
+        store_id: int,
+    ) -> list[tuple[MenuItem, str | None]]:
+        """店舗に紐づく未削除のメニュー商品とカテゴリー名を取得する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            store_id: 対象店舗の ID。
+
+        Returns:
+            表示順で並べたメニュー商品とカテゴリー名。存在しない場合は空のリスト。
+        """
+        return (
+            mysql_session.query(
+                MenuItem,
+                MenuCategory.name.label("menu_category_name"),
+            )
+            .outerjoin(
+                MenuCategory,
+                and_(
+                    MenuItem.menu_category_id == MenuCategory.menu_category_id,
+                    MenuCategory.store_id == store_id,
+                    MenuCategory.deleted_at.is_(None),
+                ),
+            )
+            .filter(
+                MenuItem.store_id == store_id,
+                MenuItem.deleted_at.is_(None),
+            )
+            .order_by(
+                MenuItem.display_order.asc(),
+                MenuItem.menu_item_id.asc(),
+            )
+            .all()
         )
 
     def create_menu_item(
