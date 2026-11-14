@@ -16,14 +16,16 @@ from app.core.exceptions.message import (
     STORE_NOT_FOUND_ERROR,
     VERIFY_ERROR,
     WALLET_CONFLICT_ERROR,
-    WALLET_IS_ALREADY_EXIST
+    WALLET_IS_ALREADY_EXIST,
+    WALLET_NOT_FOUND_ERROR,
 )
 from app.core.exceptions.custom_exception import (
     CustomHttpException,
     StoreManagerInactiveException,
     StoreNotFoundException,
     UnauthorizedException,
-    WalletConflictException
+    WalletConflictException,
+    WalletNotFoundException,
 )
 
 
@@ -181,10 +183,16 @@ class StoreController:
                 message=SERVER_ERROR)
 
     @mysql_transaction
-    def delete_wallet(self, mysql_session: Session, wallet_id: int) -> None:
+    def delete_wallet(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        wallet_id: int,
+    ) -> None:
         """登録済みウォレットの削除を行う。
         Args:
             mysql_session: SQLAlchemy のセッション。
+            store_id: 認証済み管理者の店舗ID。
             wallet_id: ウォレットID。
         Returns:
             なし。
@@ -192,9 +200,15 @@ class StoreController:
         try:
             StoreService().delete_wallet(
                 mysql_session=mysql_session,
+                store_id=store_id,
                 wallet_id=wallet_id
             )
 
+        except WalletNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=404,
+                message=WALLET_NOT_FOUND_ERROR,
+            )
         except Exception:
             raise CustomHttpException.get_http_exception(
                 status_code=500,

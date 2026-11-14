@@ -3,7 +3,6 @@ from unittest.mock import patch
 from fastapi import HTTPException
 import pytest
 
-
 class TestGetStoreWallet:
     """get store wallet エンドポイントの単体テスト。"""
 
@@ -28,7 +27,7 @@ class TestGetStoreWallet:
             "updated_at": "2026-04-12 12:00",
         }
 
-        response = client.get("/store/10/wallet")
+        response = client.get("/store/wallet")
 
         assert response.status_code == 200
         assert response.json() == {
@@ -48,7 +47,7 @@ class TestGetStoreWallet:
             },
         }
         mock_get_store_wallet.assert_called_once()
-        assert mock_get_store_wallet.call_args.kwargs["store_id"] == 10
+        assert mock_get_store_wallet.call_args.kwargs["store_id"] == 101
 
     @patch("app.endpoints.store.StoreController.get_store_wallet")
     def test_store_root_returns_http_exception_from_controller(
@@ -65,7 +64,7 @@ class TestGetStoreWallet:
             },
         )
 
-        response = client.get("/store/10/wallet")
+        response = client.get("/store/wallet")
 
         assert response.status_code == 500
         assert response.json() == {
@@ -76,9 +75,9 @@ class TestGetStoreWallet:
         }
 
     @pytest.mark.usefixtures("insert_stores", "insert_wallets", "insert_store_wallets")
-    def test_with_db(self, client_with_db) -> None:
+    def test_with_db(self, store_client_with_db) -> None:
         """DB 連携時に店舗ウォレットを取得できることを確認する。"""
-        response = client_with_db.get("/store/101/wallet")
+        response = store_client_with_db.get("/store/wallet")
 
         assert response.status_code == 200
         assert response.json()["status"] == "success"
@@ -97,9 +96,12 @@ class TestGetStoreWallet:
         }
 
     @pytest.mark.usefixtures("insert_stores", "insert_wallets", "insert_store_wallets")
-    def test_with_db_returns_null_when_not_found(self, client_with_db) -> None:
+    def test_with_db_returns_null_when_not_found(
+        self,
+        store_client_with_db_without_wallet_manager,
+    ) -> None:
         """DB 連携時にウォレットが存在しない場合 data が null を返すことを確認する。"""
-        response = client_with_db.get("/store/103/wallet")
+        response = store_client_with_db_without_wallet_manager.get("/store/wallet")
 
         assert response.status_code == 200
         assert response.json() == {

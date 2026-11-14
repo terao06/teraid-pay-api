@@ -56,13 +56,13 @@ def client_without_store_manager_auth_override() -> Generator[TestClient, None, 
 @pytest.fixture()
 def client_with_db(
 ) -> Generator[TestClient, None, None]:
+    """DB接続設定を使用する共通テストクライアントを返す。"""
 
     app = FastAPI()
     app.include_router(payment_router, prefix="/payment")
     app.include_router(store_router, prefix="/store")
     app.include_router(user_router, prefix="/user")
     app.include_router(face_router, prefix="/face")
-    app.dependency_overrides[authenticate_store_manager] = override_store_manager_auth
 
     with patch.object(
         SecretManager,
@@ -95,3 +95,44 @@ def client_with_db(
     get_mysql_db.cache_clear()
     get_postgres_db.cache_clear()
     insert_secret()
+
+
+@pytest.fixture()
+def store_client_with_db(
+    client_with_db: TestClient,
+    insert_store_managers,
+) -> TestClient:
+    """店舗101の管理者JWTを設定したstore API用DBテストクライアントを返す。"""
+    login_response = client_with_db.post(
+        "/store/manager/login",
+        json={
+            "email": "manager1@example.com",
+            "password": "password123",
+        },
+    )
+    assert login_response.status_code == 200
+    access_token = login_response.json()["data"]["access_token"]
+    client_with_db.headers.update(
+        {"Authorization": f"Bearer {access_token}"}
+    )
+    return client_with_db
+
+
+@pytest.fixture()
+def store_client_with_db_without_wallet_manager(
+    store_client_with_db: TestClient,
+) -> TestClient:
+    """ウォレット未登録店舗104の管理者JWTへ切り替えたクライアントを返す。"""
+    login_response = store_client_with_db.post(
+        "/store/manager/login",
+        json={
+            "email": "no-wallet-manager@example.com",
+            "password": "password123",
+        },
+    )
+    assert login_response.status_code == 200
+    access_token = login_response.json()["data"]["access_token"]
+    store_client_with_db.headers.update(
+        {"Authorization": f"Bearer {access_token}"}
+    )
+    return store_client_with_db

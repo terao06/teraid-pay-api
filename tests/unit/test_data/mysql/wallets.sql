@@ -1,3 +1,4 @@
+-- テスト用データ
 INSERT INTO wallets (
     wallet_id,
     wallet_address,
@@ -165,3 +166,45 @@ INSERT INTO wallets (
     '2024-06-02 00:00:00',
     NULL
 );
+
+-- API動作確認用データ
+INSERT INTO wallets (
+    wallet_id,
+    wallet_address,
+    chain_type,
+    network_name,
+    token_symbol,
+    chain_id,
+    wallet_name,
+    is_active,
+    is_permitted,
+    verified_at,
+    created_at,
+    updated_at,
+    deleted_at
+) VALUES (
+    9001,
+    '0x9001000000000000000000000000000000000001',
+    'ethereum',
+    'sepolia',
+    'JPYC',
+    11155111,
+    'API Demo Store Wallet',
+    TRUE,
+    TRUE,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP,
+    NULL
+)
+ON DUPLICATE KEY UPDATE
+    wallet_address = VALUES(wallet_address),
+    chain_type = VALUES(chain_type),
+    network_name = VALUES(network_name),
+    token_symbol = VALUES(token_symbol),
+    chain_id = VALUES(chain_id),
+    wallet_name = VALUES(wallet_name),
+    is_active = TRUE,
+    is_permitted = TRUE,
+    updated_at = CURRENT_TIMESTAMP,
+    deleted_at = NULL;

@@ -387,17 +387,20 @@ class TestDeleteWallet:
         """削除処理がサービスへ正しく委譲されることを確認する。"""
 
         mysql_session = Mock()
+        store_id = 10
         wallet_id = 42
         mock_service = mock_service_class.return_value
 
         result = StoreController.delete_wallet.__wrapped__(
             StoreController(),
             mysql_session=mysql_session,
+            store_id=store_id,
             wallet_id=wallet_id,
         )
 
         mock_service.delete_wallet.assert_called_once_with(
             mysql_session=mysql_session,
+            store_id=store_id,
             wallet_id=wallet_id,
         )
         assert result is None
@@ -410,6 +413,7 @@ class TestDeleteWallet:
         """想定外例外がサーバーエラーの HTTPException に変換されることを確認する。"""
 
         mysql_session = Mock()
+        store_id = 10
         wallet_id = 42
         mock_service = mock_service_class.return_value
         mock_service.delete_wallet.side_effect = Exception("unexpected error")
@@ -418,6 +422,7 @@ class TestDeleteWallet:
             StoreController.delete_wallet.__wrapped__(
                 StoreController(),
                 mysql_session=mysql_session,
+                store_id=store_id,
                 wallet_id=wallet_id,
             )
 

@@ -38,10 +38,10 @@ class TestStoreManagerJwtAuthentication:
     @pytest.mark.parametrize(
         ("method", "path", "request_body"),
         [
-            ("GET", "/store/101/wallet", None),
+            ("GET", "/store/wallet", None),
             (
                 "POST",
-                "/store/101/wallet/nonce",
+                "/store/wallet/nonce",
                 {
                     "wallet_address": "0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
                     "chain_type": "ethereum",
@@ -50,7 +50,7 @@ class TestStoreManagerJwtAuthentication:
             ),
             (
                 "POST",
-                "/store/101/wallet",
+                "/store/wallet",
                 {
                     "wallet_address": "0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
                     "signature": "signed-message",
@@ -60,7 +60,7 @@ class TestStoreManagerJwtAuthentication:
                     "chain_id": 11155111,
                 },
             ),
-            ("DELETE", "/store/101/wallet/301", None),
+            ("DELETE", "/store/wallet/301", None),
         ],
     )
     def test_store_endpoints_require_bearer_token(
@@ -116,7 +116,7 @@ class TestStoreManagerJwtAuthentication:
         mock_get_store_wallet.return_value = None
 
         response = client_without_store_manager_auth_override.get(
-            "/store/101/wallet",
+            "/store/wallet",
             headers={"Authorization": f"Bearer {create_access_token()}"},
         )
 
@@ -130,44 +130,6 @@ class TestStoreManagerJwtAuthentication:
             ),
             store_manager_id=201,
         )
-
-    @patch("app.endpoints.store.StoreController.get_store_wallet")
-    @patch.object(SecretManager, "get_secret")
-    @patch("app.dependencies.store_manager_auth.StoreRepository")
-    @patch("app.dependencies.store_manager_auth.get_mysql_db")
-    def test_store_id_is_not_validated(
-        self,
-        mock_get_mysql_db,
-        mock_repository_class,
-        mock_get_secret,
-        mock_get_store_wallet,
-        client_without_store_manager_auth_override,
-    ) -> None:
-        """JWT、URL、DBの店舗IDが異なっても店舗ID検証を行わないことを検証する。"""
-        mock_get_secret.return_value = {
-            "store_manager_jwt_secret": JWT_SECRET,
-            "store_manager_jwt_expire_seconds": 3600,
-        }
-        mock_repository_class.return_value.get_store_manager_by_id.return_value = (
-            SimpleNamespace(
-                store_manager_id=201,
-                store_id=101,
-                name="Store Manager 1",
-                email="manager1@example.com",
-                roll_id=1,
-                is_active=True,
-            )
-        )
-        mock_get_store_wallet.return_value = None
-
-        response = client_without_store_manager_auth_override.get(
-            "/store/102/wallet",
-            headers={"Authorization": f"Bearer {create_access_token(store_id=999)}"},
-        )
-
-        assert response.status_code == 200
-        assert response.json() == {"status": "success", "data": None}
-        mock_get_store_wallet.assert_called_once_with(store_id=102)
 
     @patch.object(SecretManager, "get_secret")
     @patch("app.dependencies.store_manager_auth.StoreRepository")

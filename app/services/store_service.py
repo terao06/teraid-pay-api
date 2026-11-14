@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.exceptions.custom_exception import (
     StoreManagerInactiveException,
     StoreNotFoundException,
+    WalletNotFoundException,
     WalletConflictException,
     UnauthorizedException
 )
@@ -314,15 +315,38 @@ class StoreService:
             ),
         )
 
-    def delete_wallet(self, mysql_session: Session, wallet_id: int) -> None:
+    def delete_wallet(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        wallet_id: int,
+    ) -> None:
         """ウォレットを登録から削除する。
 
         Args:
             mysql_session: SQLAlchemy のセッション。
+            store_id: 認証済み管理者の店舗ID。
             wallet_id: 削除対象のウォレットID。
 
         Returns:
             なし。
         """
-        WalletRepository().delete_wallet_by_wallet_id(mysql_session=mysql_session, wallet_id=wallet_id)
-        StoreRepository().delete_store_wallet_by_wallet_id(mysql_session=mysql_session, wallet_id=wallet_id)
+        store_repository = StoreRepository()
+        store_wallet = store_repository.get_store_wallet_link(
+            mysql_session=mysql_session,
+            store_id=store_id,
+            wallet_id=wallet_id,
+        )
+        if store_wallet is None:
+            raise WalletNotFoundException(
+                f"店舗に紐づくウォレットが存在しません。store_id={store_id} wallet_id={wallet_id}"
+            )
+
+        WalletRepository().delete_wallet_by_wallet_id(
+            mysql_session=mysql_session,
+            wallet_id=wallet_id,
+        )
+        store_repository.delete_store_wallet_by_wallet_id(
+            mysql_session=mysql_session,
+            wallet_id=wallet_id,
+        )

@@ -620,13 +620,24 @@ class TestDeleteWallet:
     def test_delete_wallet(self, mock_wallet_repository_class, mock_store_repository_class):
         """WalletRepository と StoreRepository の各削除メソッドが正しい引数で呼ばれることを検証する。"""
         mysql_session = Mock()
+        store_id = 10
         wallet_id = 42
 
         mock_wallet_repository = mock_wallet_repository_class.return_value
         mock_store_repository = mock_store_repository_class.return_value
+        mock_store_repository.get_store_wallet_link.return_value = Mock()
 
-        StoreService().delete_wallet(mysql_session=mysql_session, wallet_id=wallet_id)
+        StoreService().delete_wallet(
+            mysql_session=mysql_session,
+            store_id=store_id,
+            wallet_id=wallet_id,
+        )
 
+        mock_store_repository.get_store_wallet_link.assert_called_once_with(
+            mysql_session=mysql_session,
+            store_id=store_id,
+            wallet_id=wallet_id,
+        )
         mock_wallet_repository.delete_wallet_by_wallet_id.assert_called_once_with(
             mysql_session=mysql_session,
             wallet_id=wallet_id,
@@ -643,16 +654,22 @@ class TestDeleteWallet:
         mock_wallet_repository_class,
         mock_store_repository_class,
     ):
-        """WalletRepository が例外を送出した場合、StoreRepository は呼ばれないことを検証する。"""
+        """WalletRepositoryが例外を送出した場合、StoreRepositoryの削除処理を呼ばないことを検証する。"""
         mysql_session = Mock()
+        store_id = 10
         wallet_id = 42
 
         mock_wallet_repository = mock_wallet_repository_class.return_value
         mock_store_repository = mock_store_repository_class.return_value
+        mock_store_repository.get_store_wallet_link.return_value = Mock()
         mock_wallet_repository.delete_wallet_by_wallet_id.side_effect = Exception("DB error")
 
         with pytest.raises(Exception, match="DB error"):
-            StoreService().delete_wallet(mysql_session=mysql_session, wallet_id=wallet_id)
+            StoreService().delete_wallet(
+                mysql_session=mysql_session,
+                store_id=store_id,
+                wallet_id=wallet_id,
+            )
 
         mock_wallet_repository.delete_wallet_by_wallet_id.assert_called_once_with(
             mysql_session=mysql_session,

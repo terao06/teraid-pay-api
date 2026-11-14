@@ -1,3 +1,4 @@
+-- テスト用データ
 INSERT INTO store_wallets (
     store_wallet_id,
     store_id,
@@ -77,3 +78,25 @@ INSERT INTO store_wallets (
     '2024-05-02 00:00:00',
     NULL
 );
+
+-- API動作確認用データ
+INSERT INTO store_wallets (
+    store_wallet_id,
+    store_id,
+    wallet_id,
+    created_at,
+    updated_at,
+    deleted_at
+) VALUES (
+    9001,
+    9001,
+    9001,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP,
+    NULL
+)
+ON DUPLICATE KEY UPDATE
+    store_id = VALUES(store_id),
+    wallet_id = VALUES(wallet_id),
+    updated_at = CURRENT_TIMESTAMP,
+    deleted_at = NULL;

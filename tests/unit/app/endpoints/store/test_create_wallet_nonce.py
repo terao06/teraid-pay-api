@@ -28,7 +28,7 @@ class TestCreateWalletNonce:
         )
 
         response = client.post(
-            "/store/10/wallet/nonce",
+            "/store/wallet/nonce",
             json={
                 "wallet_address": "0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
                 "chain_type": "ethereum",
@@ -45,7 +45,7 @@ class TestCreateWalletNonce:
             },
         }
         mock_create_wallet_nonce.assert_called_once()
-        assert mock_create_wallet_nonce.call_args.kwargs["store_id"] == 10
+        assert mock_create_wallet_nonce.call_args.kwargs["store_id"] == 101
         request = mock_create_wallet_nonce.call_args.kwargs["request"]
         assert request.wallet_address == "0xABCDEF1234567890ABCDEF1234567890ABCDEF12"
         assert request.chain_type == "ethereum"
@@ -67,7 +67,7 @@ class TestCreateWalletNonce:
         )
 
         response = client.post(
-            "/store/10/wallet/nonce",
+            "/store/wallet/nonce",
             json={
                 "wallet_address": "0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
                 "chain_type": "ethereum",
@@ -88,7 +88,7 @@ class TestCreateWalletNonce:
     def test_with_db(
         self,
         mock_token_urlsafe,
-        client_with_db,
+        store_client_with_db,
         mysql_session: Session,
     ) -> None:
         """DB 連携時に nonce 作成結果と保存内容が一致することを確認する。"""
@@ -97,8 +97,8 @@ class TestCreateWalletNonce:
         with patch("app.services.store_service.datetime") as mock_datetime:
             mock_datetime.now.return_value = fixed_now
 
-            response = client_with_db.post(
-                "/store/101/wallet/nonce",
+            response = store_client_with_db.post(
+                "/store/wallet/nonce",
                 json={
                     "wallet_address": "0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
                     "chain_type": "ethereum",

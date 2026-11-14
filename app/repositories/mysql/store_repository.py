@@ -14,6 +14,23 @@ from app.core.utils.datetime import JST
 class StoreRepository:
     """店舗ウォレット情報を取得するリポジトリです。"""
 
+    def get_store_wallet_link(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        wallet_id: int,
+    ) -> StoreWallet | None:
+        """店舗IDとウォレットIDに一致する未削除の紐づけを取得する。"""
+        return (
+            mysql_session.query(StoreWallet)
+            .filter(
+                StoreWallet.store_id == store_id,
+                StoreWallet.wallet_id == wallet_id,
+                StoreWallet.deleted_at.is_(None),
+            )
+            .one_or_none()
+        )
+
     def get_store_manager_by_id(
         self,
         mysql_session: Session,

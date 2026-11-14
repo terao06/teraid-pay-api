@@ -22,84 +22,82 @@ def login_store_manager(request: StoreManagerLoginRequest):
     return StoreController().login_store_manager(request=request)
 
 
-@store_router.get("/{store_id}/wallet")
+@store_router.get("/wallet")
 @response_rapper()
 @request_rapper()
 def get_wallet_nonce(
-    store_id: int,
     auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
 ):
     """店舗のウォレット情報を取得する。
 
     Args:
-        store_id: 対象店舗の ID。
+        auth_context: JWT認証で取得した店舗管理者情報。
 
     Returns:
         共通レスポンス形式で整形されるウォレット情報。
     """
-    return StoreController().get_store_wallet(store_id=store_id)
+    return StoreController().get_store_wallet(store_id=auth_context.store_id)
 
 
-@store_router.post("/{store_id}/wallet/nonce")
+@store_router.post("/wallet/nonce")
 @response_rapper()
 @request_rapper()
 def create_wallet_nonce(
-    store_id: int,
     request: WalletNonceCreateRequest,
     auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
 ):
     """ウォレット署名用 nonce を生成する。
 
     Args:
-        store_id: 対象店舗の ID。
         request: nonce 発行に必要なリクエスト。
+        auth_context: JWT認証で取得した店舗管理者情報。
 
     Returns:
         共通レスポンス形式で整形される nonce 発行結果。
     """
     return StoreController().create_wallet_nonce(
-        store_id=store_id,
+        store_id=auth_context.store_id,
         request=request,
     )
 
 
-@store_router.post("/{store_id}/wallet")
+@store_router.post("/wallet")
 @response_rapper()
 @request_rapper()
 def verify_and_create_wallet(
-    store_id: int,
     request: WalletVerifyRequest,
     auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
 ):
     """ウォレット署名を検証し、ストアのウォレットを作成する。
     Args:
-        store_id: 対象ストアの ID。
         request: ウォレットアドレス、署名、チェーン種別、ネットワーク名を含むリクエスト。
+        auth_context: JWT認証で取得した店舗管理者情報。
     Returns:
         共通レスポンス形式で整形されたウォレット作成結果。
     """
     return StoreController().verify_and_create_wallet_nonce(
-        store_id=store_id,
+        store_id=auth_context.store_id,
         request=request,
     )
 
 
-@store_router.delete("/{store_id}/wallet/{wallet_id}")
+@store_router.delete("/wallet/{wallet_id}")
 @response_rapper()
 @request_rapper()
 def delete_wallet(
-    store_id: int,
     wallet_id: int,
     auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
 ):
     """ウォレット署名を検証し、ストアのウォレットを作成する。
     Args:
-        wallet_id: 対象ストアの ID。
+        wallet_id: 削除対象のウォレット ID。
+        auth_context: JWT認証で取得した店舗管理者情報。
     Returns:
         共通レスポンス形式で整形されたウォレット作成結果。
     """
     TeraidPayApiLog.info(
-        f"ウォレットの削除を行います。 store_id={store_id} wallet_id={wallet_id}")
+        f"ウォレットの削除を行います。 store_id={auth_context.store_id} wallet_id={wallet_id}")
     return StoreController().delete_wallet(
+        store_id=auth_context.store_id,
         wallet_id=wallet_id,
     )
