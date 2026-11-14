@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: Teraid Pay Store API
-  version: 1.1.0
-  description: 店舗管理者のログインおよび店舗ウォレット管理APIのOpenAPI定義。
+  version: 1.2.0
+  description: 店舗管理者のログイン、店舗ウォレットおよびメニュー管理APIのOpenAPI定義。
 servers:
   - url: http://localhost:8005
     description: Dockerローカル開発環境
@@ -12,6 +12,8 @@ tags:
     description: 店舗管理者認証
   - name: StoreWallet
     description: 店舗ウォレット管理
+  - name: StoreMenu
+    description: 店舗メニュー管理
 
 paths:
   /store/manager/login:
@@ -54,6 +56,95 @@ paths:
           $ref: '#/components/responses/ManagerInactive'
         '422':
           $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /store/menu/categories:
+    get:
+      tags: [StoreMenu]
+      summary: メニューカテゴリー取得
+      description: JWTで認証した店舗管理者のstore_idに紐づく、有効かつ未削除のカテゴリーを表示順で取得する。
+      operationId: getMenuCategories
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: カテゴリー取得成功。該当するカテゴリーがない場合は空配列を返す。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuCategoryListWrappedResponse'
+              example:
+                status: success
+                data:
+                  menu_categories:
+                    - menu_category_id: 9001
+                      name: API Demo Category
+                      display_order: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /store/menu:
+    post:
+      tags: [StoreMenu]
+      summary: メニュー登録
+      description: JWTで認証した店舗へ、商品、オプショングループ、オプションおよび商品画像を登録する。画像は全DBデータ登録後にS3へ保存する。
+      operationId: createMenu
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MenuCreateRequest'
+            example:
+              menu_category_id: 9001
+              name: チーズバーガー
+              description: チェダーチーズ入り
+              price: '800.000000'
+              token_symbol: JPYC
+              menu_image: iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB...
+              image_extension: png
+              is_available: true
+              display_order: 1
+              option_groups:
+                - name: サイズ
+                  min_selections: 1
+                  max_selections: 1
+                  display_order: 1
+                  is_active: true
+                  options:
+                    - name: 通常
+                      additional_price: '0.000000'
+                      display_order: 1
+                      is_available: true
+                    - name: 大盛り
+                      additional_price: '100.000000'
+                      display_order: 2
+                      is_available: true
+      responses:
+        '201':
+          description: メニュー登録成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuCreateWrappedResponse'
+              example:
+                status: success
+                data:
+                  menu_item_id: 10
+                  menu_option_groups:
+                    - menu_option_group_id: 20
+                      menu_option_ids: [30, 31]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/MenuCategoryNotFound'
+        '422':
+          $ref: '#/components/responses/MenuValidationError'
         '500':
           $ref: '#/components/responses/ServerError'
 
@@ -264,6 +355,24 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ValidationErrorResponse'
+    MenuCategoryNotFound:
+      description: 指定したカテゴリーが認証店舗に存在しない、無効、または削除済み
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            detail:
+              status: error
+              message: メニューカテゴリーが存在しません。
+    MenuValidationError:
+      description: リクエスト形式、画像データ、または画像拡張子が不正
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - $ref: '#/components/schemas/ValidationErrorResponse'
+              - $ref: '#/components/schemas/ErrorResponse'
     ServerError:
       description: サーバーエラー
       content:
@@ -289,6 +398,169 @@ components:
           maxLength: 128
           description: 店舗管理者のパスワード
           example: password123
+
+    MenuCategory:
+      type: object
+      required: [menu_category_id, name, display_order]
+      properties:
+        menu_category_id:
+          type: integer
+          minimum: 1
+          description: メニューカテゴリーID
+        name:
+          type: string
+          description: メニューカテゴリー名
+        display_order:
+          type: integer
+          minimum: 0
+          description: 表示順
+
+    MenuCategoryList:
+      type: object
+      required: [menu_categories]
+      properties:
+        menu_categories:
+          type: array
+          description: 認証店舗の有効なメニューカテゴリー一覧
+          items:
+            $ref: '#/components/schemas/MenuCategory'
+
+    MenuOptionCreateRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          description: オプション名
+        additional_price:
+          oneOf:
+            - type: number
+              minimum: 0
+            - type: string
+              pattern: '^\d{1,14}(\.\d{1,6})?$'
+          default: '0'
+          description: 追加料金。小数点以下6桁まで指定可能。
+        display_order:
+          type: integer
+          minimum: 0
+          default: 0
+          description: 表示順
+        is_available:
+          type: boolean
+          default: true
+          description: 選択可能フラグ
+
+    MenuOptionGroupCreateRequest:
+      type: object
+      required: [name, options]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          description: オプショングループ名
+        min_selections:
+          type: integer
+          minimum: 0
+          default: 0
+          description: 最小選択数。max_selections以下であること。
+        max_selections:
+          type: integer
+          minimum: 1
+          default: 1
+          description: 最大選択数
+        display_order:
+          type: integer
+          minimum: 0
+          default: 0
+          description: 表示順
+        is_active:
+          type: boolean
+          default: true
+          description: 有効フラグ
+        options:
+          type: array
+          description: オプション一覧。オプションがない場合は空配列。
+          items:
+            $ref: '#/components/schemas/MenuOptionCreateRequest'
+
+    MenuCreateRequest:
+      type: object
+      required: [name, price, menu_image, image_extension, option_groups]
+      properties:
+        menu_category_id:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: 認証店舗に紐づく有効なカテゴリーID。未分類の場合は省略可能。
+        name:
+          type: string
+          maxLength: 255
+          description: 商品名
+        description:
+          type: string
+          nullable: true
+          description: 商品説明
+        price:
+          oneOf:
+            - type: number
+              minimum: 0
+            - type: string
+              pattern: '^\d{1,14}(\.\d{1,6})?$'
+          description: 基本価格。小数点以下6桁まで指定可能。
+        token_symbol:
+          type: string
+          maxLength: 20
+          default: JPYC
+          description: トークンシンボル
+        menu_image:
+          type: string
+          format: byte
+          description: Base64形式の商品画像
+        image_extension:
+          type: string
+          enum: [jpeg, jpg, png]
+          description: 商品画像の拡張子。menu_imageの実形式と一致すること。
+        is_available:
+          type: boolean
+          default: true
+          description: 販売可能フラグ
+        display_order:
+          type: integer
+          minimum: 0
+          default: 0
+          description: 表示順
+        option_groups:
+          type: array
+          description: オプショングループ一覧。メニューだけ登録する場合は空配列。
+          items:
+            $ref: '#/components/schemas/MenuOptionGroupCreateRequest'
+
+    MenuOptionGroupCreateResult:
+      type: object
+      required: [menu_option_group_id, menu_option_ids]
+      properties:
+        menu_option_group_id:
+          type: integer
+          description: 登録したオプショングループID
+        menu_option_ids:
+          type: array
+          description: 登録したオプションID一覧
+          items:
+            type: integer
+
+    MenuCreateResult:
+      type: object
+      required: [menu_item_id, menu_option_groups]
+      properties:
+        menu_item_id:
+          type: integer
+          description: 登録した商品ID
+        menu_option_groups:
+          type: array
+          description: 登録したオプショングループとオプションのID
+          items:
+            $ref: '#/components/schemas/MenuOptionGroupCreateResult'
 
     StoreManagerInfo:
       type: object
@@ -476,6 +748,26 @@ components:
           enum: [success]
         data:
           $ref: '#/components/schemas/StoreManagerLogin'
+
+    MenuCategoryListWrappedResponse:
+      type: object
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/MenuCategoryList'
+
+    MenuCreateWrappedResponse:
+      type: object
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/MenuCreateResult'
 
     GetWalletWrappedResponse:
       type: object

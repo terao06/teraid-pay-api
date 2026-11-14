@@ -69,7 +69,7 @@
 | description | TEXT | YES | NULL | - | 商品説明 |
 | price | DECIMAL(20, 6) | NO | - | - | 基本価格 |
 | token_symbol | VARCHAR(20) | NO | JPYC | - | トークンシンボル |
-| image_object_key | VARCHAR(1024) | YES | NULL | - | 商品画像のS3オブジェクトキー |
+| image_extension | VARCHAR(10) | NO | - | - | 商品画像の拡張子 |
 | is_available | BOOLEAN | NO | TRUE | - | 販売可能フラグ |
 | display_order | INT UNSIGNED | NO | 0 | - | 表示順 |
 | created_at | DATETIME | NO | CURRENT_TIMESTAMP | - | 作成日時 |
@@ -217,7 +217,7 @@ erDiagram
         varchar name
         decimal price
         varchar token_symbol
-        varchar image_object_key
+        varchar image_extension
         boolean is_available
     }
 

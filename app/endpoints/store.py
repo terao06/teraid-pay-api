@@ -9,6 +9,7 @@ from app.middlewares.response_wrapper import response_rapper
 from app.models.requests.wallet_nonce_create_request import WalletNonceCreateRequest
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
 from app.models.requests.store_manager_login_request import StoreManagerLoginRequest
+from app.models.requests.menu_create_request import MenuCreateRequest
 from app.core.utils.logging import TeraidPayApiLog
 
 store_router = APIRouter()
@@ -54,6 +55,28 @@ def get_menu_categories(
         共通レスポンス形式で整形されるメニューカテゴリー一覧。
     """
     return StoreController().get_menu_categories(store_id=auth_context.store_id)
+
+
+@store_router.post("/menu", status_code=201)
+@response_rapper()
+@request_rapper()
+def create_menu(
+    request: MenuCreateRequest,
+    auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
+):
+    """認証済み管理者の店舗にメニューとオプションを登録する。
+
+    Args:
+        request: 商品、オプショングループ、オプションの登録情報。
+        auth_context: JWT認証で取得した店舗管理者情報。
+
+    Returns:
+        共通レスポンス形式で整形された登録済みデータのID。
+    """
+    return StoreController().create_menu(
+        store_id=auth_context.store_id,
+        request=request,
+    )
 
 
 @store_router.post("/wallet/nonce")

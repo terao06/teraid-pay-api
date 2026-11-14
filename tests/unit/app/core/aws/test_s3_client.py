@@ -49,6 +49,25 @@ class TestS3Client:
         assert response["ContentType"] == "application/pdf"
 
     @pytest.mark.usefixtures("initialize_s3")
+    def test_upload_object_with_content_type(self) -> None:
+        """指定したContent-TypeでS3へオブジェクトを登録することを確認する。"""
+        s3_client = S3Client()
+        content = b"png-image"
+        file_name = "101/10.png"
+
+        uploaded_file_name = s3_client.upload_object(
+            bucket_name="menus",
+            file=BytesIO(content),
+            file_name=file_name,
+            content_type="image/png",
+        )
+        response = s3_client.client.get_object(Bucket="menus", Key=file_name)
+
+        assert uploaded_file_name == file_name
+        assert response["Body"].read() == content
+        assert response["ContentType"] == "image/png"
+
+    @pytest.mark.usefixtures("initialize_s3")
     def test_upload_object_with_missing_bucket(self) -> None:
         s3_client = S3Client()
 

@@ -11,6 +11,7 @@ class SsmClient:
     adaface_weight: str
     scrfd_weight: str
     face_image_bucket: str
+    menu_image_bucket: str
 
     def __init__(self):
         """
@@ -30,6 +31,7 @@ class SsmClient:
         self.adaface_weight = self._get_string_parameter(name="adaface_weight")
         self.scrfd_weight = self._get_string_parameter(name="scrfd_weight")
         self.face_image_bucket = self._get_string_parameter(name="face_image_bucket")
+        self.menu_image_bucket = self._get_string_parameter(name="menu_image_bucket")
 
     def _get_parameter(self, name: str, with_decryption: bool = True) -> Union[str, Dict[str, Any]]:
         """

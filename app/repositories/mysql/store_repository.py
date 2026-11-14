@@ -8,6 +8,9 @@ from app.models.mysql.store_wallet import StoreWallet
 from app.models.mysql.store_nonce import StoreNonce
 from app.models.mysql.store_manager import StoreManager
 from app.models.mysql.menu_category import MenuCategory
+from app.models.mysql.menu_item import MenuItem
+from app.models.mysql.menu_option_group import MenuOptionGroup
+from app.models.mysql.menu_option import MenuOption
 from app.models.mysql.nonce import Nonce
 from app.core.utils.datetime import JST
 
@@ -93,6 +96,87 @@ class StoreRepository:
             )
             .all()
         )
+
+    def get_active_menu_category(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        menu_category_id: int,
+    ) -> MenuCategory | None:
+        """店舗に紐づく有効かつ未削除のメニューカテゴリーをIDで取得する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            store_id: 対象店舗の ID。
+            menu_category_id: 対象カテゴリーの ID。
+
+        Returns:
+            条件に一致するメニューカテゴリー。存在しない場合は None。
+        """
+        return (
+            mysql_session.query(MenuCategory)
+            .filter(
+                MenuCategory.menu_category_id == menu_category_id,
+                MenuCategory.store_id == store_id,
+                MenuCategory.is_active.is_(True),
+                MenuCategory.deleted_at.is_(None),
+            )
+            .one_or_none()
+        )
+
+    def create_menu_item(
+        self,
+        mysql_session: Session,
+        menu_item: MenuItem,
+    ) -> MenuItem:
+        """メニュー商品を保存対象としてセッションへ追加する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            menu_item: 保存するメニュー商品。
+
+        Returns:
+            IDが付与されたメニュー商品。
+        """
+        mysql_session.add(menu_item)
+        mysql_session.flush()
+        return menu_item
+
+    def create_menu_option_group(
+        self,
+        mysql_session: Session,
+        menu_option_group: MenuOptionGroup,
+    ) -> MenuOptionGroup:
+        """メニューオプショングループを保存対象としてセッションへ追加する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            menu_option_group: 保存するメニューオプショングループ。
+
+        Returns:
+            IDが付与されたメニューオプショングループ。
+        """
+        mysql_session.add(menu_option_group)
+        mysql_session.flush()
+        return menu_option_group
+
+    def create_menu_option(
+        self,
+        mysql_session: Session,
+        menu_option: MenuOption,
+    ) -> MenuOption:
+        """メニューオプションを保存対象としてセッションへ追加する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            menu_option: 保存するメニューオプション。
+
+        Returns:
+            IDが付与されたメニューオプション。
+        """
+        mysql_session.add(menu_option)
+        mysql_session.flush()
+        return menu_option
 
     def get_store_wallet(self, mysql_session: Session, store_id: int) -> Wallet | None:
         """店舗に紐づくウォレットを取得します。
