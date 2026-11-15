@@ -15,7 +15,10 @@ from app.models.responses.menu_create_response import MenuCreateResponse
 from app.models.responses.menu_list_response import MenuListResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
-from app.services.store_service import StoreService
+from app.services.store_auth_service import StoreAuthService
+from app.services.store_menu_category_service import StoreMenuCategoryService
+from app.services.store_menu_service import StoreMenuService
+from app.services.store_wallet_service import StoreWalletService
 from app.models.responses.wallet_response import WalletResponse
 from app.core.exceptions.message import (
     SERVER_ERROR,
@@ -62,7 +65,7 @@ class StoreController:
             JWTアクセストークンと店舗管理者情報。
         """
         try:
-            return StoreService().login_store_manager(
+            return StoreAuthService().login_store_manager(
                 mysql_session=mysql_session,
                 email=request.email,
                 password=request.password,
@@ -95,7 +98,7 @@ class StoreController:
             WalletResponse: 店舗ウォレットレスポンスです。
         """
         try:
-            store_service = StoreService()
+            store_service = StoreWalletService()
             return store_service.get_store_wallet(
                 mysql_session=mysql_session,
                 store_id=store_id
@@ -129,7 +132,7 @@ class StoreController:
             MenuCategoryListResponse: カテゴリー一覧とページネーションです。
         """
         try:
-            return StoreService().get_menu_categories(
+            return StoreMenuCategoryService().get_menu_categories(
                 mysql_session=mysql_session,
                 store_id=store_id,
                 name=name,
@@ -161,7 +164,7 @@ class StoreController:
             登録したメニューカテゴリー情報。
         """
         try:
-            return StoreService().create_menu_category(
+            return StoreMenuCategoryService().create_menu_category(
                 mysql_session=mysql_session,
                 store_id=store_id,
                 request=request,
@@ -203,7 +206,7 @@ class StoreController:
             MenuListResponse: 商品一覧とページネーションです。
         """
         try:
-            return StoreService().get_menus(
+            return StoreMenuService().get_menus(
                 mysql_session=mysql_session,
                 store_id=store_id,
                 name=name,
@@ -236,7 +239,7 @@ class StoreController:
             MenuCreateResponse: 登録した各データのIDです。
         """
         try:
-            return StoreService().create_menu(
+            return StoreMenuService().create_menu(
                 mysql_session=mysql_session,
                 store_id=store_id,
                 request=request,
@@ -275,7 +278,7 @@ class StoreController:
             署名メッセージと nonce を含むレスポンス。
         """
         try:
-            store_service = StoreService()
+            store_service = StoreWalletService()
             return store_service.create_wallet_nonce(
                 mysql_session=mysql_session,
                 store_id=store_id,
@@ -317,7 +320,7 @@ class StoreController:
             検証済みとして登録された店舗ウォレット情報。
         """
         try:
-            store_service = StoreService()
+            store_service = StoreWalletService()
             nonce_entity = store_service.verify_wallet_nonce(
                 mysql_session=mysql_session,
                 store_id=store_id,
@@ -375,7 +378,7 @@ class StoreController:
             なし。
         """
         try:
-            StoreService().delete_wallet(
+            StoreWalletService().delete_wallet(
                 mysql_session=mysql_session,
                 store_id=store_id,
                 wallet_id=wallet_id

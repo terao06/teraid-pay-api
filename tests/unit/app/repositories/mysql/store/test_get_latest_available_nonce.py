@@ -3,7 +3,7 @@ from datetime import datetime
 import pytest
 from sqlalchemy.orm import Session
 
-from app.repositories.mysql.store_repository import StoreRepository
+from app.repositories.mysql.store_nonce_repository import StoreNonceRepository
 
 
 @pytest.mark.usefixtures("insert_stores", "insert_nonces", "insert_store_nonces")
@@ -15,7 +15,7 @@ class TestGetLatestAvailableNonce:
         mysql_session: Session,
     ) -> None:
         """正常系の処理結果を検証する。"""
-        repository = StoreRepository()
+        repository = StoreNonceRepository()
         base_expires_at = datetime(2026, 4, 13, 12, 0, 0)
 
         result = repository.get_latest_available_nonce(
@@ -37,7 +37,7 @@ class TestGetLatestAvailableNonce:
         mysql_session: Session,
     ) -> None:
         """対象が存在しない場合の戻り値を検証する。"""
-        repository = StoreRepository()
+        repository = StoreNonceRepository()
 
         result = repository.get_latest_available_nonce(
             mysql_session=mysql_session,

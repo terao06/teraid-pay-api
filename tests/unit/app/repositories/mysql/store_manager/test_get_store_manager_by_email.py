@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy.orm import Session
 
-from app.repositories.mysql.store_repository import StoreRepository
+from app.repositories.mysql.store_manager_repository import StoreManagerRepository
 
 @pytest.mark.usefixtures("insert_stores", "insert_store_managers")
 class TestGetStoreManagerByEmail:
@@ -24,7 +24,7 @@ class TestGetStoreManagerByEmail:
         expected_store_manager_id: int | None,
     ) -> None:
         """管理者と所属店舗が未削除の場合のみメールアドレスで取得できることを検証する。"""
-        result = StoreRepository().get_store_manager_by_email(
+        result = StoreManagerRepository().get_store_manager_by_email(
             mysql_session=mysql_session,
             email=email,
         )

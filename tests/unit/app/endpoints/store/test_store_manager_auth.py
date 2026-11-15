@@ -88,7 +88,7 @@ class TestStoreManagerJwtAuthentication:
 
     @patch("app.endpoints.store.StoreController.get_store_wallet")
     @patch.object(SecretManager, "get_secret")
-    @patch("app.dependencies.store_manager_auth.StoreRepository")
+    @patch("app.dependencies.store_manager_auth.StoreManagerRepository")
     @patch("app.dependencies.store_manager_auth.get_mysql_db")
     def test_valid_token_allows_access(
         self,
@@ -132,7 +132,7 @@ class TestStoreManagerJwtAuthentication:
         )
 
     @patch.object(SecretManager, "get_secret")
-    @patch("app.dependencies.store_manager_auth.StoreRepository")
+    @patch("app.dependencies.store_manager_auth.StoreManagerRepository")
     @patch("app.dependencies.store_manager_auth.get_mysql_db")
     def test_authenticate_store_manager_returns_user_information(
         self,

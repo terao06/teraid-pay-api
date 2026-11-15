@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.models.mysql.store_wallet import StoreWallet
 from app.models.mysql.wallet import Wallet
-from app.repositories.mysql.store_repository import StoreRepository
+from app.repositories.mysql.store_wallet_repository import StoreWalletRepository
 from app.repositories.mysql.wallet_repository import WalletRepository
 
 
@@ -18,7 +18,7 @@ class TestCreateStoreWallet:
         mysql_session: Session,
     ) -> None:
         """正常系の処理結果を検証する。"""
-        repository = StoreRepository()
+        repository = StoreWalletRepository()
         new_wallet = Wallet(
             wallet_address="0xcccccccccccccccccccccccccccccccccccccccc",
             chain_type="ethereum",

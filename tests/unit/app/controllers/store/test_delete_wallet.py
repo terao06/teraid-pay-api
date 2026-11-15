@@ -12,7 +12,7 @@ from app.core.exceptions.message import (
 class TestDeleteWallet:
     """delete_wallet の単体テスト。"""
 
-    @patch("app.controllers.store_controller.StoreService")
+    @patch("app.controllers.store_controller.StoreWalletService")
     def test_delete_wallet(self, mock_service_class) -> None:
         """削除処理がサービスへ正しく委譲されることを確認する。"""
 
@@ -35,7 +35,7 @@ class TestDeleteWallet:
         )
         assert result is None
 
-    @patch("app.controllers.store_controller.StoreService")
+    @patch("app.controllers.store_controller.StoreWalletService")
     def test_delete_wallet_raise_http_exception_when_service_fails(
         self,
         mock_service_class,

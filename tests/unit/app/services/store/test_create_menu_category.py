@@ -6,15 +6,15 @@ import pytest
 from app.core.exceptions.custom_exception import MenuCategoryImageInvalidException
 from app.models.requests.menu_category_create_request import MenuCategoryCreateRequest
 from app.models.responses.menu_category_response import MenuCategoryCreateResponse
-from app.services.store_service import StoreService
+from app.services.store_menu_category_service import StoreMenuCategoryService
 
 from ._helpers import build_menu_image
 
 
 class TestCreateMenuCategory:
-    @patch("app.services.store_service.S3Client")
-    @patch("app.services.store_service.SsmClient")
-    @patch("app.services.store_service.StoreRepository")
+    @patch("app.services.store_menu_category_service.S3Client")
+    @patch("app.services.store_menu_category_service.SsmClient")
+    @patch("app.services.store_menu_category_service.StoreMenuCategoryRepository")
     def test_create_menu_category(
         self,
         mock_repository_class,
@@ -42,7 +42,7 @@ class TestCreateMenuCategory:
         mock_repository = mock_repository_class.return_value
         mock_repository.create_menu_category.side_effect = save_category
 
-        result = StoreService().create_menu_category(
+        result = StoreMenuCategoryService().create_menu_category(
             mysql_session=mysql_session,
             store_id=101,
             request=request,
@@ -67,7 +67,7 @@ class TestCreateMenuCategory:
         assert upload_kwargs["file"].read() != b""
         assert len(mysql_session.info["mysql_rollback_callbacks"]) == 1
 
-    @patch("app.services.store_service.StoreRepository")
+    @patch("app.services.store_menu_category_service.StoreMenuCategoryRepository")
     def test_rejects_invalid_category_image(self, mock_repository_class) -> None:
         request = MenuCategoryCreateRequest(
             name="ハンバーガー",
@@ -76,7 +76,7 @@ class TestCreateMenuCategory:
         )
 
         with pytest.raises(MenuCategoryImageInvalidException):
-            StoreService().create_menu_category(
+            StoreMenuCategoryService().create_menu_category(
                 mysql_session=Mock(),
                 store_id=101,
                 request=request,

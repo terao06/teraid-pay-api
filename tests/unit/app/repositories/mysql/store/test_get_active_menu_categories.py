@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy.orm import Session
 
-from app.repositories.mysql.store_repository import StoreRepository
+from app.repositories.mysql.store_menu_category_repository import StoreMenuCategoryRepository
 
 
 @pytest.mark.usefixtures("insert_menu_categories")
@@ -22,7 +22,7 @@ class TestGetMenuCategories:
         expected_menu_category_ids: list[int],
     ) -> None:
         """店舗に紐づく有効かつ未削除のカテゴリーを表示順で取得することを確認する。"""
-        repository = StoreRepository()
+        repository = StoreMenuCategoryRepository()
 
         result = repository.get_menu_categories(
             mysql_session=mysql_session,
@@ -40,7 +40,7 @@ class TestGetMenuCategories:
         self,
         mysql_session: Session,
     ) -> None:
-        repository = StoreRepository()
+        repository = StoreMenuCategoryRepository()
 
         result = repository.get_menu_categories(
             mysql_session=mysql_session,
@@ -64,7 +64,7 @@ class TestGetMenuCategories:
         self,
         mysql_session: Session,
     ) -> None:
-        repository = StoreRepository()
+        repository = StoreMenuCategoryRepository()
 
         result = repository.get_menu_categories(
             mysql_session=mysql_session,

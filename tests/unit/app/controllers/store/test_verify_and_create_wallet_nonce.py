@@ -21,7 +21,7 @@ from app.models.responses.wallet_nonce_verify_response import WalletVerifyRespon
 class TestVerifyAndCreateWalletNonce:
     """verify_and_create_wallet_nonce の単体テスト。"""
 
-    @patch("app.controllers.store_controller.StoreService")
+    @patch("app.controllers.store_controller.StoreWalletService")
     def test_verify_and_create_wallet_nonce(self, mock_service_class) -> None:
         """nonce 検証成功後にウォレット作成結果を返すことを確認する。"""
 
@@ -77,7 +77,7 @@ class TestVerifyAndCreateWalletNonce:
         )
         assert result == expected
 
-    @patch("app.controllers.store_controller.StoreService")
+    @patch("app.controllers.store_controller.StoreWalletService")
     @pytest.mark.parametrize(
         ("verify_side_effect", "create_side_effect", "expected_status_code", "expected_message"),
         [

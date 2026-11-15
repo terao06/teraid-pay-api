@@ -17,18 +17,18 @@ from app.models.responses.menu_create_response import (
     MenuCreateResponse,
     MenuOptionGroupCreateResponse,
 )
-from app.services.store_service import StoreService
+from app.services.store_menu_service import StoreMenuService
 
 
 from ._helpers import build_menu_image
 
 
 class TestCreateMenu:
-    """StoreService のメニュー登録処理を検証する。"""
+    """StoreMenuService のメニュー登録処理を検証する。"""
 
-    @patch("app.services.store_service.S3Client")
-    @patch("app.services.store_service.SsmClient")
-    @patch("app.services.store_service.StoreRepository")
+    @patch("app.services.store_menu_service.S3Client")
+    @patch("app.services.store_menu_service.SsmClient")
+    @patch("app.services.store_menu_service.StoreMenuRepository")
     def test_create_menu(
         self,
         mock_repository_class,
@@ -109,7 +109,7 @@ class TestCreateMenu:
             lambda **kwargs: call_order.append("s3_upload")
         )
 
-        result = StoreService().create_menu(
+        result = StoreMenuService().create_menu(
             mysql_session=mysql_session,
             store_id=101,
             request=request,
@@ -155,9 +155,9 @@ class TestCreateMenu:
             "s3_upload",
         ]
 
-    @patch("app.services.store_service.S3Client")
-    @patch("app.services.store_service.SsmClient")
-    @patch("app.services.store_service.StoreRepository")
+    @patch("app.services.store_menu_service.S3Client")
+    @patch("app.services.store_menu_service.SsmClient")
+    @patch("app.services.store_menu_service.StoreMenuRepository")
     def test_create_menu_without_category(
         self,
         mock_repository_class,
@@ -186,7 +186,7 @@ class TestCreateMenu:
 
         mock_repository.create_menu_item.side_effect = save_menu_item
 
-        result = StoreService().create_menu(
+        result = StoreMenuService().create_menu(
             mysql_session=mysql_session,
             store_id=101,
             request=request,
@@ -201,7 +201,7 @@ class TestCreateMenu:
         mock_repository.create_menu_option.assert_not_called()
         mock_s3_client_class.return_value.upload_object.assert_called_once()
 
-    @patch("app.services.store_service.StoreRepository")
+    @patch("app.services.store_menu_service.StoreMenuRepository")
     def test_create_menu_raise_when_category_not_found(
         self,
         mock_repository_class,
@@ -219,7 +219,7 @@ class TestCreateMenu:
         mock_repository.get_active_menu_category.return_value = None
 
         with pytest.raises(MenuCategoryNotFoundException):
-            StoreService().create_menu(
+            StoreMenuService().create_menu(
                 mysql_session=Mock(),
                 store_id=101,
                 request=request,
@@ -229,7 +229,7 @@ class TestCreateMenu:
         mock_repository.create_menu_option_group.assert_not_called()
         mock_repository.create_menu_option.assert_not_called()
 
-    @patch("app.services.store_service.StoreRepository")
+    @patch("app.services.store_menu_service.StoreMenuRepository")
     def test_create_menu_raise_when_menu_image_invalid(
         self,
         mock_repository_class,
@@ -244,7 +244,7 @@ class TestCreateMenu:
         )
 
         with pytest.raises(MenuImageInvalidException):
-            StoreService().create_menu(
+            StoreMenuService().create_menu(
                 mysql_session=Mock(),
                 store_id=101,
                 request=request,

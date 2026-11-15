@@ -12,15 +12,15 @@ from app.models.responses.store_manager_login_response import (
     StoreManagerInfoResponse,
     StoreManagerLoginResponse,
 )
-from app.services.store_service import StoreService
+from app.services.store_auth_service import StoreAuthService
 
 
 class TestLoginStoreManager:
-    """StoreServiceの店舗管理者ログイン処理を検証する。"""
+    """StoreAuthServiceの店舗管理者ログイン処理を検証する。"""
 
-    @patch("app.services.store_service.get_store_manager_auth_config")
-    @patch("app.services.store_service.StoreManagerAuthUtil")
-    @patch("app.services.store_service.StoreRepository")
+    @patch("app.services.store_auth_service.get_store_manager_auth_config")
+    @patch("app.services.store_auth_service.StoreManagerAuthUtil")
+    @patch("app.services.store_auth_service.StoreManagerRepository")
     def test_login_store_manager(
         self,
         mock_repository_class,
@@ -49,7 +49,7 @@ class TestLoginStoreManager:
         )
         mock_get_auth_config.return_value = config
 
-        result = StoreService().login_store_manager(
+        result = StoreAuthService().login_store_manager(
             mysql_session=mysql_session,
             email=" Manager@Example.com ",
             password="password123",
@@ -78,8 +78,8 @@ class TestLoginStoreManager:
             config=config,
         )
 
-    @patch("app.services.store_service.StoreManagerAuthUtil")
-    @patch("app.services.store_service.StoreRepository")
+    @patch("app.services.store_auth_service.StoreManagerAuthUtil")
+    @patch("app.services.store_auth_service.StoreManagerRepository")
     def test_login_rejects_unknown_email(
         self,
         mock_repository_class,
@@ -89,7 +89,7 @@ class TestLoginStoreManager:
         mock_repository_class.return_value.get_store_manager_by_email.return_value = None
 
         with pytest.raises(UnauthorizedException):
-            StoreService().login_store_manager(
+            StoreAuthService().login_store_manager(
                 mysql_session=Mock(),
                 email="missing@example.com",
                 password="password123",
@@ -99,8 +99,8 @@ class TestLoginStoreManager:
             "password123"
         )
 
-    @patch("app.services.store_service.StoreManagerAuthUtil")
-    @patch("app.services.store_service.StoreRepository")
+    @patch("app.services.store_auth_service.StoreManagerAuthUtil")
+    @patch("app.services.store_auth_service.StoreManagerRepository")
     def test_login_rejects_inactive_manager(
         self,
         mock_repository_class,
@@ -117,7 +117,7 @@ class TestLoginStoreManager:
         mock_auth_util.verify_password.return_value = True
 
         with pytest.raises(StoreManagerInactiveException):
-            StoreService().login_store_manager(
+            StoreAuthService().login_store_manager(
                 mysql_session=Mock(),
                 email="inactive@example.com",
                 password="password123",

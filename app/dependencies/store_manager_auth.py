@@ -9,7 +9,7 @@ from app.core.config.store_manager_auth import get_store_manager_auth_config
 from app.middlewares.transaction import get_mysql_db
 from app.core.exceptions.custom_exception import CustomHttpException
 from app.core.exceptions.message import VERIFY_ERROR
-from app.repositories.mysql.store_repository import StoreRepository
+from app.repositories.mysql.store_manager_repository import StoreManagerRepository
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -74,7 +74,7 @@ def authenticate_store_manager(
         _raise_unauthorized()
 
     with get_mysql_db().get_session() as mysql_session:
-        store_manager = StoreRepository().get_store_manager_by_id(
+        store_manager = StoreManagerRepository().get_store_manager_by_id(
             mysql_session=mysql_session,
             store_manager_id=store_manager_id,
         )

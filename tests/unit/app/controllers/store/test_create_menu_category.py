@@ -11,7 +11,7 @@ from app.models.responses.menu_category_response import MenuCategoryCreateRespon
 
 
 class TestCreateMenuCategory:
-    @patch("app.controllers.store_controller.StoreService")
+    @patch("app.controllers.store_controller.StoreMenuCategoryService")
     def test_create_menu_category(self, mock_service_class) -> None:
         mysql_session = Mock()
         request = MenuCategoryCreateRequest(
@@ -42,7 +42,7 @@ class TestCreateMenuCategory:
             request=request,
         )
 
-    @patch("app.controllers.store_controller.StoreService")
+    @patch("app.controllers.store_controller.StoreMenuCategoryService")
     def test_maps_invalid_image_to_422(self, mock_service_class) -> None:
         request = MenuCategoryCreateRequest(
             name="ハンバーガー",
@@ -67,7 +67,7 @@ class TestCreateMenuCategory:
             "message": MENU_CATEGORY_IMAGE_INVALID_ERROR,
         }
 
-    @patch("app.controllers.store_controller.StoreService")
+    @patch("app.controllers.store_controller.StoreMenuCategoryService")
     def test_maps_unexpected_error_to_500(self, mock_service_class) -> None:
         request = MenuCategoryCreateRequest(
             name="ハンバーガー",
