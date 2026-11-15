@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from app.controllers.store_controller import StoreController
 from app.dependencies.store_manager_auth import (
     StoreManagerAuthContext,
@@ -61,6 +61,9 @@ def get_menu_categories(
 @response_rapper()
 @request_rapper()
 def get_menus(
+    name: str | None = Query(default=None, min_length=1, max_length=255),
+    menu_category_id: int | None = Query(default=None, ge=1),
+    is_available: bool | None = Query(default=None),
     auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
 ):
     """認証済み管理者の店舗に紐づくメニュー商品を取得する。
@@ -71,7 +74,12 @@ def get_menus(
     Returns:
         共通レスポンス形式で整形されるメニュー商品一覧。
     """
-    return StoreController().get_menus(store_id=auth_context.store_id)
+    return StoreController().get_menus(
+        store_id=auth_context.store_id,
+        name=name,
+        menu_category_id=menu_category_id,
+        is_available=is_available,
+    )
 
 
 @store_router.post("/menu", status_code=201)

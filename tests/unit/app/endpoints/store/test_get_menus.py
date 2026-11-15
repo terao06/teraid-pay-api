@@ -58,7 +58,38 @@ class TestGetMenus:
                 ]
             },
         }
-        mock_get_menus.assert_called_once_with(store_id=101)
+        mock_get_menus.assert_called_once_with(
+            store_id=101,
+            name=None,
+            menu_category_id=None,
+            is_available=None,
+        )
+
+    @patch("app.endpoints.store.StoreController.get_menus")
+    def test_forwards_search_parameters(
+        self,
+        mock_get_menus,
+        client,
+    ) -> None:
+        """指定された検索条件をcontrollerへ渡すことを確認する。"""
+        mock_get_menus.return_value = MenuListResponse(menu_items=[])
+
+        response = client.get(
+            "/store/menu",
+            params={
+                "name": "バーガー",
+                "menu_category_id": 12,
+                "is_available": False,
+            },
+        )
+
+        assert response.status_code == 200
+        mock_get_menus.assert_called_once_with(
+            store_id=101,
+            name="バーガー",
+            menu_category_id=12,
+            is_available=False,
+        )
 
     @patch("app.endpoints.store.StoreController.get_menus")
     def test_returns_http_exception_from_controller(

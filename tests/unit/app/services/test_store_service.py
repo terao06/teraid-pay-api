@@ -315,6 +315,9 @@ class TestGetMenus:
         result = StoreService().get_menus(
             mysql_session=mysql_session,
             store_id=101,
+            name="バーガー",
+            menu_category_id=1,
+            is_available=True,
         )
 
         assert result == MenuListResponse(
@@ -336,6 +339,9 @@ class TestGetMenus:
         mock_repository_class.return_value.get_menu_items.assert_called_once_with(
             mysql_session=mysql_session,
             store_id=101,
+            name="バーガー",
+            menu_category_id=1,
+            is_available=True,
         )
         mock_s3_client_class.assert_called_once_with(s3_endpoint="http://s3.local")
         mock_s3_client_class.return_value.generate_presigned_get_url.assert_called_once_with(
@@ -355,13 +361,21 @@ class TestGetMenus:
     ) -> None:
         """商品が存在しない場合に空の一覧を返すことを確認する。"""
         mock_repository_class.return_value.get_menu_items.return_value = []
+        mysql_session = Mock()
 
         result = StoreService().get_menus(
-            mysql_session=Mock(),
+            mysql_session=mysql_session,
             store_id=101,
         )
 
         assert result == MenuListResponse(menu_items=[])
+        mock_repository_class.return_value.get_menu_items.assert_called_once_with(
+            mysql_session=mysql_session,
+            store_id=101,
+            name=None,
+            menu_category_id=None,
+            is_available=None,
+        )
         mock_ssm_client_class.assert_not_called()
         mock_s3_client_class.assert_not_called()
 

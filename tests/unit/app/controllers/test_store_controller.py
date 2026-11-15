@@ -272,12 +272,18 @@ class TestGetMenus:
             StoreController(),
             mysql_session=mysql_session,
             store_id=101,
+            name="バーガー",
+            menu_category_id=12,
+            is_available=True,
         )
 
         assert result == expected
         mock_service_class.return_value.get_menus.assert_called_once_with(
             mysql_session=mysql_session,
             store_id=101,
+            name="バーガー",
+            menu_category_id=12,
+            is_available=True,
         )
 
     @patch("app.controllers.store_controller.StoreService")

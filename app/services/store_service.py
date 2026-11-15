@@ -168,6 +168,9 @@ class StoreService:
         self,
         mysql_session: Session,
         store_id: int,
+        name: str | None = None,
+        menu_category_id: int | None = None,
+        is_available: bool | None = None,
     ) -> MenuListResponse:
         """店舗に紐づく未削除のメニュー商品一覧を取得する。
 
@@ -181,6 +184,9 @@ class StoreService:
         menu_items = StoreRepository().get_menu_items(
             mysql_session=mysql_session,
             store_id=store_id,
+            name=name,
+            menu_category_id=menu_category_id,
+            is_available=is_available,
         )
         if not menu_items:
             return MenuListResponse(menu_items=[])

@@ -94,6 +94,28 @@ paths:
       operationId: getMenus
       security:
         - BearerAuth: []
+      parameters:
+        - name: name
+          in: query
+          required: false
+          description: 商品名の部分一致検索。大文字・小文字を区別しない。
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+        - name: menu_category_id
+          in: query
+          required: false
+          description: メニューカテゴリーIDによる完全一致検索。
+          schema:
+            type: integer
+            minimum: 1
+        - name: is_available
+          in: query
+          required: false
+          description: 公開状態による完全一致検索。trueは販売中、falseは非公開。
+          schema:
+            type: boolean
       responses:
         '200':
           description: メニュー一覧取得成功。該当する商品がない場合は空配列を返す。

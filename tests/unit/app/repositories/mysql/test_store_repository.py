@@ -220,6 +220,55 @@ class TestGetMenuItems:
         assert 25 not in [menu_item[0] for menu_item in actual_menu_items]
         assert 26 not in [menu_item[0] for menu_item in actual_menu_items]
 
+    @pytest.mark.parametrize(
+        ("filters", "expected_ids"),
+        [
+            ({"menu_category_id": 12}, [21]),
+            ({"is_available": False}, [22]),
+            (
+                {
+                    "menu_category_id": 12,
+                    "is_available": True,
+                },
+                [21],
+            ),
+        ],
+    )
+    def test_get_menu_items_with_filters(
+        self,
+        mysql_session: Session,
+        filters: dict[str, object],
+        expected_ids: list[int],
+    ) -> None:
+        """商品名・カテゴリー・公開状態を組み合わせて検索できることを確認する。"""
+        result = StoreRepository().get_menu_items(
+            mysql_session=mysql_session,
+            store_id=101,
+            **filters,
+        )
+
+        assert [menu_item.menu_item_id for menu_item, _ in result] == expected_ids
+
+    def test_get_menu_items_with_partial_name(
+        self,
+        mysql_session: Session,
+    ) -> None:
+        """商品名の一部を指定して検索できることを確認する。"""
+        menu_name = (
+            mysql_session.query(MenuItem.name)
+            .filter(MenuItem.menu_item_id == 22)
+            .scalar()
+        )
+        assert menu_name is not None
+
+        result = StoreRepository().get_menu_items(
+            mysql_session=mysql_session,
+            store_id=101,
+            name=menu_name,
+        )
+
+        assert [menu_item.menu_item_id for menu_item, _ in result] == [22]
+
 
 @pytest.mark.usefixtures("insert_stores", "insert_menu_categories")
 class TestCreateMenu:

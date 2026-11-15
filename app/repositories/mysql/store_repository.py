@@ -129,6 +129,9 @@ class StoreRepository:
         self,
         mysql_session: Session,
         store_id: int,
+        name: str | None = None,
+        menu_category_id: int | None = None,
+        is_available: bool | None = None,
     ) -> list[tuple[MenuItem, str | None]]:
         """店舗に紐づく未削除のメニュー商品とカテゴリー名を取得する。
 
@@ -139,7 +142,7 @@ class StoreRepository:
         Returns:
             表示順で並べたメニュー商品とカテゴリー名。存在しない場合は空のリスト。
         """
-        return (
+        query = (
             mysql_session.query(
                 MenuItem,
                 MenuCategory.name.label("menu_category_name"),
@@ -156,7 +159,31 @@ class StoreRepository:
                 MenuItem.store_id == store_id,
                 MenuItem.deleted_at.is_(None),
             )
-            .order_by(
+        )
+
+        if name is not None:
+            normalized_name = name.strip()
+            if normalized_name:
+                escaped_name = (
+                    normalized_name
+                    .replace("\\", "\\\\")
+                    .replace("%", "\\%")
+                    .replace("_", "\\_")
+                )
+                query = query.filter(
+                    MenuItem.name.ilike(f"%{escaped_name}%", escape="\\")
+                )
+
+        if menu_category_id is not None:
+            query = query.filter(
+                MenuItem.menu_category_id == menu_category_id
+            )
+
+        if is_available is not None:
+            query = query.filter(MenuItem.is_available.is_(is_available))
+
+        return (
+            query.order_by(
                 MenuItem.display_order.asc(),
                 MenuItem.menu_item_id.asc(),
             )
