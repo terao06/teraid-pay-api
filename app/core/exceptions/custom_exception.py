@@ -37,6 +37,10 @@ class MenuImageInvalidException(Exception):
     pass
 
 
+class MenuCategoryImageInvalidException(Exception):
+    pass
+
+
 class WalletNotFoundException(Exception):
     pass
 

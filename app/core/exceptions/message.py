@@ -9,6 +9,7 @@ LOGIN_FAILED_ERROR = "メールアドレスまたはパスワードが正しく�
 STORE_MANAGER_INACTIVE_ERROR = "この管理者アカウントは利用できません。"
 MENU_CATEGORY_NOT_FOUND_ERROR = "メニューカテゴリーが存在しません。"
 MENU_IMAGE_INVALID_ERROR = "メニュー画像が正しくありません。"
+MENU_CATEGORY_IMAGE_INVALID_ERROR = "カテゴリー画像が正しくありません。"
 WALLET_CONFLICT_ERROR = "すでにウォレットは作成されています。"
 NOT_MATCH_ERROR = "ウォレット情報が一致しませんでした。"
 PAYMENT_INFO_NOT_FOUND = "決済情報が取得できませんでした。"

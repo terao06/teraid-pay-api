@@ -9,6 +9,7 @@ from app.middlewares.response_wrapper import response_rapper
 from app.models.requests.wallet_nonce_create_request import WalletNonceCreateRequest
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
 from app.models.requests.store_manager_login_request import StoreManagerLoginRequest
+from app.models.requests.menu_category_create_request import MenuCategoryCreateRequest
 from app.models.requests.menu_create_request import MenuCreateRequest
 from app.core.utils.logging import TeraidPayApiLog
 
@@ -55,6 +56,20 @@ def get_menu_categories(
         共通レスポンス形式で整形されるメニューカテゴリー一覧。
     """
     return StoreController().get_menu_categories(store_id=auth_context.store_id)
+
+
+@store_router.post("/menu/categories", status_code=201)
+@response_rapper()
+@request_rapper()
+def create_menu_category(
+    request: MenuCategoryCreateRequest,
+    auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
+):
+    """認証済み管理者の店舗へ画像付きメニューカテゴリーを登録する。"""
+    return StoreController().create_menu_category(
+        store_id=auth_context.store_id,
+        request=request,
+    )
 
 
 @store_router.get("/menu")

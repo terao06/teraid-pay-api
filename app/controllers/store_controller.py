@@ -4,9 +4,13 @@ from app.middlewares.transaction import mysql_transaction
 from app.models.requests.wallet_nonce_create_request import WalletNonceCreateRequest
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
 from app.models.requests.store_manager_login_request import StoreManagerLoginRequest
+from app.models.requests.menu_category_create_request import MenuCategoryCreateRequest
 from app.models.requests.menu_create_request import MenuCreateRequest
 from app.models.responses.store_manager_login_response import StoreManagerLoginResponse
-from app.models.responses.menu_category_response import MenuCategoryListResponse
+from app.models.responses.menu_category_response import (
+    MenuCategoryCreateResponse,
+    MenuCategoryListResponse,
+)
 from app.models.responses.menu_create_response import MenuCreateResponse
 from app.models.responses.menu_list_response import MenuListResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
@@ -15,6 +19,7 @@ from app.services.store_service import StoreService
 from app.models.responses.wallet_response import WalletResponse
 from app.core.exceptions.message import (
     SERVER_ERROR,
+    MENU_CATEGORY_IMAGE_INVALID_ERROR,
     MENU_CATEGORY_NOT_FOUND_ERROR,
     MENU_IMAGE_INVALID_ERROR,
     LOGIN_FAILED_ERROR,
@@ -27,6 +32,7 @@ from app.core.exceptions.message import (
 )
 from app.core.exceptions.custom_exception import (
     CustomHttpException,
+    MenuCategoryImageInvalidException,
     MenuCategoryNotFoundException,
     MenuImageInvalidException,
     StoreManagerInactiveException,
@@ -110,6 +116,31 @@ class StoreController:
             return StoreService().get_menu_categories(
                 mysql_session=mysql_session,
                 store_id=store_id,
+            )
+        except Exception:
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR,
+            )
+
+    @mysql_transaction
+    def create_menu_category(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        request: MenuCategoryCreateRequest,
+    ) -> MenuCategoryCreateResponse:
+        """認証済み管理者の店舗へメニューカテゴリーを登録する。"""
+        try:
+            return StoreService().create_menu_category(
+                mysql_session=mysql_session,
+                store_id=store_id,
+                request=request,
+            )
+        except MenuCategoryImageInvalidException:
+            raise CustomHttpException.get_http_exception(
+                status_code=422,
+                message=MENU_CATEGORY_IMAGE_INVALID_ERROR,
             )
         except Exception:
             raise CustomHttpException.get_http_exception(

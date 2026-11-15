@@ -86,6 +86,46 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
+    post:
+      tags: [StoreMenu]
+      summary: メニューカテゴリー登録
+      description: JWTで認証した店舗へ、画像付きメニューカテゴリーを登録する。画像はDB登録後にS3のcategory_image_bucketへ保存する。
+      operationId: createMenuCategory
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MenuCategoryCreateRequest'
+            example:
+              name: ハンバーガー
+              category_image: iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB...
+              image_extension: png
+              display_order: 1
+              is_active: true
+      responses:
+        '201':
+          description: カテゴリー登録成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuCategoryCreateWrappedResponse'
+              example:
+                status: success
+                data:
+                  menu_category_id: 1
+                  name: ハンバーガー
+                  display_order: 1
+                  is_active: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/MenuCategoryValidationError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
   /store/menu:
     get:
       tags: [StoreMenu]
@@ -450,6 +490,14 @@ components:
             oneOf:
               - $ref: '#/components/schemas/ValidationErrorResponse'
               - $ref: '#/components/schemas/ErrorResponse'
+    MenuCategoryValidationError:
+      description: リクエスト形式、カテゴリー画像データ、または画像拡張子が不正
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - $ref: '#/components/schemas/ValidationErrorResponse'
+              - $ref: '#/components/schemas/ErrorResponse'
     ServerError:
       description: サーバーエラー
       content:
@@ -501,6 +549,52 @@ components:
           description: 認証店舗の有効なメニューカテゴリー一覧
           items:
             $ref: '#/components/schemas/MenuCategory'
+
+    MenuCategoryCreateRequest:
+      type: object
+      required: [name, category_image, image_extension]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: メニューカテゴリー名
+        category_image:
+          type: string
+          format: byte
+          description: Base64形式のカテゴリー画像
+        image_extension:
+          type: string
+          enum: [jpeg, jpg, png]
+          description: カテゴリー画像の拡張子。category_imageの実形式と一致すること。
+        display_order:
+          type: integer
+          minimum: 0
+          default: 0
+          description: 表示順
+        is_active:
+          type: boolean
+          default: true
+          description: 有効フラグ
+
+    MenuCategoryCreateResult:
+      type: object
+      required: [menu_category_id, name, display_order, is_active]
+      properties:
+        menu_category_id:
+          type: integer
+          minimum: 1
+          description: 登録したメニューカテゴリーID
+        name:
+          type: string
+          description: メニューカテゴリー名
+        display_order:
+          type: integer
+          minimum: 0
+          description: 表示順
+        is_active:
+          type: boolean
+          description: 有効フラグ
 
     MenuItem:
       type: object
@@ -922,6 +1016,16 @@ components:
           enum: [success]
         data:
           $ref: '#/components/schemas/MenuCategoryList'
+
+    MenuCategoryCreateWrappedResponse:
+      type: object
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/MenuCategoryCreateResult'
 
     MenuListWrappedResponse:
       type: object
