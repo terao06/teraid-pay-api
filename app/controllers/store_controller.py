@@ -9,6 +9,7 @@ from app.models.requests.store_manager_login_request import StoreManagerLoginReq
 from app.models.requests.menu_category_create_request import MenuCategoryCreateRequest
 from app.models.requests.menu_category_update_request import MenuCategoryUpdateRequest
 from app.models.requests.menu_create_request import MenuCreateRequest
+from app.models.requests.menu_update_request import MenuUpdateRequest
 from app.models.responses.store_manager_login_response import StoreManagerLoginResponse
 from app.models.responses.menu_category_response import (
     MenuCategoryCreateResponse,
@@ -17,7 +18,9 @@ from app.models.responses.menu_category_response import (
     MenuCategoryUpdateResponse,
 )
 from app.models.responses.menu_create_response import MenuCreateResponse
+from app.models.responses.menu_detail_response import MenuDetailResponse
 from app.models.responses.menu_list_response import MenuListResponse
+from app.models.responses.menu_update_response import MenuUpdateResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
 from app.services.store_auth_service import StoreAuthService
@@ -29,6 +32,7 @@ from app.core.exceptions.message import (
     SERVER_ERROR,
     MENU_CATEGORY_IMAGE_INVALID_ERROR,
     MENU_CATEGORY_NOT_FOUND_ERROR,
+    MENU_ITEM_NOT_FOUND_ERROR,
     MENU_IMAGE_INVALID_ERROR,
     LOGIN_FAILED_ERROR,
     STORE_MANAGER_INACTIVE_ERROR,
@@ -43,6 +47,7 @@ from app.core.exceptions.custom_exception import (
     MenuCategoryImageInvalidException,
     MenuCategoryNotFoundException,
     MenuImageInvalidException,
+    MenuItemNotFoundException,
     StoreManagerInactiveException,
     StoreNotFoundException,
     UnauthorizedException,
@@ -52,7 +57,7 @@ from app.core.exceptions.custom_exception import (
 
 
 class StoreController:
-    """店舗ウォレット取得 API のリクエストを処理するコントローラーです。"""
+    """店舗管理者向けAPIのユースケース呼び出しと例外変換を行う。"""
 
     @mysql_transaction
     def login_store_manager(
@@ -152,7 +157,7 @@ class StoreController:
             )
 
     @mysql_transaction
-    def get_menu_category(
+    def get_menu_category_detail(
         self,
         mysql_session: Session,
         store_id: int,
@@ -172,7 +177,7 @@ class StoreController:
             HTTPException: カテゴリーが存在しない場合、または処理に失敗した場合。
         """
         try:
-            return StoreMenuCategoryService().get_menu_category(
+            return StoreMenuCategoryService().get_menu_category_detail(
                 mysql_session=mysql_session,
                 store_id=store_id,
                 menu_category_id=menu_category_id,
@@ -301,6 +306,93 @@ class StoreController:
                 is_available=is_available,
                 page=page,
                 page_size=page_size,
+            )
+        except Exception:
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR,
+            )
+
+    @mysql_transaction
+    def get_menu_detail(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        menu_item_id: int,
+    ) -> MenuDetailResponse:
+        """認証済み管理者の店舗に属するメニュー詳細を取得する。
+
+        Args:
+            mysql_session: SQLAlchemyのセッション。
+            store_id: 認証済み管理者の店舗ID。
+            menu_item_id: 取得対象のメニュー商品ID。
+
+        Returns:
+            商品、カテゴリー、画像URL、オプションを含むメニュー詳細。
+
+        Raises:
+            HTTPException: 商品が存在しない場合、または処理に失敗した場合。
+        """
+        try:
+            return StoreMenuService().get_menu_detail(
+                mysql_session=mysql_session,
+                store_id=store_id,
+                menu_item_id=menu_item_id,
+            )
+        except MenuItemNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=404,
+                message=MENU_ITEM_NOT_FOUND_ERROR,
+            )
+        except Exception:
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR,
+            )
+
+    @mysql_transaction
+    def update_menu(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        menu_item_id: int,
+        request: MenuUpdateRequest,
+    ) -> MenuUpdateResponse:
+        """認証済み管理者の店舗に属するメニュー基本情報を更新する。
+
+        Args:
+            mysql_session: SQLAlchemyのセッション。
+            store_id: 認証済み管理者の店舗ID。
+            menu_item_id: 更新対象のメニュー商品ID。
+            request: 更新後の商品基本情報と任意の画像。
+
+        Returns:
+            更新したメニュー商品ID。
+
+        Raises:
+            HTTPException: 商品・カテゴリー未存在、画像不正、処理失敗の場合。
+        """
+        try:
+            return StoreMenuService().update_menu(
+                mysql_session=mysql_session,
+                store_id=store_id,
+                menu_item_id=menu_item_id,
+                request=request,
+            )
+        except MenuItemNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=404,
+                message=MENU_ITEM_NOT_FOUND_ERROR,
+            )
+        except MenuCategoryNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=404,
+                message=MENU_CATEGORY_NOT_FOUND_ERROR,
+            )
+        except MenuImageInvalidException:
+            raise CustomHttpException.get_http_exception(
+                status_code=422,
+                message=MENU_IMAGE_INVALID_ERROR,
             )
         except Exception:
             raise CustomHttpException.get_http_exception(

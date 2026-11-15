@@ -1,3 +1,5 @@
+"""APIの共通エラーメッセージを定義する。"""
+
 SERVER_ERROR = "予期せぬエラーが発生しました。"
 STORE_NOT_FOUND_ERROR = "店舗が存在しません。"
 USER_NOT_FOUND_ERROR = "ユーザーが存在しません。"
@@ -8,6 +10,7 @@ VERIFY_ERROR = "認証に失敗しました。"
 LOGIN_FAILED_ERROR = "メールアドレスまたはパスワードが正しくありません。"
 STORE_MANAGER_INACTIVE_ERROR = "この管理者アカウントは利用できません。"
 MENU_CATEGORY_NOT_FOUND_ERROR = "メニューカテゴリーが存在しません。"
+MENU_ITEM_NOT_FOUND_ERROR = "メニュー商品が存在しません。"
 MENU_IMAGE_INVALID_ERROR = "メニュー画像が正しくありません。"
 MENU_CATEGORY_IMAGE_INVALID_ERROR = "カテゴリー画像が正しくありません。"
 WALLET_CONFLICT_ERROR = "すでにウォレットは作成されています。"

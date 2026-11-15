@@ -21,8 +21,8 @@ from ._helpers import build_menu_image
 class TestUpdateMenuCategory:
     """StoreMenuCategoryServiceのカテゴリー更新を検証する。"""
 
-    @patch("app.services.store_menu_category_service.S3Client")
-    @patch("app.services.store_menu_category_service.SsmClient")
+    @patch("app.helpers.image_replacement_helper.S3Client")
+    @patch("app.helpers.image_replacement_helper.SsmClient")
     @patch("app.services.store_menu_category_service.StoreMenuCategoryRepository")
     def test_updates_category_without_replacing_image(
         self,
@@ -40,7 +40,7 @@ class TestUpdateMenuCategory:
             is_active=False,
         )
         repository = mock_repository_class.return_value
-        repository.get_menu_category.return_value = category
+        repository.get_menu_category_detail.return_value = category
         repository.update_menu_category.side_effect = (
             lambda mysql_session, menu_category: menu_category
         )
@@ -71,8 +71,8 @@ class TestUpdateMenuCategory:
         mock_ssm_client_class.assert_not_called()
         mock_s3_client_class.assert_not_called()
 
-    @patch("app.services.store_menu_category_service.S3Client")
-    @patch("app.services.store_menu_category_service.SsmClient")
+    @patch("app.helpers.image_replacement_helper.S3Client")
+    @patch("app.helpers.image_replacement_helper.SsmClient")
     @patch("app.services.store_menu_category_service.StoreMenuCategoryRepository")
     def test_replaces_image_and_restores_same_key_on_rollback(
         self,
@@ -91,7 +91,7 @@ class TestUpdateMenuCategory:
             is_active=True,
         )
         repository = mock_repository_class.return_value
-        repository.get_menu_category.return_value = category
+        repository.get_menu_category_detail.return_value = category
         repository.update_menu_category.side_effect = (
             lambda mysql_session, menu_category: menu_category
         )
@@ -134,8 +134,8 @@ class TestUpdateMenuCategory:
         assert restored_upload.kwargs["file"].read() == b"old-image"
         s3_client.delete_object.assert_not_called()
 
-    @patch("app.services.store_menu_category_service.S3Client")
-    @patch("app.services.store_menu_category_service.SsmClient")
+    @patch("app.helpers.image_replacement_helper.S3Client")
+    @patch("app.helpers.image_replacement_helper.SsmClient")
     @patch("app.services.store_menu_category_service.StoreMenuCategoryRepository")
     def test_replaces_image_with_new_key_and_restores_old_key_on_rollback(
         self,
@@ -154,7 +154,7 @@ class TestUpdateMenuCategory:
             is_active=True,
         )
         repository = mock_repository_class.return_value
-        repository.get_menu_category.return_value = category
+        repository.get_menu_category_detail.return_value = category
         repository.update_menu_category.side_effect = (
             lambda mysql_session, menu_category: menu_category
         )
@@ -202,7 +202,7 @@ class TestUpdateMenuCategory:
         mock_repository_class,
     ) -> None:
         """対象カテゴリーが存在しない場合は専用例外を送出する。"""
-        mock_repository_class.return_value.get_menu_category.return_value = None
+        mock_repository_class.return_value.get_menu_category_detail.return_value = None
 
         with pytest.raises(MenuCategoryNotFoundException):
             StoreMenuCategoryService().update_menu_category(
@@ -218,8 +218,8 @@ class TestUpdateMenuCategory:
 
         mock_repository_class.return_value.update_menu_category.assert_not_called()
 
-    @patch("app.services.store_menu_category_service.S3Client")
-    @patch("app.services.store_menu_category_service.SsmClient")
+    @patch("app.helpers.image_replacement_helper.S3Client")
+    @patch("app.helpers.image_replacement_helper.SsmClient")
     @patch("app.services.store_menu_category_service.StoreMenuCategoryRepository")
     def test_rejects_invalid_category_image(
         self,
@@ -228,7 +228,7 @@ class TestUpdateMenuCategory:
         mock_s3_client_class,
     ) -> None:
         """画像の実形式と拡張子が一致しない場合は専用例外を送出する。"""
-        mock_repository_class.return_value.get_menu_category.return_value = (
+        mock_repository_class.return_value.get_menu_category_detail.return_value = (
             SimpleNamespace(
                 menu_category_id=12,
                 name="更新前",

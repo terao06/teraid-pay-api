@@ -172,7 +172,7 @@ paths:
       tags: [StoreMenu]
       summary: メニューカテゴリー詳細取得
       description: JWTで認証した店舗管理者のstore_idに紐づく未削除カテゴリーを、画像の署名付きURLとともに取得する。無効カテゴリーも取得対象とする。
-      operationId: getMenuCategory
+      operationId: getMenuCategoryDetail
       security:
         - BearerAuth: []
       parameters:
@@ -391,6 +391,115 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/MenuCategoryNotFound'
+        '422':
+          $ref: '#/components/responses/MenuValidationError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /store/menu/{menu_item_id}:
+    get:
+      tags: [StoreMenu]
+      summary: メニュー詳細取得
+      description: JWTで認証した店舗管理者のstore_idと商品IDに一致する、未削除の商品、カテゴリー、オプショングループ、オプションを取得する。商品画像は署名付きURLで返す。
+      operationId: getMenuDetail
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: menu_item_id
+          in: path
+          required: true
+          description: 取得対象のメニュー商品ID
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: メニュー詳細取得成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuDetailWrappedResponse'
+              example:
+                status: success
+                data:
+                  menu_item_id: 10
+                  menu_category_id: 1
+                  menu_category_name: ハンバーガー
+                  name: チーズバーガー
+                  description: チェダーチーズ入り
+                  price: '800.000000'
+                  token_symbol: JPYC
+                  image_url: https://example.com/menus/101/10.jpeg?signature=...
+                  is_available: true
+                  display_order: 1
+                  option_groups:
+                    - menu_option_group_id: 20
+                      name: サイズ
+                      min_selections: 1
+                      max_selections: 1
+                      display_order: 1
+                      is_active: true
+                      options:
+                        - menu_option_id: 30
+                          name: 大盛り
+                          additional_price: '100.000000'
+                          display_order: 1
+                          is_available: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/MenuItemNotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    put:
+      tags: [StoreMenu]
+      summary: メニュー基本情報更新
+      description: JWTで認証した店舗管理者のstore_idと商品IDに一致する商品の基本情報と任意の画像を更新する。オプショングループとオプションは更新しない。
+      operationId: updateMenu
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: menu_item_id
+          in: path
+          required: true
+          description: 更新対象のメニュー商品ID
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MenuUpdateRequest'
+            example:
+              menu_category_id: 1
+              name: ダブルチーズバーガー
+              description: チーズを2枚に変更
+              price: '950.000000'
+              token_symbol: JPYC
+              menu_image: iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB...
+              image_extension: png
+              is_available: true
+              display_order: 1
+      responses:
+        '200':
+          description: メニュー基本情報更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuUpdateWrappedResponse'
+              example:
+                status: success
+                data:
+                  menu_item_id: 10
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/MenuUpdateNotFound'
         '422':
           $ref: '#/components/responses/MenuValidationError'
         '500':
@@ -623,6 +732,22 @@ components:
             detail:
               status: error
               message: メニューカテゴリーが存在しません。
+    MenuItemNotFound:
+      description: 指定した商品が認証店舗に存在しない、別店舗に属する、または削除済み
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            detail:
+              status: error
+              message: メニュー商品が存在しません。
+    MenuUpdateNotFound:
+      description: 指定した商品またはカテゴリーが認証店舗に存在しない、別店舗に属する、削除済み、もしくはカテゴリーが無効
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     MenuValidationError:
       description: リクエスト形式、画像データ、または画像拡張子が不正
       content:
@@ -868,6 +993,148 @@ components:
           type: integer
           minimum: 0
           description: 表示順
+
+    MenuOption:
+      type: object
+      required:
+        - menu_option_id
+        - name
+        - additional_price
+        - display_order
+        - is_available
+      properties:
+        menu_option_id:
+          type: integer
+          minimum: 1
+          description: メニューオプションID
+        name:
+          type: string
+          description: オプション名
+        additional_price:
+          type: string
+          pattern: '^\d{1,14}(\.\d{6})$'
+          description: 追加料金。小数点以下6桁の文字列。
+        display_order:
+          type: integer
+          minimum: 0
+          description: 表示順
+        is_available:
+          type: boolean
+          description: 選択可能フラグ
+
+    MenuOptionGroup:
+      type: object
+      required:
+        - menu_option_group_id
+        - name
+        - min_selections
+        - max_selections
+        - display_order
+        - is_active
+        - options
+      properties:
+        menu_option_group_id:
+          type: integer
+          minimum: 1
+          description: メニューオプショングループID
+        name:
+          type: string
+          description: オプショングループ名
+        min_selections:
+          type: integer
+          minimum: 0
+          description: 最小選択数
+        max_selections:
+          type: integer
+          minimum: 1
+          description: 最大選択数
+        display_order:
+          type: integer
+          minimum: 0
+          description: 表示順
+        is_active:
+          type: boolean
+          description: 有効フラグ
+        options:
+          type: array
+          description: 未削除のオプション一覧。存在しない場合は空配列。
+          items:
+            $ref: '#/components/schemas/MenuOption'
+
+    MenuDetail:
+      allOf:
+        - $ref: '#/components/schemas/MenuItem'
+        - type: object
+          required: [option_groups]
+          properties:
+            option_groups:
+              type: array
+              description: 未削除のオプショングループ一覧。存在しない場合は空配列。
+              items:
+                $ref: '#/components/schemas/MenuOptionGroup'
+
+    MenuUpdateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - menu_category_id
+        - name
+        - description
+        - price
+        - token_symbol
+        - is_available
+        - display_order
+      properties:
+        menu_category_id:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: 認証店舗に紐づく有効なカテゴリーID。未分類の場合はnull。
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: 商品名
+        description:
+          type: string
+          nullable: true
+          description: 商品説明
+        price:
+          oneOf:
+            - type: number
+              minimum: 0
+            - type: string
+              pattern: '^\d{1,14}(\.\d{1,6})?$'
+          description: 基本価格。小数点以下6桁まで指定可能。
+        token_symbol:
+          type: string
+          minLength: 1
+          maxLength: 20
+          description: トークンシンボル
+        menu_image:
+          type: string
+          format: byte
+          description: 任意のBase64形式の商品画像。image_extensionと同時指定する。
+        image_extension:
+          type: string
+          enum: [jpeg, jpg, png]
+          description: 任意の商品画像拡張子。menu_imageと同時指定する。
+        is_available:
+          type: boolean
+          description: 販売可能フラグ
+        display_order:
+          type: integer
+          minimum: 0
+          description: 表示順
+
+    MenuUpdateResult:
+      type: object
+      required: [menu_item_id]
+      properties:
+        menu_item_id:
+          type: integer
+          minimum: 1
+          description: メニュー商品ID
 
     MenuList:
       type: object
@@ -1276,6 +1543,26 @@ components:
           enum: [success]
         data:
           $ref: '#/components/schemas/MenuList'
+
+    MenuDetailWrappedResponse:
+      type: object
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/MenuDetail'
+
+    MenuUpdateWrappedResponse:
+      type: object
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/MenuUpdateResult'
 
     MenuCreateWrappedResponse:
       type: object

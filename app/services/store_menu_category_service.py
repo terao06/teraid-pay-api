@@ -6,10 +6,15 @@ from sqlalchemy.orm import Session
 from app.core.aws.s3_client import S3Client
 from app.core.aws.ssm_manager import SsmClient
 from app.core.exceptions.custom_exception import (
+    InvalidImageError,
     MenuCategoryImageInvalidException,
     MenuCategoryNotFoundException,
 )
 from app.core.utils.image import ImageUtil
+from app.helpers.image_replacement_helper import (
+    ImageBucketType,
+    ImageReplacementHelper,
+)
 from app.middlewares.transaction import add_mysql_rollback_callback
 from app.models.mysql.menu_category import MenuCategory
 from app.models.requests.menu_category_create_request import MenuCategoryCreateRequest
@@ -69,7 +74,7 @@ class StoreMenuCategoryService:
                 display_order=category.display_order, is_active=category.is_active))
         return MenuCategoryListResponse(menu_categories=responses, pagination=pagination)
 
-    def get_menu_category(
+    def get_menu_category_detail(
         self,
         mysql_session: Session,
         store_id: int,
@@ -88,7 +93,7 @@ class StoreMenuCategoryService:
         Raises:
             MenuCategoryNotFoundException: 対象カテゴリーが存在しない場合。
         """
-        category = StoreMenuCategoryRepository().get_menu_category(
+        category = StoreMenuCategoryRepository().get_menu_category_detail(
             mysql_session=mysql_session,
             store_id=store_id,
             menu_category_id=menu_category_id,
@@ -136,7 +141,7 @@ class StoreMenuCategoryService:
             MenuCategoryImageInvalidException: 更新画像を読み込めない場合。
         """
         repository = StoreMenuCategoryRepository()
-        category = repository.get_menu_category(
+        category = repository.get_menu_category_detail(
             mysql_session=mysql_session,
             store_id=store_id,
             menu_category_id=menu_category_id,
@@ -147,13 +152,26 @@ class StoreMenuCategoryService:
             )
 
         if request.category_image is not None and request.image_extension is not None:
-            self._replace_category_image(
-                mysql_session=mysql_session,
-                store_id=store_id,
-                category=category,
-                category_image=request.category_image,
-                image_extension=request.image_extension.value,
+            old_extension = category.image_extension
+            old_key = f"{store_id}/{category.menu_category_id}.{old_extension}"
+            new_key = (
+                f"{store_id}/{category.menu_category_id}."
+                f"{request.image_extension.value}"
             )
+            try:
+                ImageReplacementHelper().replace_image(
+                    mysql_session=mysql_session,
+                    image_content=request.category_image,
+                    old_key=old_key,
+                    new_key=new_key,
+                    old_extension=old_extension,
+                    new_extension=request.image_extension.value,
+                    image_bucket_type=ImageBucketType.CATEGORY,
+                )
+            except InvalidImageError as exc:
+                raise MenuCategoryImageInvalidException(
+                    "カテゴリー画像を読み込めません。"
+                ) from exc
             category.image_extension = request.image_extension.value
 
         category.name = request.name
@@ -169,111 +187,6 @@ class StoreMenuCategoryService:
             display_order=updated_category.display_order,
             is_active=updated_category.is_active,
         )
-
-    def _replace_category_image(
-        self,
-        mysql_session: Session,
-        store_id: int,
-        category: MenuCategory,
-        category_image: str,
-        image_extension: str,
-    ) -> None:
-        """カテゴリー画像を差し替え、DBロールバック時の復元処理を登録する。
-
-        Args:
-            mysql_session: 補償処理を紐づけるSQLAlchemyのセッション。
-            store_id: 更新対象の店舗ID。
-            category: 更新対象のメニューカテゴリー。
-            category_image: Base64形式の新しいカテゴリー画像。
-            image_extension: 新しいカテゴリー画像の拡張子。
-
-        Returns:
-            なし。
-
-        Raises:
-            MenuCategoryImageInvalidException: 更新画像を読み込めない場合。
-        """
-        try:
-            new_image_bytes = ImageUtil.decode_base64_image(
-                content=category_image,
-                image_extension=image_extension,
-            )
-        except ValueError as exc:
-            raise MenuCategoryImageInvalidException(
-                "カテゴリー画像を読み込めません。"
-            ) from exc
-
-        params = SsmClient()
-        client = S3Client(s3_endpoint=params.s3_endpoint)
-        old_extension = category.image_extension
-        old_key = f"{store_id}/{category.menu_category_id}.{old_extension}"
-        new_key = f"{store_id}/{category.menu_category_id}.{image_extension}"
-        old_image_bytes = client.get_object(
-            bucket_name=params.category_image_bucket,
-            key=old_key,
-        )
-        add_mysql_rollback_callback(
-            mysql_session=mysql_session,
-            callback=lambda: self._restore_category_image(
-                client=client,
-                bucket_name=params.category_image_bucket,
-                old_key=old_key,
-                old_image_bytes=old_image_bytes,
-                old_extension=old_extension,
-                new_key=new_key,
-            ),
-        )
-        client.upload_object(
-            bucket_name=params.category_image_bucket,
-            file=BytesIO(new_image_bytes),
-            file_name=new_key,
-            content_type=ImageUtil.get_content_type(
-                image_extension=image_extension,
-            ),
-        )
-        if new_key != old_key:
-            client.delete_object(
-                bucket_name=params.category_image_bucket,
-                file_name=old_key,
-            )
-
-    @staticmethod
-    def _restore_category_image(
-        client: S3Client,
-        bucket_name: str,
-        old_key: str,
-        old_image_bytes: bytes,
-        old_extension: str,
-        new_key: str,
-    ) -> None:
-        """新画像を除去し、メモリに保持した旧画像をS3へ復元する。
-
-        Args:
-            client: S3操作に使用するクライアント。
-            bucket_name: カテゴリー画像を保存するバケット名。
-            old_key: 復元する旧画像のオブジェクトキー。
-            old_image_bytes: メモリに保持した旧画像データ。
-            old_extension: 旧画像の拡張子。
-            new_key: 削除対象となる新画像のオブジェクトキー。
-
-        Returns:
-            なし。
-        """
-        try:
-            if new_key != old_key:
-                client.delete_object(
-                    bucket_name=bucket_name,
-                    file_name=new_key,
-                )
-        finally:
-            client.upload_object(
-                bucket_name=bucket_name,
-                file=BytesIO(old_image_bytes),
-                file_name=old_key,
-                content_type=ImageUtil.get_content_type(
-                    image_extension=old_extension,
-                ),
-            )
 
     def create_menu_category(self, mysql_session: Session, store_id: int,
                              request: MenuCategoryCreateRequest) -> MenuCategoryCreateResponse:

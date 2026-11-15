@@ -5,15 +5,31 @@ from sqlalchemy.orm import Session
 
 from app.core.aws.s3_client import S3Client
 from app.core.aws.ssm_manager import SsmClient
-from app.core.exceptions.custom_exception import MenuCategoryNotFoundException, MenuImageInvalidException
+from app.core.exceptions.custom_exception import (
+    InvalidImageError,
+    MenuCategoryNotFoundException,
+    MenuImageInvalidException,
+    MenuItemNotFoundException,
+)
 from app.core.utils.image import ImageUtil
+from app.helpers.image_replacement_helper import (
+    ImageBucketType,
+    ImageReplacementHelper,
+)
 from app.middlewares.transaction import add_mysql_rollback_callback
 from app.models.mysql.menu_item import MenuItem
 from app.models.mysql.menu_option import MenuOption
 from app.models.mysql.menu_option_group import MenuOptionGroup
 from app.models.requests.menu_create_request import MenuCreateRequest
+from app.models.requests.menu_update_request import MenuUpdateRequest
 from app.models.responses.menu_create_response import MenuCreateResponse, MenuOptionGroupCreateResponse
+from app.models.responses.menu_detail_response import (
+    MenuDetailResponse,
+    MenuOptionGroupResponse,
+    MenuOptionResponse,
+)
 from app.models.responses.menu_list_response import MenuItemResponse, MenuListResponse, MenuPaginationResponse
+from app.models.responses.menu_update_response import MenuUpdateResponse
 from app.repositories.mysql.store_menu_repository import StoreMenuRepository
 
 
@@ -66,6 +82,172 @@ class StoreMenuService:
                     expires_in=params.menu_image_url_expires_in),
                 is_available=item.is_available, display_order=item.display_order))
         return MenuListResponse(menu_items=responses, pagination=pagination)
+
+    def get_menu_detail(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        menu_item_id: int,
+    ) -> MenuDetailResponse:
+        """店舗のメニュー商品をカテゴリーとオプション付きで取得する。
+
+        Args:
+            mysql_session: SQLAlchemyのセッション。
+            store_id: 認証済み管理者の店舗ID。
+            menu_item_id: 取得対象のメニュー商品ID。
+
+        Returns:
+            商品画像URL、カテゴリー、オプションを含むメニュー詳細。
+
+        Raises:
+            MenuItemNotFoundException: 対象商品が認証店舗に存在しない場合。
+        """
+        rows = StoreMenuRepository().get_menu_detail(
+            mysql_session=mysql_session,
+            store_id=store_id,
+            menu_item_id=menu_item_id,
+        )
+        if not rows:
+            raise MenuItemNotFoundException("メニュー商品が存在しません。")
+
+        item, category_name, _, _ = rows[0]
+        grouped_options: dict[
+            int,
+            tuple[MenuOptionGroup, list[MenuOptionResponse]],
+        ] = {}
+        for _, _, option_group, option in rows:
+            if option_group is None:
+                continue
+            group_data = grouped_options.get(option_group.menu_option_group_id)
+            if group_data is None:
+                group_data = (option_group, [])
+                grouped_options[option_group.menu_option_group_id] = group_data
+            if option is not None:
+                group_data[1].append(
+                    MenuOptionResponse(
+                        menu_option_id=option.menu_option_id,
+                        name=option.name,
+                        additional_price=f"{option.additional_price:.6f}",
+                        display_order=option.display_order,
+                        is_available=option.is_available,
+                    )
+                )
+
+        option_groups = [
+            MenuOptionGroupResponse(
+                menu_option_group_id=option_group.menu_option_group_id,
+                name=option_group.name,
+                min_selections=option_group.min_selections,
+                max_selections=option_group.max_selections,
+                display_order=option_group.display_order,
+                is_active=option_group.is_active,
+                options=options,
+            )
+            for option_group, options in grouped_options.values()
+        ]
+        params = SsmClient()
+        client = S3Client(s3_endpoint=params.s3_endpoint)
+        key = f"{store_id}/{item.menu_item_id}.{item.image_extension}"
+        return MenuDetailResponse(
+            menu_item_id=item.menu_item_id,
+            menu_category_id=(
+                item.menu_category_id if category_name is not None else None
+            ),
+            menu_category_name=category_name,
+            name=item.name,
+            description=item.description,
+            price=f"{item.price:.6f}",
+            token_symbol=item.token_symbol,
+            image_url=client.generate_presigned_get_url(
+                bucket_name=params.menu_image_bucket,
+                file_name=key,
+                expires_in=params.menu_image_url_expires_in,
+            ),
+            is_available=item.is_available,
+            display_order=item.display_order,
+            option_groups=option_groups,
+        )
+
+    def update_menu(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        menu_item_id: int,
+        request: MenuUpdateRequest,
+    ) -> MenuUpdateResponse:
+        """店舗に属するメニュー商品の基本情報と任意の画像を更新する。
+
+        Args:
+            mysql_session: SQLAlchemyのセッション。
+            store_id: 認証済み管理者の店舗ID。
+            menu_item_id: 更新対象のメニュー商品ID。
+            request: 更新後の商品基本情報と任意の画像。
+
+        Returns:
+            更新したメニュー商品ID。
+
+        Raises:
+            MenuItemNotFoundException: 対象商品が認証店舗に存在しない場合。
+            MenuCategoryNotFoundException: 指定カテゴリーを利用できない場合。
+            MenuImageInvalidException: 差し替え画像を読み込めない場合。
+        """
+        repository = StoreMenuRepository()
+        item = repository.get_menu_item_for_update(
+            mysql_session=mysql_session,
+            store_id=store_id,
+            menu_item_id=menu_item_id,
+        )
+        if item is None:
+            raise MenuItemNotFoundException("メニュー商品が存在しません。")
+        if (
+            request.menu_category_id is not None
+            and repository.get_active_menu_category(
+                mysql_session=mysql_session,
+                store_id=store_id,
+                menu_category_id=request.menu_category_id,
+            )
+            is None
+        ):
+            raise MenuCategoryNotFoundException(
+                "指定されたメニューカテゴリーは利用できません。"
+            )
+
+        if request.menu_image is not None and request.image_extension is not None:
+            old_extension = item.image_extension
+            old_key = f"{store_id}/{item.menu_item_id}.{old_extension}"
+            new_key = (
+                f"{store_id}/{item.menu_item_id}.{request.image_extension.value}"
+            )
+            try:
+                ImageReplacementHelper().replace_image(
+                    mysql_session=mysql_session,
+                    image_content=request.menu_image,
+                    old_key=old_key,
+                    new_key=new_key,
+                    old_extension=old_extension,
+                    new_extension=request.image_extension.value,
+                    image_bucket_type=ImageBucketType.MENU,
+                )
+            except InvalidImageError as exc:
+                raise MenuImageInvalidException(
+                    "メニュー画像を読み込めません。"
+                ) from exc
+            item.image_extension = request.image_extension.value
+
+        item.menu_category_id = request.menu_category_id
+        item.name = request.name
+        item.description = request.description
+        item.price = request.price
+        item.token_symbol = request.token_symbol
+        item.is_available = request.is_available
+        item.display_order = request.display_order
+        updated_item = repository.update_menu_item(
+            mysql_session=mysql_session,
+            menu_item=item,
+        )
+        return MenuUpdateResponse(
+            menu_item_id=updated_item.menu_item_id,
+        )
 
     def create_menu(self, mysql_session: Session, store_id: int,
                     request: MenuCreateRequest) -> MenuCreateResponse:
