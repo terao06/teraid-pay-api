@@ -63,10 +63,42 @@ paths:
     get:
       tags: [StoreMenu]
       summary: メニューカテゴリー取得
-      description: JWTで認証した店舗管理者のstore_idに紐づく、有効かつ未削除のカテゴリーを表示順で取得する。
+      description: JWTで認証した店舗管理者のstore_idに紐づく未削除カテゴリーを、検索条件とページ指定に従い画像の署名付きURLとともに取得する。
       operationId: getMenuCategories
       security:
         - BearerAuth: []
+      parameters:
+        - name: name
+          in: query
+          required: false
+          description: カテゴリー名の部分一致検索。ワイルドカード文字は通常文字として扱う。
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - name: is_active
+          in: query
+          required: false
+          description: 有効状態による完全一致検索。未指定時は有効カテゴリーを取得する。
+          schema:
+            type: boolean
+            default: true
+        - name: page
+          in: query
+          required: false
+          description: ページ番号。1から開始する。
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          required: false
+          description: 1ページあたりの取得件数。未指定時はページングせず全カテゴリーを取得する。
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
       responses:
         '200':
           description: カテゴリー取得成功。該当するカテゴリーがない場合は空配列を返す。
@@ -80,9 +112,18 @@ paths:
                   menu_categories:
                     - menu_category_id: 9001
                       name: API Demo Category
+                      image_url: https://example.com/categories/9001/9001.png?signature=...
                       display_order: 1
+                      is_active: true
+                  pagination:
+                    page: 1
+                    page_size: null
+                    total: 1
+                    total_pages: 1
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/ServerError'
 
@@ -526,7 +567,7 @@ components:
 
     MenuCategory:
       type: object
-      required: [menu_category_id, name, display_order]
+      required: [menu_category_id, name, image_url, display_order, is_active]
       properties:
         menu_category_id:
           type: integer
@@ -535,20 +576,52 @@ components:
         name:
           type: string
           description: メニューカテゴリー名
+        image_url:
+          type: string
+          format: uri
+          description: カテゴリー画像を取得する有効期限付き署名付きURL
         display_order:
           type: integer
           minimum: 0
           description: 表示順
+        is_active:
+          type: boolean
+          description: 有効フラグ
 
     MenuCategoryList:
       type: object
-      required: [menu_categories]
+      required: [menu_categories, pagination]
       properties:
         menu_categories:
           type: array
-          description: 認証店舗の有効なメニューカテゴリー一覧
+          description: 認証店舗の検索条件に一致するメニューカテゴリー一覧
           items:
             $ref: '#/components/schemas/MenuCategory'
+        pagination:
+          $ref: '#/components/schemas/MenuCategoryPagination'
+
+    MenuCategoryPagination:
+      type: object
+      required: [page, page_size, total, total_pages]
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          description: 現在のページ番号。全件取得時は1。
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 100
+          nullable: true
+          description: 1ページあたりの取得件数。全件取得時はnull。
+        total:
+          type: integer
+          minimum: 0
+          description: 検索条件に一致する総件数。
+        total_pages:
+          type: integer
+          minimum: 0
+          description: 総ページ数。全件取得時は1、該当カテゴリーがない場合は0。
 
     MenuCategoryCreateRequest:
       type: object

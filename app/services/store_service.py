@@ -41,6 +41,7 @@ from app.models.responses.store_manager_login_response import (
 from app.models.responses.menu_category_response import (
     MenuCategoryCreateResponse,
     MenuCategoryListResponse,
+    MenuCategoryPaginationResponse,
     MenuCategoryResponse,
 )
 from app.models.requests.menu_category_create_request import MenuCategoryCreateRequest
@@ -69,7 +70,16 @@ class StoreService:
         email: str,
         password: str,
     ) -> StoreManagerLoginResponse:
-        """店舗管理者を認証し、JWTアクセストークンを発行する。"""
+        """店舗管理者を認証し、JWTアクセストークンを発行する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            email: 店舗管理者のメールアドレス。
+            password: 店舗管理者のパスワード。
+
+        Returns:
+            JWTアクセストークンと店舗管理者情報。
+        """
         normalized_email = email.strip().lower()
         store_manager = StoreRepository().get_store_manager_by_email(
             mysql_session=mysql_session,
@@ -144,29 +154,90 @@ class StoreService:
         self,
         mysql_session: Session,
         store_id: int,
+        name: str | None = None,
+        is_active: bool = True,
+        page: int = 1,
+        page_size: int | None = None,
     ) -> MenuCategoryListResponse:
-        """店舗に紐づく有効なメニューカテゴリー一覧を取得する。
+        """店舗に紐づくメニューカテゴリーを検索してページ単位で取得する。
 
         Args:
             mysql_session: SQLAlchemy のセッション。
             store_id: 対象店舗の ID。
+            name: カテゴリー名の部分一致検索条件。
+            is_active: 有効状態の完全一致検索条件。
+            page: 取得するページ番号。
+            page_size: 1ページあたりの取得件数。未指定時は全件取得する。
 
         Returns:
-            メニューカテゴリー一覧のレスポンス。
+            カテゴリー一覧、画像URL、ページネーションを含むレスポンス。
         """
-        menu_categories = StoreRepository().get_active_menu_categories(
+        repository = StoreRepository()
+        total = repository.count_menu_categories(
             mysql_session=mysql_session,
             store_id=store_id,
+            name=name,
+            is_active=is_active,
         )
-        return MenuCategoryListResponse(
-            menu_categories=[
+        pagination_enabled = page_size is not None
+        response_page = page if pagination_enabled else 1
+        total_pages = (
+            (total + page_size - 1) // page_size
+            if page_size is not None
+            else (1 if total > 0 else 0)
+        )
+        pagination = MenuCategoryPaginationResponse(
+            page=response_page,
+            page_size=page_size,
+            total=total,
+            total_pages=total_pages,
+        )
+        if total == 0:
+            return MenuCategoryListResponse(
+                menu_categories=[],
+                pagination=pagination,
+            )
+
+        menu_categories = repository.get_menu_categories(
+            mysql_session=mysql_session,
+            store_id=store_id,
+            name=name,
+            is_active=is_active,
+            offset=(page - 1) * page_size if page_size is not None else 0,
+            limit=page_size,
+        )
+        if not menu_categories:
+            return MenuCategoryListResponse(
+                menu_categories=[],
+                pagination=pagination,
+            )
+
+        ssm_params = SsmClient()
+        s3_client = S3Client(s3_endpoint=ssm_params.s3_endpoint)
+        menu_category_responses = []
+        for menu_category in menu_categories:
+            image_object_key = (
+                f"{store_id}/{menu_category.menu_category_id}."
+                f"{menu_category.image_extension}"
+            )
+            image_url = s3_client.generate_presigned_get_url(
+                bucket_name=ssm_params.category_image_bucket,
+                file_name=image_object_key,
+                expires_in=ssm_params.menu_image_url_expires_in,
+            )
+            menu_category_responses.append(
                 MenuCategoryResponse(
                     menu_category_id=menu_category.menu_category_id,
                     name=menu_category.name,
+                    image_url=image_url,
                     display_order=menu_category.display_order,
+                    is_active=menu_category.is_active,
                 )
-                for menu_category in menu_categories
-            ]
+            )
+
+        return MenuCategoryListResponse(
+            menu_categories=menu_category_responses,
+            pagination=pagination,
         )
 
     def create_menu_category(
@@ -175,7 +246,16 @@ class StoreService:
         store_id: int,
         request: MenuCategoryCreateRequest,
     ) -> MenuCategoryCreateResponse:
-        """店舗に紐づくメニューカテゴリーとカテゴリー画像を登録する。"""
+        """店舗に紐づくメニューカテゴリーとカテゴリー画像を登録する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            store_id: 登録先店舗の ID。
+            request: カテゴリー名、画像、表示順、有効状態を含む登録情報。
+
+        Returns:
+            登録したカテゴリーの ID、名称、表示順、有効状態。
+        """
         try:
             category_image_bytes = ImageUtil.decode_base64_image(
                 content=request.category_image,
@@ -243,9 +323,14 @@ class StoreService:
         Args:
             mysql_session: SQLAlchemy のセッション。
             store_id: 対象店舗の ID。
+            name: 商品名の部分一致検索条件。
+            menu_category_id: カテゴリー ID の完全一致検索条件。
+            is_available: 販売可能状態の完全一致検索条件。
+            page: 取得するページ番号。
+            page_size: 1ページあたりの取得件数。
 
         Returns:
-            メニュー商品一覧のレスポンス。
+            商品一覧、画像URL、ページネーションを含むレスポンス。
         """
         repository = StoreRepository()
         total = repository.count_menu_items(
@@ -567,12 +652,14 @@ class StoreService:
             mysql_session: SQLAlchemy のセッション。
             store_id: 対象店舗の ID。
             wallet_address: 登録対象のウォレットアドレス。
-            signature: 署名値。
             chain_type: チェーン種別。
             network_name: ネットワーク名。
+            token_symbol: ウォレットで利用するトークンシンボル。
+            chain_id: 対象ネットワークのチェーン ID。
+            nonce_entity: 検証済みの nonce エンティティ。
 
         Returns:
-            WalletVerifyResponse: ウォレット検証レスポンス
+            WalletVerifyResponse: ウォレット検証レスポンス。
         """
 
         store_repository = StoreRepository()
