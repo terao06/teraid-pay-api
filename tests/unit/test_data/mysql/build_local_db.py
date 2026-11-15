@@ -110,6 +110,10 @@ def insert_menu_categories(engine) -> str:
     return _execute_sql_file(engine, "menu_categories.sql")
 
 
+def insert_menu_items(engine) -> str:
+    return _execute_sql_file(engine, "menu_items.sql")
+
+
 def insert_users(engine) -> str:
     return _execute_sql_file(engine, "users.sql")
 
@@ -147,6 +151,7 @@ def insert_sample_data(engine) -> list[str]:
         insert_stores(engine),
         insert_store_managers(engine),
         insert_menu_categories(engine),
+        insert_menu_items(engine),
         insert_users(engine),
         insert_wallets(engine),
         insert_user_wallets(engine),

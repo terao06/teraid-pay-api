@@ -1,9 +1,37 @@
 from functools import wraps, lru_cache
 import logging
+from collections.abc import Callable
 from app.core.database.mysql import MySQLDatabase
 from app.core.database.postgres import PostgresSQLDatabase
 
 logger = logging.getLogger(__name__)
+MYSQL_ROLLBACK_CALLBACKS_KEY = "mysql_rollback_callbacks"
+
+
+def add_mysql_rollback_callback(
+    mysql_session,
+    callback: Callable[[], None],
+) -> None:
+    """MySQLトランザクション失敗時に実行する補償処理を登録する。
+
+    Args:
+        mysql_session: 補償処理を紐づけるSQLAlchemyセッション。
+        callback: ロールバック後に実行する補償処理。
+
+    Returns:
+        なし。
+    """
+    mysql_session.info.setdefault(MYSQL_ROLLBACK_CALLBACKS_KEY, []).append(callback)
+
+
+def _run_mysql_rollback_callbacks(session) -> None:
+    """登録済みのMySQLロールバック補償処理を逆順で実行する。"""
+    callbacks = session.info.pop(MYSQL_ROLLBACK_CALLBACKS_KEY, [])
+    for callback in reversed(callbacks):
+        try:
+            callback()
+        except Exception:
+            logger.exception("Error during MySQL rollback compensation")
 
 
 @lru_cache()
@@ -54,9 +82,11 @@ def mysql_transaction(func):
                 kwargs['mysql_session'] = session
                 result = func(*args, **kwargs)
                 session.commit()
+                session.info.pop(MYSQL_ROLLBACK_CALLBACKS_KEY, None)
                 return result
             except Exception as e:
                 session.rollback()
+                _run_mysql_rollback_callbacks(session)
                 logger.error(f"Error during transaction: {e}")
                 raise
 

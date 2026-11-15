@@ -119,6 +119,27 @@ def store_client_with_db(
 
 
 @pytest.fixture()
+def store_client_with_db_for_menu_create(
+    client_with_db: TestClient,
+    insert_store_managers,
+) -> TestClient:
+    """店舗106の管理者JWTを設定したメニュー登録テスト用クライアントを返す。"""
+    login_response = client_with_db.post(
+        "/store/manager/login",
+        json={
+            "email": "menu-create-manager@example.com",
+            "password": "password123",
+        },
+    )
+    assert login_response.status_code == 200
+    access_token = login_response.json()["data"]["access_token"]
+    client_with_db.headers.update(
+        {"Authorization": f"Bearer {access_token}"}
+    )
+    return client_with_db
+
+
+@pytest.fixture()
 def store_client_with_db_without_wallet_manager(
     store_client_with_db: TestClient,
 ) -> TestClient:

@@ -29,6 +29,14 @@ class StoreManagerInactiveException(Exception):
     pass
 
 
+class MenuCategoryNotFoundException(Exception):
+    pass
+
+
+class MenuImageInvalidException(Exception):
+    pass
+
+
 class WalletNotFoundException(Exception):
     pass
 

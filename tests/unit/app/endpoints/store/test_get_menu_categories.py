@@ -18,6 +18,7 @@ class TestGetMenuCategories:
         mock_get_menu_categories,
         client,
     ) -> None:
+        """controllerの取得結果を共通レスポンス形式で返すことを確認する。"""
         mock_get_menu_categories.return_value = MenuCategoryListResponse(
             menu_categories=[
                 MenuCategoryResponse(
@@ -61,6 +62,7 @@ class TestGetMenuCategories:
         mock_get_menu_categories,
         client,
     ) -> None:
+        """controllerが送出したHTTPExceptionをそのまま返すことを確認する。"""
         mock_get_menu_categories.side_effect = HTTPException(
             status_code=500,
             detail={"status": "error", "message": "server error"},
