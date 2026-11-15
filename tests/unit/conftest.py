@@ -1,3 +1,5 @@
+"""単体テストで共有するDB・AWS・テストデータfixtureを提供する。"""
+
 import os
 from collections.abc import Generator
 from collections.abc import Callable
@@ -14,6 +16,8 @@ from app.models.postgres.face_embedding import FaceEmbedding
 from tests.unit.test_data.mysql.build_local_db import (
     build_database_url,
     import_mysql_models,
+    insert_menu_option_groups as load_menu_option_groups,
+    insert_menu_options as load_menu_options,
     insert_sample_data as load_mysql_sample_data,
 )
 from tests.unit.test_data.postgres.build_local_db import (
@@ -174,6 +178,40 @@ def insert_menu_categories(mysql_engine, insert_stores) -> str:
 @pytest.fixture()
 def insert_menu_items(mysql_engine, insert_menu_categories) -> str:
     return "menu_items.sql"
+
+
+@pytest.fixture()
+def insert_menu_option_groups_update(
+    mysql_engine,
+    mysql_session: Session,
+    insert_menu_items,
+) -> Generator[str, None, None]:
+    """オプション構成更新専用データを投入し、テスト後に削除する。
+
+    Args:
+        mysql_engine: テスト用MySQL Engine。
+        mysql_session: テストから参照されるSQLAlchemyセッション。
+        insert_menu_items: メニュー商品データ投入済みを示すfixture。
+
+    Yields:
+        実行したSQLファイル名。
+    """
+    group_file_name = load_menu_option_groups(mysql_engine)
+    option_file_name = load_menu_options(mysql_engine)
+    yield f"{group_file_name}, {option_file_name}"
+    mysql_session.rollback()
+    mysql_session.expire_all()
+    with mysql_engine.begin() as connection:
+        connection.exec_driver_sql(
+            "DELETE menu_options FROM menu_options "
+            "INNER JOIN menu_option_groups "
+            "ON menu_options.menu_option_group_id = "
+            "menu_option_groups.menu_option_group_id "
+            "WHERE menu_option_groups.menu_item_id = 24"
+        )
+        connection.exec_driver_sql(
+            "DELETE FROM menu_option_groups WHERE menu_item_id = 24"
+        )
 
 
 @pytest.fixture()

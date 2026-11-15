@@ -97,11 +97,11 @@ class TestCreateMenu:
             menu_option.menu_option_id = next(menu_option_ids)
             return menu_option
 
-        mock_repository.create_menu_item.side_effect = save_menu_item
-        mock_repository.create_menu_option_group.side_effect = (
+        mock_repository.save_menu_item.side_effect = save_menu_item
+        mock_repository.save_menu_option_group.side_effect = (
             save_menu_option_group
         )
-        mock_repository.create_menu_option.side_effect = save_menu_option
+        mock_repository.save_menu_option.side_effect = save_menu_option
         mock_s3_client.upload_object.side_effect = (
             lambda **kwargs: call_order.append("s3_upload")
         )
@@ -118,7 +118,7 @@ class TestCreateMenu:
             store_id=101,
             menu_category_id=12,
         )
-        saved_menu_item = mock_repository.create_menu_item.call_args.kwargs[
+        saved_menu_item = mock_repository.save_menu_item.call_args.kwargs[
             "menu_item"
         ]
         assert saved_menu_item.store_id == 101
@@ -126,8 +126,8 @@ class TestCreateMenu:
         assert saved_menu_item.name == "チーズバーガー"
         assert saved_menu_item.price == Decimal("800.000000")
         assert saved_menu_item.image_extension == "png"
-        assert mock_repository.create_menu_option_group.call_count == 1
-        assert mock_repository.create_menu_option.call_count == 2
+        assert mock_repository.save_menu_option_group.call_count == 1
+        assert mock_repository.save_menu_option.call_count == 2
         mock_s3_client_class.assert_called_once_with(s3_endpoint="http://s3.local")
         mock_s3_client.upload_object.assert_called_once()
         upload_kwargs = mock_s3_client.upload_object.call_args.kwargs
@@ -173,7 +173,7 @@ class TestCreateMenu:
             menu_item.menu_item_id = 11
             return menu_item
 
-        mock_repository.create_menu_item.side_effect = save_menu_item
+        mock_repository.save_menu_item.side_effect = save_menu_item
 
         result = StoreMenuService().create_menu(
             mysql_session=mysql_session,
@@ -183,8 +183,8 @@ class TestCreateMenu:
 
         assert result == MenuCreateResponse(menu_item_id=11)
         mock_repository.get_active_menu_category.assert_not_called()
-        mock_repository.create_menu_option_group.assert_not_called()
-        mock_repository.create_menu_option.assert_not_called()
+        mock_repository.save_menu_option_group.assert_not_called()
+        mock_repository.save_menu_option.assert_not_called()
         mock_s3_client_class.return_value.upload_object.assert_called_once()
 
     @patch("app.services.store_menu_service.StoreMenuRepository")
@@ -211,9 +211,9 @@ class TestCreateMenu:
                 request=request,
             )
 
-        mock_repository.create_menu_item.assert_not_called()
-        mock_repository.create_menu_option_group.assert_not_called()
-        mock_repository.create_menu_option.assert_not_called()
+        mock_repository.save_menu_item.assert_not_called()
+        mock_repository.save_menu_option_group.assert_not_called()
+        mock_repository.save_menu_option.assert_not_called()
 
     @patch("app.services.store_menu_service.StoreMenuRepository")
     def test_create_menu_raise_when_menu_image_invalid(
