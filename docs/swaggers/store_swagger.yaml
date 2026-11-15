@@ -167,6 +167,46 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
+  /store/menu/categories/{menu_category_id}:
+    get:
+      tags: [StoreMenu]
+      summary: メニューカテゴリー詳細取得
+      description: JWTで認証した店舗管理者のstore_idに紐づく未削除カテゴリーを、画像の署名付きURLとともに取得する。無効カテゴリーも取得対象とする。
+      operationId: getMenuCategory
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: menu_category_id
+          in: path
+          required: true
+          description: 取得対象のメニューカテゴリーID。
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: カテゴリー詳細取得成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuCategoryWrappedResponse'
+              example:
+                status: success
+                data:
+                  menu_category_id: 1
+                  name: ハンバーガー
+                  image_url: https://example.com/categories/101/1.png?signature=...
+                  display_order: 1
+                  is_active: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/MenuCategoryDetailNotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
   /store/menu:
     get:
       tags: [StoreMenu]
@@ -515,6 +555,16 @@ components:
             $ref: '#/components/schemas/ValidationErrorResponse'
     MenuCategoryNotFound:
       description: 指定したカテゴリーが認証店舗に存在しない、無効、または削除済み
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            detail:
+              status: error
+              message: メニューカテゴリーが存在しません。
+    MenuCategoryDetailNotFound:
+      description: 指定したカテゴリーが認証店舗に存在しない、別店舗に属する、または削除済み
       content:
         application/json:
           schema:
@@ -1089,6 +1139,16 @@ components:
           enum: [success]
         data:
           $ref: '#/components/schemas/MenuCategoryList'
+
+    MenuCategoryWrappedResponse:
+      type: object
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/MenuCategory'
 
     MenuCategoryCreateWrappedResponse:
       type: object

@@ -80,6 +80,28 @@ class StoreMenuCategoryRepository:
             MenuCategory.is_active.is_(True), MenuCategory.deleted_at.is_(None),
         ).one_or_none()
 
+    def get_menu_category(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        menu_category_id: int,
+    ) -> MenuCategory | None:
+        """店舗に属する未削除のメニューカテゴリーをIDで取得する。
+
+        Args:
+            mysql_session: SQLAlchemyのセッション。
+            store_id: 取得対象の店舗ID。
+            menu_category_id: 取得対象のメニューカテゴリーID。
+
+        Returns:
+            条件に一致するカテゴリー。該当レコードがない場合はNone。
+        """
+        return mysql_session.query(MenuCategory).filter(
+            MenuCategory.menu_category_id == menu_category_id,
+            MenuCategory.store_id == store_id,
+            MenuCategory.deleted_at.is_(None),
+        ).one_or_none()
+
     def create_menu_category(self, mysql_session: Session, menu_category: MenuCategory) -> MenuCategory:
         """メニューカテゴリーをセッションへ追加してIDを確定する。
 
