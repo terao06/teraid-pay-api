@@ -7,12 +7,14 @@ from app.models.requests.wallet_nonce_create_request import WalletNonceCreateReq
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
 from app.models.requests.store_manager_login_request import StoreManagerLoginRequest
 from app.models.requests.menu_category_create_request import MenuCategoryCreateRequest
+from app.models.requests.menu_category_update_request import MenuCategoryUpdateRequest
 from app.models.requests.menu_create_request import MenuCreateRequest
 from app.models.responses.store_manager_login_response import StoreManagerLoginResponse
 from app.models.responses.menu_category_response import (
     MenuCategoryCreateResponse,
     MenuCategoryListResponse,
     MenuCategoryResponse,
+    MenuCategoryUpdateResponse,
 )
 from app.models.responses.menu_create_response import MenuCreateResponse
 from app.models.responses.menu_list_response import MenuListResponse
@@ -179,6 +181,51 @@ class StoreController:
             raise CustomHttpException.get_http_exception(
                 status_code=404,
                 message=MENU_CATEGORY_NOT_FOUND_ERROR,
+            )
+        except Exception:
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR,
+            )
+
+    @mysql_transaction
+    def update_menu_category(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        menu_category_id: int,
+        request: MenuCategoryUpdateRequest,
+    ) -> MenuCategoryUpdateResponse:
+        """認証済み管理者の店舗に属するメニューカテゴリーを更新する。
+
+        Args:
+            mysql_session: SQLAlchemyのセッション。
+            store_id: 更新対象の店舗ID。
+            menu_category_id: 更新対象のメニューカテゴリーID。
+            request: カテゴリー名、任意の画像、表示順、有効状態を含む更新情報。
+
+        Returns:
+            更新済みのメニューカテゴリー情報。
+
+        Raises:
+            HTTPException: カテゴリー未存在、画像不正、または処理失敗の場合。
+        """
+        try:
+            return StoreMenuCategoryService().update_menu_category(
+                mysql_session=mysql_session,
+                store_id=store_id,
+                menu_category_id=menu_category_id,
+                request=request,
+            )
+        except MenuCategoryNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=404,
+                message=MENU_CATEGORY_NOT_FOUND_ERROR,
+            )
+        except MenuCategoryImageInvalidException:
+            raise CustomHttpException.get_http_exception(
+                status_code=422,
+                message=MENU_CATEGORY_IMAGE_INVALID_ERROR,
             )
         except Exception:
             raise CustomHttpException.get_http_exception(
