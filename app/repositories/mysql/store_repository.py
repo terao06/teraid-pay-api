@@ -27,6 +27,18 @@ class StoreRepository:
         menu_category_id: int | None = None,
         is_available: bool | None = None,
     ):
+        """メニュー商品検索用の共通クエリを生成する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            store_id: 対象店舗の ID。
+            name: 商品名の部分一致検索条件。
+            menu_category_id: カテゴリー ID の完全一致検索条件。
+            is_available: 販売可能状態の完全一致検索条件。
+
+        Returns:
+            店舗、論理削除、検索条件を適用したクエリ。
+        """
         query = (
             mysql_session.query(
                 MenuItem,
@@ -75,7 +87,16 @@ class StoreRepository:
         store_id: int,
         wallet_id: int,
     ) -> StoreWallet | None:
-        """店舗IDとウォレットIDに一致する未削除の紐づけを取得する。"""
+        """店舗IDとウォレットIDに一致する未削除の紐づけを取得する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            store_id: 対象店舗の ID。
+            wallet_id: 対象ウォレットの ID。
+
+        Returns:
+            条件に一致する店舗ウォレット。存在しない場合は None。
+        """
         return (
             mysql_session.query(StoreWallet)
             .filter(
@@ -91,7 +112,15 @@ class StoreRepository:
         mysql_session: Session,
         store_manager_id: int,
     ) -> StoreManager | None:
-        """店舗管理者IDに一致する未削除の管理者を取得する。"""
+        """店舗管理者IDに一致する未削除の管理者を取得する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            store_manager_id: 対象店舗管理者の ID。
+
+        Returns:
+            条件に一致する店舗管理者。存在しない場合は None。
+        """
         return (
             mysql_session.query(StoreManager)
             .join(Store, StoreManager.store_id == Store.store_id)
@@ -108,7 +137,15 @@ class StoreRepository:
         mysql_session: Session,
         email: str,
     ) -> StoreManager | None:
-        """有効な店舗に所属する店舗管理者をメールアドレスで取得する。"""
+        """有効な店舗に所属する店舗管理者をメールアドレスで取得する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            email: 対象店舗管理者のメールアドレス。
+
+        Returns:
+            条件に一致する店舗管理者。存在しない場合は None。
+        """
         return (
             mysql_session.query(StoreManager)
             .join(Store, StoreManager.store_id == Store.store_id)
@@ -120,33 +157,105 @@ class StoreRepository:
             .one_or_none()
         )
 
-    def get_active_menu_categories(
+    def _build_menu_categories_query(
         self,
         mysql_session: Session,
         store_id: int,
-    ) -> list[MenuCategory]:
-        """店舗に紐づく有効かつ未削除のメニューカテゴリーを取得する。
+        name: str | None = None,
+        is_active: bool = True,
+    ):
+        """メニューカテゴリー検索用の共通クエリを生成する。
 
         Args:
             mysql_session: SQLAlchemy のセッション。
             store_id: 対象店舗の ID。
+            name: カテゴリー名の部分一致検索条件。
+            is_active: 有効状態の完全一致検索条件。
 
         Returns:
-            表示順で並べたメニューカテゴリー。存在しない場合は空のリスト。
+            店舗、論理削除、検索条件を適用したクエリ。
         """
-        return (
-            mysql_session.query(MenuCategory)
-            .filter(
-                MenuCategory.store_id == store_id,
-                MenuCategory.is_active.is_(True),
-                MenuCategory.deleted_at.is_(None),
-            )
-            .order_by(
-                MenuCategory.display_order.asc(),
-                MenuCategory.menu_category_id.asc(),
-            )
-            .all()
+        query = mysql_session.query(MenuCategory).filter(
+            MenuCategory.store_id == store_id,
+            MenuCategory.deleted_at.is_(None),
+            MenuCategory.is_active.is_(is_active),
         )
+
+        if name is not None:
+            normalized_name = name.strip()
+            if normalized_name:
+                escaped_name = (
+                    normalized_name
+                    .replace("\\", "\\\\")
+                    .replace("%", "\\%")
+                    .replace("_", "\\_")
+                )
+                query = query.filter(
+                    MenuCategory.name.ilike(f"%{escaped_name}%", escape="\\")
+                )
+
+        return query
+
+    def get_menu_categories(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        name: str | None = None,
+        is_active: bool = True,
+        offset: int = 0,
+        limit: int | None = None,
+    ) -> list[MenuCategory]:
+        """店舗に紐づく未削除のメニューカテゴリーを検索する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            store_id: 対象店舗の ID。
+            name: カテゴリー名の部分一致検索条件。
+            is_active: 有効状態の完全一致検索条件。
+            offset: 検索結果から読み飛ばす件数。
+            limit: 取得件数の上限。未指定時は制限しない。
+
+        Returns:
+            検索条件とページ指定に一致するメニューカテゴリー。
+        """
+        query = self._build_menu_categories_query(
+            mysql_session=mysql_session,
+            store_id=store_id,
+            name=name,
+            is_active=is_active,
+        ).order_by(
+            MenuCategory.display_order.asc(),
+            MenuCategory.menu_category_id.asc(),
+        )
+        query = query.offset(offset)
+        if limit is not None:
+            query = query.limit(limit)
+        return query.all()
+
+    def count_menu_categories(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        name: str | None = None,
+        is_active: bool = True,
+    ) -> int:
+        """検索条件に一致する未削除メニューカテゴリーの件数を取得する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            store_id: 対象店舗の ID。
+            name: カテゴリー名の部分一致検索条件。
+            is_active: 有効状態の完全一致検索条件。
+
+        Returns:
+            検索条件に一致するカテゴリーの総件数。
+        """
+        return self._build_menu_categories_query(
+            mysql_session=mysql_session,
+            store_id=store_id,
+            name=name,
+            is_active=is_active,
+        ).count()
 
     def get_active_menu_category(
         self,
@@ -180,7 +289,15 @@ class StoreRepository:
         mysql_session: Session,
         menu_category: MenuCategory,
     ) -> MenuCategory:
-        """メニューカテゴリーを保存対象としてセッションへ追加する。"""
+        """メニューカテゴリーを保存対象としてセッションへ追加する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            menu_category: 保存するメニューカテゴリー。
+
+        Returns:
+            IDが付与されたメニューカテゴリー。
+        """
         mysql_session.add(menu_category)
         mysql_session.flush()
         return menu_category
@@ -200,6 +317,11 @@ class StoreRepository:
         Args:
             mysql_session: SQLAlchemy のセッション。
             store_id: 対象店舗の ID。
+            name: 商品名の部分一致検索条件。
+            menu_category_id: カテゴリー ID の完全一致検索条件。
+            is_available: 販売可能状態の完全一致検索条件。
+            offset: 検索結果から読み飛ばす件数。
+            limit: 取得件数の上限。未指定時は制限しない。
 
         Returns:
             表示順で並べたメニュー商品とカテゴリー名。存在しない場合は空のリスト。
@@ -227,7 +349,18 @@ class StoreRepository:
         menu_category_id: int | None = None,
         is_available: bool | None = None,
     ) -> int:
-        """検索条件に一致する未削除メニュー商品の件数を取得する。"""
+        """検索条件に一致する未削除メニュー商品の件数を取得する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            store_id: 対象店舗の ID。
+            name: 商品名の部分一致検索条件。
+            menu_category_id: カテゴリー ID の完全一致検索条件。
+            is_available: 販売可能状態の完全一致検索条件。
+
+        Returns:
+            検索条件に一致する商品の総件数。
+        """
         return self._build_menu_items_query(
             mysql_session=mysql_session,
             store_id=store_id,
@@ -353,6 +486,7 @@ class StoreRepository:
             store_id: 店舗ID
             chain_type: チェーン種別。
             network_name: ネットワーク名。
+            chain_id: 対象ネットワークのチェーン ID。
 
         Returns:
             該当する店舗ウォレット。存在しない場合は `None`。
