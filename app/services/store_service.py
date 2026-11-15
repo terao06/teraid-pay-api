@@ -1,23 +1,55 @@
 from datetime import datetime, timedelta
+from io import BytesIO
 import secrets
 
 from sqlalchemy.orm import Session
 
 from app.core.exceptions.custom_exception import (
+    MenuCategoryNotFoundException,
+    MenuImageInvalidException,
+    StoreManagerInactiveException,
     StoreNotFoundException,
+    WalletNotFoundException,
     WalletConflictException,
     UnauthorizedException
 )
+from app.core.config.store_manager_auth import get_store_manager_auth_config
+from app.core.utils.store_manager_auth import StoreManagerAuthUtil
 from app.core.utils.datetime import DateTimeUtil
 from app.core.utils.logging import TeraidPayApiLog
 from app.core.utils.wallet import WalletUtil
+from app.core.utils.image import ImageUtil
+from app.core.aws.s3_client import S3Client
+from app.core.aws.ssm_manager import SsmClient
+from app.middlewares.transaction import add_mysql_rollback_callback
 from app.models.mysql.nonce import Nonce
+from app.models.mysql.menu_item import MenuItem
+from app.models.mysql.menu_option_group import MenuOptionGroup
+from app.models.mysql.menu_option import MenuOption
 from app.models.mysql.store_wallet import StoreWallet
 from app.models.mysql.store_nonce import StoreNonce
 from app.models.mysql.wallet import Wallet
 from app.models.responses.wallet_response import WalletResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
+from app.models.responses.store_manager_login_response import (
+    StoreManagerInfoResponse,
+    StoreManagerLoginResponse,
+)
+from app.models.responses.menu_category_response import (
+    MenuCategoryListResponse,
+    MenuCategoryResponse,
+)
+from app.models.requests.menu_create_request import MenuCreateRequest
+from app.models.responses.menu_create_response import (
+    MenuCreateResponse,
+    MenuOptionGroupCreateResponse,
+)
+from app.models.responses.menu_list_response import (
+    MenuItemResponse,
+    MenuListResponse,
+    MenuPaginationResponse,
+)
 from app.repositories.mysql.nonce_repository import NonceRepository
 from app.repositories.mysql.store_repository import StoreRepository
 from app.core.utils.datetime import JST
@@ -26,6 +58,51 @@ from app.repositories.mysql.wallet_repository import WalletRepository
 
 class StoreService:
     """店舗ウォレット関連処理を担当するサービス。"""
+
+    def login_store_manager(
+        self,
+        mysql_session: Session,
+        email: str,
+        password: str,
+    ) -> StoreManagerLoginResponse:
+        """店舗管理者を認証し、JWTアクセストークンを発行する。"""
+        normalized_email = email.strip().lower()
+        store_manager = StoreRepository().get_store_manager_by_email(
+            mysql_session=mysql_session,
+            email=normalized_email,
+        )
+
+        if store_manager is None:
+            # NOTE: 管理者が存在する場合と応答時間を近づけ、メールアドレス列挙攻撃を防ぐためダミー照合を行う。
+            StoreManagerAuthUtil.perform_dummy_password_check(password)
+            raise UnauthorizedException("店舗管理者の認証に失敗しました。")
+
+        if not StoreManagerAuthUtil.verify_password(
+            password=password,
+            password_hash=store_manager.password_hash,
+        ):
+            raise UnauthorizedException("店舗管理者の認証に失敗しました。")
+
+        if not store_manager.is_active:
+            raise StoreManagerInactiveException(
+                "店舗管理者アカウントが無効です。"
+            )
+
+        auth_config = get_store_manager_auth_config()
+        access_token = StoreManagerAuthUtil.create_access_token(
+            store_manager=store_manager,
+            config=auth_config,
+        )
+        return StoreManagerLoginResponse(
+            access_token=access_token,
+            expires_in=auth_config.access_token_expire_seconds,
+            store_manager=StoreManagerInfoResponse(
+                store_manager_id=store_manager.store_manager_id,
+                store_id=store_manager.store_id,
+                name=store_manager.name,
+                roll_id=store_manager.roll_id,
+            ),
+        )
 
     def get_store_wallet(self, mysql_session: Session, store_id: int) -> WalletResponse | None:
         """店舗 ID に紐づくウォレット情報を取得する。
@@ -58,6 +135,244 @@ class StoreService:
             created_at=DateTimeUtil.change_datetime_to_string(wallet_info.created_at),
             updated_at=DateTimeUtil.change_datetime_to_string(wallet_info.updated_at)
         )
+
+    def get_menu_categories(
+        self,
+        mysql_session: Session,
+        store_id: int,
+    ) -> MenuCategoryListResponse:
+        """店舗に紐づく有効なメニューカテゴリー一覧を取得する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            store_id: 対象店舗の ID。
+
+        Returns:
+            メニューカテゴリー一覧のレスポンス。
+        """
+        menu_categories = StoreRepository().get_active_menu_categories(
+            mysql_session=mysql_session,
+            store_id=store_id,
+        )
+        return MenuCategoryListResponse(
+            menu_categories=[
+                MenuCategoryResponse(
+                    menu_category_id=menu_category.menu_category_id,
+                    name=menu_category.name,
+                    display_order=menu_category.display_order,
+                )
+                for menu_category in menu_categories
+            ]
+        )
+
+    def get_menus(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        name: str | None = None,
+        menu_category_id: int | None = None,
+        is_available: bool | None = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> MenuListResponse:
+        """店舗に紐づく未削除のメニュー商品一覧を取得する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            store_id: 対象店舗の ID。
+
+        Returns:
+            メニュー商品一覧のレスポンス。
+        """
+        repository = StoreRepository()
+        total = repository.count_menu_items(
+            mysql_session=mysql_session,
+            store_id=store_id,
+            name=name,
+            menu_category_id=menu_category_id,
+            is_available=is_available,
+        )
+        total_pages = (total + page_size - 1) // page_size
+        pagination = MenuPaginationResponse(
+            page=page,
+            page_size=page_size,
+            total=total,
+            total_pages=total_pages,
+        )
+        if total == 0:
+            return MenuListResponse(menu_items=[], pagination=pagination)
+
+        menu_items = repository.get_menu_items(
+            mysql_session=mysql_session,
+            store_id=store_id,
+            name=name,
+            menu_category_id=menu_category_id,
+            is_available=is_available,
+            offset=(page - 1) * page_size,
+            limit=page_size,
+        )
+        if not menu_items:
+            return MenuListResponse(menu_items=[], pagination=pagination)
+
+        ssm_params = SsmClient()
+        s3_client = S3Client(s3_endpoint=ssm_params.s3_endpoint)
+        menu_item_responses = []
+        for menu_item, menu_category_name in menu_items:
+            image_object_key = (
+                f"{store_id}/{menu_item.menu_item_id}."
+                f"{menu_item.image_extension}"
+            )
+            image_url = s3_client.generate_presigned_get_url(
+                bucket_name=ssm_params.menu_image_bucket,
+                file_name=image_object_key,
+                expires_in=ssm_params.menu_image_url_expires_in,
+            )
+            menu_item_responses.append(
+                MenuItemResponse(
+                    menu_item_id=menu_item.menu_item_id,
+                    menu_category_id=(
+                        menu_item.menu_category_id
+                        if menu_category_name is not None
+                        else None
+                    ),
+                    menu_category_name=menu_category_name,
+                    name=menu_item.name,
+                    description=menu_item.description,
+                    price=f"{menu_item.price:.6f}",
+                    token_symbol=menu_item.token_symbol,
+                    image_url=image_url,
+                    is_available=menu_item.is_available,
+                    display_order=menu_item.display_order,
+                )
+            )
+
+        return MenuListResponse(
+            menu_items=menu_item_responses,
+            pagination=pagination,
+        )
+
+    def create_menu(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        request: MenuCreateRequest,
+    ) -> MenuCreateResponse:
+        """メニュー商品、オプショングループ、オプションを登録する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            store_id: 登録先店舗の ID。
+            request: メニュー登録情報。
+
+        Returns:
+            登録した商品、オプショングループ、オプションのID。
+        """
+        try:
+            menu_image_bytes = ImageUtil.decode_base64_image(
+                content=request.menu_image,
+                image_extension=request.image_extension.value,
+            )
+        except ValueError as exc:
+            raise MenuImageInvalidException(
+                "メニュー画像を読み込めません。"
+            ) from exc
+        store_repository = StoreRepository()
+
+        if request.menu_category_id is not None:
+            menu_category = store_repository.get_active_menu_category(
+                mysql_session=mysql_session,
+                store_id=store_id,
+                menu_category_id=request.menu_category_id,
+            )
+            if menu_category is None:
+                raise MenuCategoryNotFoundException(
+                    "指定されたメニューカテゴリーは利用できません。"
+                )
+
+        menu_item = MenuItem(
+            store_id=store_id,
+            menu_category_id=request.menu_category_id,
+            name=request.name,
+            description=request.description,
+            price=request.price,
+            token_symbol=request.token_symbol,
+            image_extension=request.image_extension.value,
+            is_available=request.is_available,
+            display_order=request.display_order,
+        )
+        saved_menu_item = store_repository.create_menu_item(
+            mysql_session=mysql_session,
+            menu_item=menu_item,
+        )
+
+        menu_option_group_responses = []
+        for option_group_request in request.option_groups:
+            menu_option_group = MenuOptionGroup(
+                menu_item_id=saved_menu_item.menu_item_id,
+                name=option_group_request.name,
+                min_selections=option_group_request.min_selections,
+                max_selections=option_group_request.max_selections,
+                display_order=option_group_request.display_order,
+                is_active=option_group_request.is_active,
+            )
+            saved_menu_option_group = store_repository.create_menu_option_group(
+                mysql_session=mysql_session,
+                menu_option_group=menu_option_group,
+            )
+
+            menu_option_ids = []
+            for option_request in option_group_request.options:
+                menu_option = MenuOption(
+                    menu_option_group_id=(
+                        saved_menu_option_group.menu_option_group_id
+                    ),
+                    name=option_request.name,
+                    additional_price=option_request.additional_price,
+                    display_order=option_request.display_order,
+                    is_available=option_request.is_available,
+                )
+                saved_menu_option = store_repository.create_menu_option(
+                    mysql_session=mysql_session,
+                    menu_option=menu_option,
+                )
+                menu_option_ids.append(saved_menu_option.menu_option_id)
+
+            menu_option_group_responses.append(
+                MenuOptionGroupCreateResponse(
+                    menu_option_group_id=(
+                        saved_menu_option_group.menu_option_group_id
+                    ),
+                    menu_option_ids=menu_option_ids,
+                )
+            )
+
+        ssm_params = SsmClient()
+        s3_client = S3Client(s3_endpoint=ssm_params.s3_endpoint)
+        image_object_key = (
+            f"{store_id}/{saved_menu_item.menu_item_id}."
+            f"{request.image_extension.value}"
+        )
+        s3_client.upload_object(
+            bucket_name=ssm_params.menu_image_bucket,
+            file=BytesIO(menu_image_bytes),
+            file_name=image_object_key,
+            content_type=ImageUtil.get_content_type(
+                image_extension=request.image_extension.value
+            ),
+        )
+        add_mysql_rollback_callback(
+            mysql_session=mysql_session,
+            callback=lambda: s3_client.delete_object(
+                bucket_name=ssm_params.menu_image_bucket,
+                file_name=image_object_key,
+            ),
+        )
+
+        return MenuCreateResponse(
+            menu_item_id=saved_menu_item.menu_item_id,
+            menu_option_groups=menu_option_group_responses,
+        )
+
 
     def create_wallet_nonce(
         self,
@@ -262,15 +577,38 @@ class StoreService:
             ),
         )
 
-    def delete_wallet(self, mysql_session: Session, wallet_id: int) -> None:
+    def delete_wallet(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        wallet_id: int,
+    ) -> None:
         """ウォレットを登録から削除する。
 
         Args:
             mysql_session: SQLAlchemy のセッション。
+            store_id: 認証済み管理者の店舗ID。
             wallet_id: 削除対象のウォレットID。
 
         Returns:
             なし。
         """
-        WalletRepository().delete_wallet_by_wallet_id(mysql_session=mysql_session, wallet_id=wallet_id)
-        StoreRepository().delete_store_wallet_by_wallet_id(mysql_session=mysql_session, wallet_id=wallet_id)
+        store_repository = StoreRepository()
+        store_wallet = store_repository.get_store_wallet_link(
+            mysql_session=mysql_session,
+            store_id=store_id,
+            wallet_id=wallet_id,
+        )
+        if store_wallet is None:
+            raise WalletNotFoundException(
+                f"店舗に紐づくウォレットが存在しません。store_id={store_id} wallet_id={wallet_id}"
+            )
+
+        WalletRepository().delete_wallet_by_wallet_id(
+            mysql_session=mysql_session,
+            wallet_id=wallet_id,
+        )
+        store_repository.delete_store_wallet_by_wallet_id(
+            mysql_session=mysql_session,
+            wallet_id=wallet_id,
+        )

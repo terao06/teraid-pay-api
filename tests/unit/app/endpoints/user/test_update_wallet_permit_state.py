@@ -92,7 +92,8 @@ class TestUpdateWalletPermitState:
         client_with_db,
         mysql_session: Session,
     ) -> None:
-        wallet_id = 301
+        user_id = 114
+        wallet_id = 314
         permit = {
             "allowance_value": 1000,
             "signature_deadline": 1893456000,
@@ -134,7 +135,7 @@ class TestUpdateWalletPermitState:
         mock_contract.functions.allowance.return_value.call.return_value = 1000
 
         response = client_with_db.post(
-            f"/user/101/wallet/{wallet_id}/permit",
+            f"/user/{user_id}/wallet/{wallet_id}/permit",
             json=permit,
         )
 

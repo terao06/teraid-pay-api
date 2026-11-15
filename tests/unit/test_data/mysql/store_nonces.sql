@@ -87,9 +87,26 @@ INSERT INTO store_nonces (
     deleted_at
 ) VALUES (
     6,
-    101,
+    105,
     7,
     '2026-04-13 11:25:00',
     '2026-04-13 11:25:00',
+    NULL
+);
+
+-- 削除系テスト専用データ
+INSERT INTO store_nonces (
+    store_nonce_id,
+    store_id,
+    nonce_id,
+    created_at,
+    updated_at,
+    deleted_at
+) VALUES (
+    8,
+    101,
+    8,
+    '2026-04-13 11:30:00',
+    '2026-04-13 11:30:00',
     NULL
 );

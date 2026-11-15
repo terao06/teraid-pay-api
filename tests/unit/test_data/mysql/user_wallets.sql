@@ -14,6 +14,18 @@ INSERT INTO user_wallets (
     NULL
 );
 
+-- 更新・削除系テスト専用データ
+INSERT INTO user_wallets (
+    user_wallet_id,
+    user_id,
+    wallet_id,
+    created_at,
+    updated_at,
+    deleted_at
+) VALUES
+    (214, 114, 314, '2024-07-04 00:00:00', '2024-07-04 00:00:00', NULL),
+    (215, 101, 315, '2024-07-05 00:00:00', '2024-07-05 00:00:00', NULL);
+
 INSERT INTO user_wallets (
     user_wallet_id,
     user_id,

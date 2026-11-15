@@ -177,3 +177,5 @@ local_setting/local_s3/local_buckets/manuals/1/1/*
 tools/*.png
 tools/*.jpg
 tools/*.jpeg
+
+reports/*

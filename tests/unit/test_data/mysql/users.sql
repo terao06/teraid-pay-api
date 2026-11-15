@@ -14,6 +14,18 @@ INSERT INTO users (
     NULL
 );
 
+-- 更新・登録系テスト専用データ
+INSERT INTO users (
+    user_id,
+    first_name,
+    last_name,
+    created_at,
+    updated_at,
+    deleted_at
+) VALUES
+    (108, 'WalletCreate', 'TestUser', '2024-07-01 00:00:00', '2024-07-01 00:00:00', NULL),
+    (114, 'WalletPermit', 'TestUser', '2024-07-02 00:00:00', '2024-07-02 00:00:00', NULL);
+
 INSERT INTO users (
     user_id,
     first_name,

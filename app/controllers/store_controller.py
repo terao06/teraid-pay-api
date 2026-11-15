@@ -3,27 +3,71 @@ from sqlalchemy.orm import Session
 from app.middlewares.transaction import mysql_transaction
 from app.models.requests.wallet_nonce_create_request import WalletNonceCreateRequest
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
+from app.models.requests.store_manager_login_request import StoreManagerLoginRequest
+from app.models.requests.menu_create_request import MenuCreateRequest
+from app.models.responses.store_manager_login_response import StoreManagerLoginResponse
+from app.models.responses.menu_category_response import MenuCategoryListResponse
+from app.models.responses.menu_create_response import MenuCreateResponse
+from app.models.responses.menu_list_response import MenuListResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
 from app.services.store_service import StoreService
 from app.models.responses.wallet_response import WalletResponse
 from app.core.exceptions.message import (
     SERVER_ERROR,
+    MENU_CATEGORY_NOT_FOUND_ERROR,
+    MENU_IMAGE_INVALID_ERROR,
+    LOGIN_FAILED_ERROR,
+    STORE_MANAGER_INACTIVE_ERROR,
     STORE_NOT_FOUND_ERROR,
     VERIFY_ERROR,
     WALLET_CONFLICT_ERROR,
-    WALLET_IS_ALREADY_EXIST
+    WALLET_IS_ALREADY_EXIST,
+    WALLET_NOT_FOUND_ERROR,
 )
 from app.core.exceptions.custom_exception import (
     CustomHttpException,
+    MenuCategoryNotFoundException,
+    MenuImageInvalidException,
+    StoreManagerInactiveException,
     StoreNotFoundException,
     UnauthorizedException,
-    WalletConflictException
+    WalletConflictException,
+    WalletNotFoundException,
 )
 
 
 class StoreController:
     """店舗ウォレット取得 API のリクエストを処理するコントローラーです。"""
+
+    @mysql_transaction
+    def login_store_manager(
+        self,
+        mysql_session: Session,
+        request: StoreManagerLoginRequest,
+    ) -> StoreManagerLoginResponse:
+        """店舗管理者を認証し、アクセストークンを返す。"""
+        try:
+            return StoreService().login_store_manager(
+                mysql_session=mysql_session,
+                email=request.email,
+                password=request.password,
+            )
+        except UnauthorizedException:
+            raise CustomHttpException.get_http_exception(
+                status_code=401,
+                message=LOGIN_FAILED_ERROR,
+            )
+        except StoreManagerInactiveException:
+            raise CustomHttpException.get_http_exception(
+                status_code=403,
+                message=STORE_MANAGER_INACTIVE_ERROR,
+            )
+        except Exception:
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR,
+            )
 
     @mysql_transaction
     def get_store_wallet(self, mysql_session: Session, store_id: int) -> WalletResponse | None:
@@ -46,6 +90,107 @@ class StoreController:
             raise CustomHttpException.get_http_exception(
                 status_code=500,
                 message=SERVER_ERROR)
+
+    @mysql_transaction
+    def get_menu_categories(
+        self,
+        mysql_session: Session,
+        store_id: int,
+    ) -> MenuCategoryListResponse:
+        """認証済み管理者の店舗に紐づくメニューカテゴリーを取得する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッションです。
+            store_id: 取得対象の店舗 IDです。
+
+        Returns:
+            MenuCategoryListResponse: メニューカテゴリー一覧レスポンスです。
+        """
+        try:
+            return StoreService().get_menu_categories(
+                mysql_session=mysql_session,
+                store_id=store_id,
+            )
+        except Exception:
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR,
+            )
+
+    @mysql_transaction
+    def get_menus(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        name: str | None = None,
+        menu_category_id: int | None = None,
+        is_available: bool | None = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> MenuListResponse:
+        """認証済み管理者の店舗に紐づくメニュー商品を取得する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッションです。
+            store_id: 取得対象の店舗 IDです。
+
+        Returns:
+            MenuListResponse: メニュー商品一覧レスポンスです。
+        """
+        try:
+            return StoreService().get_menus(
+                mysql_session=mysql_session,
+                store_id=store_id,
+                name=name,
+                menu_category_id=menu_category_id,
+                is_available=is_available,
+                page=page,
+                page_size=page_size,
+            )
+        except Exception:
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR,
+            )
+
+    @mysql_transaction
+    def create_menu(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        request: MenuCreateRequest,
+    ) -> MenuCreateResponse:
+        """メニュー商品、オプショングループ、オプションを登録する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッションです。
+            store_id: 登録先店舗の IDです。
+            request: メニュー登録情報です。
+
+        Returns:
+            MenuCreateResponse: 登録した各データのIDです。
+        """
+        try:
+            return StoreService().create_menu(
+                mysql_session=mysql_session,
+                store_id=store_id,
+                request=request,
+            )
+        except MenuCategoryNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=404,
+                message=MENU_CATEGORY_NOT_FOUND_ERROR,
+            )
+        except MenuImageInvalidException:
+            raise CustomHttpException.get_http_exception(
+                status_code=422,
+                message=MENU_IMAGE_INVALID_ERROR,
+            )
+        except Exception:
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR,
+            )
 
     @mysql_transaction
     def create_wallet_nonce(
@@ -147,10 +292,16 @@ class StoreController:
                 message=SERVER_ERROR)
 
     @mysql_transaction
-    def delete_wallet(self, mysql_session: Session, wallet_id: int) -> None:
+    def delete_wallet(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        wallet_id: int,
+    ) -> None:
         """登録済みウォレットの削除を行う。
         Args:
             mysql_session: SQLAlchemy のセッション。
+            store_id: 認証済み管理者の店舗ID。
             wallet_id: ウォレットID。
         Returns:
             なし。
@@ -158,9 +309,15 @@ class StoreController:
         try:
             StoreService().delete_wallet(
                 mysql_session=mysql_session,
+                store_id=store_id,
                 wallet_id=wallet_id
             )
 
+        except WalletNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=404,
+                message=WALLET_NOT_FOUND_ERROR,
+            )
         except Exception:
             raise CustomHttpException.get_http_exception(
                 status_code=500,

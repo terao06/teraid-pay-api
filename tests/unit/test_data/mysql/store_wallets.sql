@@ -1,3 +1,4 @@
+-- テスト用データ
 INSERT INTO store_wallets (
     store_wallet_id,
     store_id,
@@ -13,6 +14,18 @@ INSERT INTO store_wallets (
     '2024-01-11 10:30:00',
     NULL
 );
+
+-- 削除系テスト専用データ
+INSERT INTO store_wallets (
+    store_wallet_id,
+    store_id,
+    wallet_id,
+    created_at,
+    updated_at,
+    deleted_at
+) VALUES
+    (211, 101, 311, '2024-07-01 00:00:00', '2024-07-01 00:00:00', NULL),
+    (212, 101, 312, '2024-07-02 00:00:00', '2024-07-02 00:00:00', NULL);
 
 INSERT INTO store_wallets (
     store_wallet_id,
@@ -75,5 +88,22 @@ INSERT INTO store_wallets (
     305,
     '2024-05-01 00:00:00',
     '2024-05-02 00:00:00',
+    NULL
+);
+
+-- API動作確認用データ
+INSERT INTO store_wallets (
+    store_wallet_id,
+    store_id,
+    wallet_id,
+    created_at,
+    updated_at,
+    deleted_at
+) VALUES (
+    9001,
+    9001,
+    9001,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP,
     NULL
 );

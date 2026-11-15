@@ -93,3 +93,23 @@ INSERT INTO payment_requests (
     '2026-04-15 11:30:00',
     '2026-04-16 00:00:00'
 );
+
+-- トランザクション検証テスト専用データ
+INSERT INTO payment_requests (
+    payment_request_id,
+    store_id,
+    user_id,
+    store_wallet_address,
+    user_wallet_address,
+    amount,
+    token_symbol,
+    chain_id,
+    status,
+    transaction_hash,
+    expires_at,
+    created_at,
+    updated_at,
+    deleted_at
+) VALUES
+    (404, 104, 102, '0x4444444444444444444444444444444444444444', '0x4444444444444444444444444444444444444444', 250.000000, 'JPYC', 11155111, 'paid', '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '2026-04-14 12:00:00', '2026-04-14 11:00:00', '2026-04-14 11:30:00', NULL),
+    (405, 104, 102, '0x4444444444444444444444444444444444444444', '0x4444444444444444444444444444444444444444', 250.000000, 'JPYC', 11155111, 'paid', '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', '2026-04-14 12:00:00', '2026-04-14 11:00:00', '2026-04-14 11:30:00', NULL);
