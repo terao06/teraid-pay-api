@@ -384,9 +384,6 @@ paths:
                 status: success
                 data:
                   menu_item_id: 10
-                  menu_option_groups:
-                    - menu_option_group_id: 20
-                      menu_option_ids: [30, 31]
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -1281,31 +1278,13 @@ components:
           items:
             $ref: '#/components/schemas/MenuOptionGroupCreateRequest'
 
-    MenuOptionGroupCreateResult:
-      type: object
-      required: [menu_option_group_id, menu_option_ids]
-      properties:
-        menu_option_group_id:
-          type: integer
-          description: 登録したオプショングループID
-        menu_option_ids:
-          type: array
-          description: 登録したオプションID一覧
-          items:
-            type: integer
-
     MenuCreateResult:
       type: object
-      required: [menu_item_id, menu_option_groups]
+      required: [menu_item_id]
       properties:
         menu_item_id:
           type: integer
           description: 登録した商品ID
-        menu_option_groups:
-          type: array
-          description: 登録したオプショングループとオプションのID
-          items:
-            $ref: '#/components/schemas/MenuOptionGroupCreateResult'
 
     StoreManagerInfo:
       type: object

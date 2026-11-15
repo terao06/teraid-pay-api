@@ -415,7 +415,7 @@ class StoreController:
             request: メニュー登録情報です。
 
         Returns:
-            MenuCreateResponse: 登録した各データのIDです。
+            MenuCreateResponse: 登録したメニュー商品IDです。
         """
         try:
             return StoreMenuService().create_menu(
