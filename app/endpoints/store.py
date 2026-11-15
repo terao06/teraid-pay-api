@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, Query
+"""店舗管理者向けAPIのルーティングを提供する。"""
+
+from fastapi import APIRouter, Depends, Path, Query
 from app.controllers.store_controller import StoreController
 from app.dependencies.store_manager_auth import (
     StoreManagerAuthContext,
@@ -76,6 +78,28 @@ def get_menu_categories(
         is_active=is_active,
         page=page,
         page_size=page_size,
+    )
+
+
+@store_router.get("/menu/categories/{menu_category_id}")
+@response_rapper()
+@request_rapper()
+def get_menu_category(
+    menu_category_id: int = Path(ge=1),
+    auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
+):
+    """認証済み管理者の店舗に属するメニューカテゴリー詳細を取得する。
+
+    Args:
+        menu_category_id: 取得対象のメニューカテゴリーID。
+        auth_context: JWT認証で取得した店舗管理者情報。
+
+    Returns:
+        カテゴリー詳細を含む共通レスポンス。
+    """
+    return StoreController().get_menu_category(
+        store_id=auth_context.store_id,
+        menu_category_id=menu_category_id,
     )
 
 

@@ -1,3 +1,5 @@
+"""店舗管理者向けAPIのユースケース呼び出しと例外変換を提供する。"""
+
 from sqlalchemy.orm import Session
 
 from app.middlewares.transaction import mysql_transaction
@@ -10,6 +12,7 @@ from app.models.responses.store_manager_login_response import StoreManagerLoginR
 from app.models.responses.menu_category_response import (
     MenuCategoryCreateResponse,
     MenuCategoryListResponse,
+    MenuCategoryResponse,
 )
 from app.models.responses.menu_create_response import MenuCreateResponse
 from app.models.responses.menu_list_response import MenuListResponse
@@ -139,6 +142,43 @@ class StoreController:
                 is_active=is_active,
                 page=page,
                 page_size=page_size,
+            )
+        except Exception:
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR,
+            )
+
+    @mysql_transaction
+    def get_menu_category(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        menu_category_id: int,
+    ) -> MenuCategoryResponse:
+        """認証済み管理者の店舗に属するメニューカテゴリー詳細を取得する。
+
+        Args:
+            mysql_session: SQLAlchemyのセッション。
+            store_id: 取得対象の店舗ID。
+            menu_category_id: 取得対象のメニューカテゴリーID。
+
+        Returns:
+            画像の署名付きURLを含むメニューカテゴリー詳細。
+
+        Raises:
+            HTTPException: カテゴリーが存在しない場合、または処理に失敗した場合。
+        """
+        try:
+            return StoreMenuCategoryService().get_menu_category(
+                mysql_session=mysql_session,
+                store_id=store_id,
+                menu_category_id=menu_category_id,
+            )
+        except MenuCategoryNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=404,
+                message=MENU_CATEGORY_NOT_FOUND_ERROR,
             )
         except Exception:
             raise CustomHttpException.get_http_exception(
