@@ -78,6 +78,119 @@ class StoreMenuRepository(StoreMenuCategoryRepository):
         """
         return self._build_menu_items_query(mysql_session, store_id, name, menu_category_id, is_available).count()
 
+    def get_menu_detail(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        menu_item_id: int,
+    ) -> list[
+        tuple[
+            MenuItem,
+            str | None,
+            MenuOptionGroup | None,
+            MenuOption | None,
+        ]
+    ]:
+        """店舗に属するメニュー商品と関連オプションを取得する。
+
+        Args:
+            mysql_session: SQLAlchemyのセッション。
+            store_id: 認証済み管理者の店舗ID。
+            menu_item_id: 取得対象のメニュー商品ID。
+
+        Returns:
+            商品、カテゴリー名、オプショングループ、オプションの行一覧。
+            商品が存在しない場合は空の一覧。
+        """
+        return (
+            mysql_session.query(
+                MenuItem,
+                MenuCategory.name.label("menu_category_name"),
+                MenuOptionGroup,
+                MenuOption,
+            )
+            .outerjoin(
+                MenuCategory,
+                and_(
+                    MenuItem.menu_category_id == MenuCategory.menu_category_id,
+                    MenuCategory.store_id == store_id,
+                    MenuCategory.deleted_at.is_(None),
+                ),
+            )
+            .outerjoin(
+                MenuOptionGroup,
+                and_(
+                    MenuOptionGroup.menu_item_id == MenuItem.menu_item_id,
+                    MenuOptionGroup.deleted_at.is_(None),
+                ),
+            )
+            .outerjoin(
+                MenuOption,
+                and_(
+                    MenuOption.menu_option_group_id
+                    == MenuOptionGroup.menu_option_group_id,
+                    MenuOption.deleted_at.is_(None),
+                ),
+            )
+            .filter(
+                MenuItem.menu_item_id == menu_item_id,
+                MenuItem.store_id == store_id,
+                MenuItem.deleted_at.is_(None),
+            )
+            .order_by(
+                MenuOptionGroup.display_order.asc(),
+                MenuOptionGroup.menu_option_group_id.asc(),
+                MenuOption.display_order.asc(),
+                MenuOption.menu_option_id.asc(),
+            )
+            .all()
+        )
+
+    def get_menu_item_for_update(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        menu_item_id: int,
+    ) -> MenuItem | None:
+        """店舗に属する未削除の商品を排他ロックして取得する。
+
+        Args:
+            mysql_session: SQLAlchemyのセッション。
+            store_id: 認証済み管理者の店舗ID。
+            menu_item_id: 更新対象のメニュー商品ID。
+
+        Returns:
+            ロックしたメニュー商品。該当商品がない場合はNone。
+        """
+        return (
+            mysql_session.query(MenuItem)
+            .filter(
+                MenuItem.menu_item_id == menu_item_id,
+                MenuItem.store_id == store_id,
+                MenuItem.deleted_at.is_(None),
+            )
+            .with_for_update()
+            .one_or_none()
+        )
+
+    def update_menu_item(
+        self,
+        mysql_session: Session,
+        menu_item: MenuItem,
+    ) -> MenuItem:
+        """メニュー商品を更新してセッションへ反映する。
+
+        Args:
+            mysql_session: SQLAlchemyのセッション。
+            menu_item: 更新対象のメニュー商品。
+
+        Returns:
+            更新済みのメニュー商品。
+        """
+        mysql_session.add(menu_item)
+        mysql_session.flush()
+        return menu_item
+
     def create_menu_item(self, mysql_session: Session, menu_item: MenuItem) -> MenuItem:
         """メニューをセッションへ追加してIDを確定する。
 

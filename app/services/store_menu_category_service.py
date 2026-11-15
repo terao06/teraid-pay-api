@@ -69,7 +69,7 @@ class StoreMenuCategoryService:
                 display_order=category.display_order, is_active=category.is_active))
         return MenuCategoryListResponse(menu_categories=responses, pagination=pagination)
 
-    def get_menu_category(
+    def get_menu_category_detail(
         self,
         mysql_session: Session,
         store_id: int,
@@ -88,7 +88,7 @@ class StoreMenuCategoryService:
         Raises:
             MenuCategoryNotFoundException: 対象カテゴリーが存在しない場合。
         """
-        category = StoreMenuCategoryRepository().get_menu_category(
+        category = StoreMenuCategoryRepository().get_menu_category_detail(
             mysql_session=mysql_session,
             store_id=store_id,
             menu_category_id=menu_category_id,
@@ -136,7 +136,7 @@ class StoreMenuCategoryService:
             MenuCategoryImageInvalidException: 更新画像を読み込めない場合。
         """
         repository = StoreMenuCategoryRepository()
-        category = repository.get_menu_category(
+        category = repository.get_menu_category_detail(
             mysql_session=mysql_session,
             store_id=store_id,
             menu_category_id=menu_category_id,

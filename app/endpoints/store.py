@@ -14,6 +14,7 @@ from app.models.requests.store_manager_login_request import StoreManagerLoginReq
 from app.models.requests.menu_category_create_request import MenuCategoryCreateRequest
 from app.models.requests.menu_category_update_request import MenuCategoryUpdateRequest
 from app.models.requests.menu_create_request import MenuCreateRequest
+from app.models.requests.menu_update_request import MenuUpdateRequest
 from app.core.utils.logging import TeraidPayApiLog
 
 store_router = APIRouter()
@@ -85,7 +86,7 @@ def get_menu_categories(
 @store_router.get("/menu/categories/{menu_category_id}")
 @response_rapper()
 @request_rapper()
-def get_menu_category(
+def get_menu_category_detail(
     menu_category_id: int = Path(ge=1),
     auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
 ):
@@ -98,7 +99,7 @@ def get_menu_category(
     Returns:
         カテゴリー詳細を含む共通レスポンス。
     """
-    return StoreController().get_menu_category(
+    return StoreController().get_menu_category_detail(
         store_id=auth_context.store_id,
         menu_category_id=menu_category_id,
     )
@@ -182,6 +183,53 @@ def get_menus(
         is_available=is_available,
         page=page,
         page_size=page_size,
+    )
+
+
+@store_router.get("/menu/{menu_item_id}")
+@response_rapper()
+@request_rapper()
+def get_menu_detail(
+    menu_item_id: int = Path(ge=1),
+    auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
+):
+    """認証済み管理者の店舗に属するメニュー詳細を取得する。
+
+    Args:
+        menu_item_id: 取得対象のメニュー商品ID。
+        auth_context: JWT認証で取得した店舗管理者情報。
+
+    Returns:
+        商品、カテゴリー、画像URL、オプションを含む共通レスポンス。
+    """
+    return StoreController().get_menu_detail(
+        store_id=auth_context.store_id,
+        menu_item_id=menu_item_id,
+    )
+
+
+@store_router.put("/menu/{menu_item_id}")
+@response_rapper()
+@request_rapper()
+def update_menu(
+    request: MenuUpdateRequest,
+    menu_item_id: int = Path(ge=1),
+    auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
+):
+    """認証済み管理者の店舗に属するメニュー基本情報を更新する。
+
+    Args:
+        request: 更新後の商品基本情報と任意の画像。
+        menu_item_id: 更新対象のメニュー商品ID。
+        auth_context: JWT認証で取得した店舗管理者情報。
+
+    Returns:
+        更新したメニュー商品IDを含む共通レスポンス。
+    """
+    return StoreController().update_menu(
+        store_id=auth_context.store_id,
+        menu_item_id=menu_item_id,
+        request=request,
     )
 
 

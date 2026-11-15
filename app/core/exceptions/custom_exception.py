@@ -1,3 +1,5 @@
+"""APIで使用するドメイン例外とHTTP例外生成処理を提供する。"""
+
 from fastapi import HTTPException
 
 
@@ -31,6 +33,17 @@ class StoreManagerInactiveException(Exception):
 
 class MenuCategoryNotFoundException(Exception):
     pass
+
+
+class MenuItemNotFoundException(Exception):
+    """認証店舗に対象メニュー商品が存在しないことを表す。
+
+    Args:
+        message: 例外の詳細メッセージ。省略可能。
+
+    Returns:
+        メニュー商品未存在を表す例外。
+    """
 
 
 class MenuImageInvalidException(Exception):

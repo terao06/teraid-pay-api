@@ -80,7 +80,7 @@ class StoreMenuCategoryRepository:
             MenuCategory.is_active.is_(True), MenuCategory.deleted_at.is_(None),
         ).one_or_none()
 
-    def get_menu_category(
+    def get_menu_category_detail(
         self,
         mysql_session: Session,
         store_id: int,

@@ -11,11 +11,11 @@ from app.core.exceptions.message import MENU_CATEGORY_NOT_FOUND_ERROR, SERVER_ER
 from app.models.responses.menu_category_response import MenuCategoryResponse
 
 
-class TestGetMenuCategory:
+class TestGetMenuCategoryDetail:
     """StoreControllerのメニューカテゴリー詳細取得を検証する。"""
 
     @patch("app.controllers.store_controller.StoreMenuCategoryService")
-    def test_get_menu_category(self, mock_service_class) -> None:
+    def test_get_menu_category_detail(self, mock_service_class) -> None:
         """サービスのカテゴリー詳細取得結果をそのまま返す。"""
         mysql_session = Mock()
         expected = MenuCategoryResponse(
@@ -25,9 +25,9 @@ class TestGetMenuCategory:
             display_order=0,
             is_active=False,
         )
-        mock_service_class.return_value.get_menu_category.return_value = expected
+        mock_service_class.return_value.get_menu_category_detail.return_value = expected
 
-        result = StoreController.get_menu_category.__wrapped__(
+        result = StoreController.get_menu_category_detail.__wrapped__(
             StoreController(),
             mysql_session=mysql_session,
             store_id=101,
@@ -35,21 +35,21 @@ class TestGetMenuCategory:
         )
 
         assert result == expected
-        mock_service_class.return_value.get_menu_category.assert_called_once_with(
+        mock_service_class.return_value.get_menu_category_detail.assert_called_once_with(
             mysql_session=mysql_session,
             store_id=101,
             menu_category_id=14,
         )
 
     @patch("app.controllers.store_controller.StoreMenuCategoryService")
-    def test_get_menu_category_returns_not_found(self, mock_service_class) -> None:
+    def test_get_menu_category_detail_returns_not_found(self, mock_service_class) -> None:
         """カテゴリー未存在例外を404のHTTPExceptionへ変換する。"""
-        mock_service_class.return_value.get_menu_category.side_effect = (
+        mock_service_class.return_value.get_menu_category_detail.side_effect = (
             MenuCategoryNotFoundException()
         )
 
         with pytest.raises(HTTPException) as exc_info:
-            StoreController.get_menu_category.__wrapped__(
+            StoreController.get_menu_category_detail.__wrapped__(
                 StoreController(),
                 mysql_session=Mock(),
                 store_id=101,
@@ -63,14 +63,14 @@ class TestGetMenuCategory:
         }
 
     @patch("app.controllers.store_controller.StoreMenuCategoryService")
-    def test_get_menu_category_returns_server_error(self, mock_service_class) -> None:
+    def test_get_menu_category_detail_returns_server_error(self, mock_service_class) -> None:
         """予期しない例外を500のHTTPExceptionへ変換する。"""
-        mock_service_class.return_value.get_menu_category.side_effect = Exception(
+        mock_service_class.return_value.get_menu_category_detail.side_effect = Exception(
             "unexpected error"
         )
 
         with pytest.raises(HTTPException) as exc_info:
-            StoreController.get_menu_category.__wrapped__(
+            StoreController.get_menu_category_detail.__wrapped__(
                 StoreController(),
                 mysql_session=Mock(),
                 store_id=101,

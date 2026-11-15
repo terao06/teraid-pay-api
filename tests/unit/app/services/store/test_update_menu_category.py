@@ -40,7 +40,7 @@ class TestUpdateMenuCategory:
             is_active=False,
         )
         repository = mock_repository_class.return_value
-        repository.get_menu_category.return_value = category
+        repository.get_menu_category_detail.return_value = category
         repository.update_menu_category.side_effect = (
             lambda mysql_session, menu_category: menu_category
         )
@@ -91,7 +91,7 @@ class TestUpdateMenuCategory:
             is_active=True,
         )
         repository = mock_repository_class.return_value
-        repository.get_menu_category.return_value = category
+        repository.get_menu_category_detail.return_value = category
         repository.update_menu_category.side_effect = (
             lambda mysql_session, menu_category: menu_category
         )
@@ -154,7 +154,7 @@ class TestUpdateMenuCategory:
             is_active=True,
         )
         repository = mock_repository_class.return_value
-        repository.get_menu_category.return_value = category
+        repository.get_menu_category_detail.return_value = category
         repository.update_menu_category.side_effect = (
             lambda mysql_session, menu_category: menu_category
         )
@@ -202,7 +202,7 @@ class TestUpdateMenuCategory:
         mock_repository_class,
     ) -> None:
         """対象カテゴリーが存在しない場合は専用例外を送出する。"""
-        mock_repository_class.return_value.get_menu_category.return_value = None
+        mock_repository_class.return_value.get_menu_category_detail.return_value = None
 
         with pytest.raises(MenuCategoryNotFoundException):
             StoreMenuCategoryService().update_menu_category(
@@ -228,7 +228,7 @@ class TestUpdateMenuCategory:
         mock_s3_client_class,
     ) -> None:
         """画像の実形式と拡張子が一致しない場合は専用例外を送出する。"""
-        mock_repository_class.return_value.get_menu_category.return_value = (
+        mock_repository_class.return_value.get_menu_category_detail.return_value = (
             SimpleNamespace(
                 menu_category_id=12,
                 name="更新前",
