@@ -17,7 +17,7 @@ class TestCreatePaymentRequest:
 
     @patch("app.services.payment_service.PaymentRepository")
     @patch("app.services.payment_service.UserRepository")
-    @patch("app.services.payment_service.StoreRepository")
+    @patch("app.services.payment_service.StoreWalletRepository")
     @patch("app.services.payment_service.datetime")
     def test_create_payment_request(
         self,
@@ -116,7 +116,7 @@ class TestCreatePaymentRequest:
     )
     @patch("app.services.payment_service.PaymentRepository")
     @patch("app.services.payment_service.UserRepository")
-    @patch("app.services.payment_service.StoreRepository")
+    @patch("app.services.payment_service.StoreWalletRepository")
     def test_create_payment_request_raises_when_wallet_not_found(
         self,
         mock_store_repository_class,
@@ -174,7 +174,7 @@ class TestCreatePaymentRequest:
     )
     @patch("app.services.payment_service.PaymentRepository")
     @patch("app.services.payment_service.UserRepository")
-    @patch("app.services.payment_service.StoreRepository")
+    @patch("app.services.payment_service.StoreWalletRepository")
     def test_create_payment_request_raises_when_wallet_values_mismatch(
         self,
         mock_store_repository_class,
@@ -215,7 +215,7 @@ class TestCreatePaymentRequest:
 
     @patch("app.services.payment_service.PaymentRepository")
     @patch("app.services.payment_service.UserRepository")
-    @patch("app.services.payment_service.StoreRepository")
+    @patch("app.services.payment_service.StoreWalletRepository")
     def test_create_payment_request_raises_when_user_wallet_permit_is_incomplete(
         self,
         mock_store_repository_class,

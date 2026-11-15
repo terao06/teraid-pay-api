@@ -7,15 +7,15 @@ from app.models.responses.menu_list_response import (
     MenuListResponse,
     MenuPaginationResponse,
 )
-from app.services.store_service import StoreService
+from app.services.store_menu_service import StoreMenuService
 
 
 class TestGetMenus:
-    """StoreService のメニュー一覧取得処理を検証する。"""
+    """StoreMenuService のメニュー一覧取得処理を検証する。"""
 
-    @patch("app.services.store_service.S3Client")
-    @patch("app.services.store_service.SsmClient")
-    @patch("app.services.store_service.StoreRepository")
+    @patch("app.services.store_menu_service.S3Client")
+    @patch("app.services.store_menu_service.SsmClient")
+    @patch("app.services.store_menu_service.StoreMenuRepository")
     def test_get_menus(
         self,
         mock_repository_class,
@@ -50,7 +50,7 @@ class TestGetMenus:
             "https://s3.example.com/menus/101/10.jpeg"
         )
 
-        result = StoreService().get_menus(
+        result = StoreMenuService().get_menus(
             mysql_session=mysql_session,
             store_id=101,
             name="バーガー",
@@ -105,9 +105,9 @@ class TestGetMenus:
             expires_in=3600,
         )
 
-    @patch("app.services.store_service.S3Client")
-    @patch("app.services.store_service.SsmClient")
-    @patch("app.services.store_service.StoreRepository")
+    @patch("app.services.store_menu_service.S3Client")
+    @patch("app.services.store_menu_service.SsmClient")
+    @patch("app.services.store_menu_service.StoreMenuRepository")
     def test_get_menus_returns_empty_list(
         self,
         mock_repository_class,
@@ -118,7 +118,7 @@ class TestGetMenus:
         mock_repository_class.return_value.count_menu_items.return_value = 0
         mysql_session = Mock()
 
-        result = StoreService().get_menus(
+        result = StoreMenuService().get_menus(
             mysql_session=mysql_session,
             store_id=101,
         )

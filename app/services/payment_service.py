@@ -28,7 +28,7 @@ from app.core.config.payment_processor import get_payment_processor_config
 from app.core.utils.logging import TeraidPayApiLog
 from app.helpers.face_helper import FaceHelper
 from app.models.responses.payment_transaction_hash_response import PaymentTransactionHashResponse
-from app.repositories.mysql.store_repository import StoreRepository
+from app.repositories.mysql.store_wallet_repository import StoreWalletRepository
 from app.repositories.mysql.user_repository import UserRepository
 from app.repositories.mysql.payment_repository import PaymentRepository
 from app.models.mysql.payment_request import PaymentRequest, PaymentStatus
@@ -152,7 +152,7 @@ class PaymentService:
         Returns:
             int: 作成した決済リクエスト ID。
         """
-        store_repository = StoreRepository()
+        store_repository = StoreWalletRepository()
         user_repository = UserRepository()
 
         store_wallet = store_repository.get_store_wallet(

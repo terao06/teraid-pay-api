@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.models.mysql.menu_category import MenuCategory
-from app.repositories.mysql.store_repository import StoreRepository
+from app.repositories.mysql.store_menu_category_repository import StoreMenuCategoryRepository
 
 
 @pytest.mark.usefixtures("insert_stores")
@@ -16,7 +16,7 @@ class TestCreateMenuCategory:
             is_active=True,
         )
 
-        saved = StoreRepository().create_menu_category(
+        saved = StoreMenuCategoryRepository().create_menu_category(
             mysql_session=mysql_session,
             menu_category=menu_category,
         )

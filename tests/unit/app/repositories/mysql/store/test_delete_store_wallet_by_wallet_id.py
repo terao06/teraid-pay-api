@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.models.mysql.store_wallet import StoreWallet
-from app.repositories.mysql.store_repository import StoreRepository
+from app.repositories.mysql.store_wallet_repository import StoreWalletRepository
 
 
 @pytest.mark.usefixtures("insert_stores", "insert_wallets", "insert_store_wallets")
@@ -14,7 +14,7 @@ class TestDeleteStoreWalletByWalletId:
         mysql_session: Session,
     ) -> None:
         """存在する wallet_id を指定した場合、対象 StoreWallet の deleted_at と updated_at が設定されること。"""
-        repository = StoreRepository()
+        repository = StoreWalletRepository()
         target_wallet_id = 312
 
         before = (
@@ -43,7 +43,7 @@ class TestDeleteStoreWalletByWalletId:
         mysql_session: Session,
     ) -> None:
         """存在しない wallet_id を指定した場合、いずれの StoreWallet も更新されないこと。"""
-        repository = StoreRepository()
+        repository = StoreWalletRepository()
         non_existent_wallet_id = 99999
 
         before_count = (

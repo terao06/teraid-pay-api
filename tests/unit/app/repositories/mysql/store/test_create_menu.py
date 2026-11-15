@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.models.mysql.menu_item import MenuItem
 from app.models.mysql.menu_option_group import MenuOptionGroup
 from app.models.mysql.menu_option import MenuOption
-from app.repositories.mysql.store_repository import StoreRepository
+from app.repositories.mysql.store_menu_repository import StoreMenuRepository
 
 
 @pytest.mark.usefixtures("insert_stores", "insert_menu_categories")
@@ -18,7 +18,7 @@ class TestCreateMenu:
         mysql_session: Session,
     ) -> None:
         """商品、オプショングループ、オプションへIDを付与して保存することを確認する。"""
-        repository = StoreRepository()
+        repository = StoreMenuRepository()
         menu_item = MenuItem(
             store_id=101,
             menu_category_id=12,

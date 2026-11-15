@@ -22,7 +22,7 @@ from app.models.responses.store_manager_login_response import (
 class TestLoginStoreManager:
     """StoreControllerの店舗管理者ログイン処理を検証する。"""
 
-    @patch("app.controllers.store_controller.StoreService")
+    @patch("app.controllers.store_controller.StoreAuthService")
     def test_login_store_manager(self, mock_service_class) -> None:
         """リクエスト値をサービスへ渡し、ログイン結果をそのまま返すことを検証する。"""
         mysql_session = Mock()
@@ -66,7 +66,7 @@ class TestLoginStoreManager:
             ),
         ],
     )
-    @patch("app.controllers.store_controller.StoreService")
+    @patch("app.controllers.store_controller.StoreAuthService")
     def test_login_converts_auth_errors(
         self,
         mock_service_class,

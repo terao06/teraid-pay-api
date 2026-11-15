@@ -9,20 +9,23 @@ from app.core.exceptions.custom_exception import (
     WalletConflictException,
 )
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
-from app.services.store_service import JST, StoreService
+from app.core.utils.datetime import JST
+from app.services.store_wallet_service import StoreWalletService
 
 
 class TestCreateWalletNonce:
-    """StoreService の create_wallet_nonce を検証するテスト。"""
+    """StoreWalletService の create_wallet_nonce を検証するテスト。"""
 
-    @patch("app.services.store_service.secrets.token_urlsafe", return_value="generated-nonce")
-    @patch("app.services.store_service.StoreRepository")
-    @patch("app.services.store_service.NonceRepository")
-    @patch("app.services.store_service.WalletRepository")
+    @patch("app.services.store_wallet_service.secrets.token_urlsafe", return_value="generated-nonce")
+    @patch("app.services.store_wallet_service.StoreWalletRepository")
+    @patch("app.services.store_wallet_service.StoreManagerRepository")
+    @patch("app.services.store_wallet_service.NonceRepository")
+    @patch("app.services.store_wallet_service.WalletRepository")
     def test_create_wallet_nonce(
         self,
         mock_wallet_repository_class,
         mock_nonce_repository_class,
+        mock_store_manager_repository_class,
         mock_store_repository_class,
         mock_token_urlsafe,
     ):
@@ -34,8 +37,9 @@ class TestCreateWalletNonce:
         network_name = "sepolia"
         fixed_now = datetime(2026, 4, 12, 12, 0, 0, tzinfo=JST)
 
+        mock_store_manager_repository = mock_store_manager_repository_class.return_value
+        mock_store_manager_repository.get_store_by_id.return_value = SimpleNamespace(store_id=store_id)
         mock_store_repository = mock_store_repository_class.return_value
-        mock_store_repository.get_store_by_id.return_value = SimpleNamespace(store_id=store_id)
 
         mock_wallet_repository = mock_wallet_repository_class.return_value
         mock_wallet_repository.get_wallet_by_address.return_value = None
@@ -45,10 +49,10 @@ class TestCreateWalletNonce:
             lambda mysql_session, nonce: SimpleNamespace(nonce_id=123, nonce=nonce.nonce)
         )
 
-        with patch("app.services.store_service.datetime") as mock_datetime:
+        with patch("app.services.store_wallet_service.datetime") as mock_datetime:
             mock_datetime.now.return_value = fixed_now
 
-            result = StoreService().create_wallet_nonce(
+            result = StoreWalletService().create_wallet_nonce(
                 mysql_session=mysql_session,
                 store_id=store_id,
                 wallet_address=wallet_address,
@@ -56,7 +60,7 @@ class TestCreateWalletNonce:
                 network_name=network_name,
             )
 
-        mock_store_repository.get_store_by_id.assert_called_once_with(
+        mock_store_manager_repository.get_store_by_id.assert_called_once_with(
             mysql_session=mysql_session,
             store_id=store_id,
         )
@@ -87,10 +91,12 @@ class TestCreateWalletNonce:
             expires_at="2026-04-12 12:10",
         )
 
-    @patch("app.services.store_service.WalletRepository")
-    @patch("app.services.store_service.StoreRepository")
+    @patch("app.services.store_wallet_service.WalletRepository")
+    @patch("app.services.store_wallet_service.StoreWalletRepository")
+    @patch("app.services.store_wallet_service.StoreManagerRepository")
     def test_create_wallet_nonce_not_found_error(
         self,
+        mock_store_manager_repository_class,
         mock_repository_class,
         mock_wallet_repository_class,
     ):
@@ -101,11 +107,12 @@ class TestCreateWalletNonce:
         chain_type = "ethereum"
         network_name = "sepolia"
 
+        mock_store_manager_repository = mock_store_manager_repository_class.return_value
+        mock_store_manager_repository.get_store_by_id.return_value = None
         mock_repository = mock_repository_class.return_value
-        mock_repository.get_store_by_id.return_value = None
 
         with pytest.raises(StoreNotFoundException):
-            StoreService().create_wallet_nonce(
+            StoreWalletService().create_wallet_nonce(
                 mysql_session=mysql_session,
                 store_id=store_id,
                 wallet_address=wallet_address,
@@ -113,7 +120,7 @@ class TestCreateWalletNonce:
                 network_name=network_name,
             )
 
-        mock_repository.get_store_by_id.assert_called_once_with(
+        mock_store_manager_repository.get_store_by_id.assert_called_once_with(
             mysql_session=mysql_session,
             store_id=store_id,
         )
@@ -121,14 +128,16 @@ class TestCreateWalletNonce:
         mock_repository.create_nonce.assert_not_called()
         mock_repository.create_store_nonce.assert_not_called()
 
-    @patch("app.services.store_service.secrets.token_urlsafe")
-    @patch("app.services.store_service.StoreRepository")
-    @patch("app.services.store_service.NonceRepository")
-    @patch("app.services.store_service.WalletRepository")
+    @patch("app.services.store_wallet_service.secrets.token_urlsafe")
+    @patch("app.services.store_wallet_service.StoreWalletRepository")
+    @patch("app.services.store_wallet_service.StoreManagerRepository")
+    @patch("app.services.store_wallet_service.NonceRepository")
+    @patch("app.services.store_wallet_service.WalletRepository")
     def test_create_wallet_nonce_wallet_conflict_error(
         self,
         mock_wallet_repository_class,
         mock_nonce_repository_class,
+        mock_store_manager_repository_class,
         mock_store_repository_class,
         mock_token_urlsafe,
     ):
@@ -139,14 +148,15 @@ class TestCreateWalletNonce:
         chain_type = "ethereum"
         network_name = "sepolia"
 
+        mock_store_manager_repository = mock_store_manager_repository_class.return_value
+        mock_store_manager_repository.get_store_by_id.return_value = SimpleNamespace(store_id=store_id)
         mock_store_repository = mock_store_repository_class.return_value
-        mock_store_repository.get_store_by_id.return_value = SimpleNamespace(store_id=store_id)
 
         mock_wallet_repository = mock_wallet_repository_class.return_value
         mock_wallet_repository.get_wallet_by_address.return_value = SimpleNamespace(wallet_id=1)
 
         with pytest.raises(WalletConflictException):
-            StoreService().create_wallet_nonce(
+            StoreWalletService().create_wallet_nonce(
                 mysql_session=mysql_session,
                 store_id=store_id,
                 wallet_address=wallet_address,
@@ -154,7 +164,7 @@ class TestCreateWalletNonce:
                 network_name=network_name,
             )
 
-        mock_store_repository.get_store_by_id.assert_called_once_with(
+        mock_store_manager_repository.get_store_by_id.assert_called_once_with(
             mysql_session=mysql_session,
             store_id=store_id,
         )

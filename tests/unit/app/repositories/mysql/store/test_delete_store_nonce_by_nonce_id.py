@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.models.mysql.store_nonce import StoreNonce
-from app.repositories.mysql.store_repository import StoreRepository
+from app.repositories.mysql.store_nonce_repository import StoreNonceRepository
 
 
 @pytest.mark.usefixtures("insert_stores", "insert_nonces", "insert_store_nonces")
@@ -14,7 +14,7 @@ class TestDeleteStoreNonceByNonceId:
         mysql_session: Session,
     ) -> None:
         """存在する nonce_id を指定した場合、対象 StoreNonce の deleted_at が設定されること。"""
-        repository = StoreRepository()
+        repository = StoreNonceRepository()
         target_nonce_id = 8
 
         before = (
@@ -43,7 +43,7 @@ class TestDeleteStoreNonceByNonceId:
         mysql_session: Session,
     ) -> None:
         """存在しない nonce_id を指定した場合、いずれの StoreNonce も更新されないこと。"""
-        repository = StoreRepository()
+        repository = StoreNonceRepository()
         non_existent_nonce_id = 99999
         before_count = (
             mysql_session.query(StoreNonce)

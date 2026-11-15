@@ -8,16 +8,18 @@ from app.core.exceptions.custom_exception import (
     StoreNotFoundException,
     UnauthorizedException,
 )
-from app.services.store_service import StoreService
+from app.services.store_wallet_service import StoreWalletService
 
 
 class TestVerifyWalletNonce:
-    """StoreService の verify_wallet_nonce を検証するテスト。"""
+    """StoreWalletService の verify_wallet_nonce を検証するテスト。"""
 
-    @patch("app.services.store_service.WalletUtil.recover_address")
-    @patch("app.services.store_service.StoreRepository")
+    @patch("app.services.store_wallet_service.WalletUtil.recover_address")
+    @patch("app.services.store_wallet_service.StoreWalletRepository")
+    @patch("app.services.store_wallet_service.StoreManagerRepository")
     def test_verify_wallet_nonce(
         self,
+        mock_store_manager_repository_class,
         mock_repository_class,
         mock_recover_address,
     ):
@@ -31,12 +33,13 @@ class TestVerifyWalletNonce:
         network_name = "sepolia"
         nonce_entity = SimpleNamespace(nonce="available-nonce")
 
+        mock_store_manager_repository = mock_store_manager_repository_class.return_value
+        mock_store_manager_repository.get_store_by_id.return_value = SimpleNamespace(store_id=10)
         mock_repository = mock_repository_class.return_value
-        mock_repository.get_store_by_id.return_value = SimpleNamespace(store_id=10)
         mock_repository.get_latest_available_nonce.return_value = nonce_entity
         mock_recover_address.return_value = normalized_wallet_address
 
-        result = StoreService().verify_wallet_nonce(
+        result = StoreWalletService().verify_wallet_nonce(
             mysql_session=mysql_session,
             store_id=store_id,
             wallet_address=wallet_address,
@@ -45,7 +48,7 @@ class TestVerifyWalletNonce:
             network_name=network_name,
         )
 
-        mock_repository.get_store_by_id.assert_called_once_with(
+        mock_store_manager_repository.get_store_by_id.assert_called_once_with(
             mysql_session=mysql_session,
             store_id=store_id,
         )
@@ -97,10 +100,12 @@ class TestVerifyWalletNonce:
             "signature-mismatch",
         ],
     )
-    @patch("app.services.store_service.WalletUtil.recover_address")
-    @patch("app.services.store_service.StoreRepository")
+    @patch("app.services.store_wallet_service.WalletUtil.recover_address")
+    @patch("app.services.store_wallet_service.StoreWalletRepository")
+    @patch("app.services.store_wallet_service.StoreManagerRepository")
     def test_verify_wallet_nonce_raises(
         self,
+        mock_store_manager_repository_class,
         mock_repository_class,
         mock_recover_address,
         store,
@@ -116,13 +121,14 @@ class TestVerifyWalletNonce:
         chain_type = "ethereum"
         network_name = "sepolia"
 
+        mock_store_manager_repository = mock_store_manager_repository_class.return_value
+        mock_store_manager_repository.get_store_by_id.return_value = store
         mock_repository = mock_repository_class.return_value
-        mock_repository.get_store_by_id.return_value = store
         mock_repository.get_latest_available_nonce.return_value = nonce_entity
         mock_recover_address.return_value = recovered_address
 
         with pytest.raises(expected_exception):
-            StoreService().verify_wallet_nonce(
+            StoreWalletService().verify_wallet_nonce(
                 mysql_session=mysql_session,
                 store_id=store_id,
                 wallet_address=wallet_address,
@@ -131,7 +137,7 @@ class TestVerifyWalletNonce:
                 network_name=network_name,
             )
 
-        mock_repository.get_store_by_id.assert_called_once_with(
+        mock_store_manager_repository.get_store_by_id.assert_called_once_with(
             mysql_session=mysql_session,
             store_id=store_id,
         )

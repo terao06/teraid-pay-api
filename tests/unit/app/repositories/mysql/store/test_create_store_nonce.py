@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.models.mysql.nonce import Nonce
 from app.models.mysql.store_nonce import StoreNonce
 from app.repositories.mysql.nonce_repository import NonceRepository
-from app.repositories.mysql.store_repository import StoreRepository
+from app.repositories.mysql.store_nonce_repository import StoreNonceRepository
 
 
 @pytest.mark.usefixtures("insert_stores")
@@ -18,7 +18,7 @@ class TestCreateStoreNonce:
         mysql_session: Session,
     ) -> None:
         """正常系の処理結果を検証する。"""
-        repository = StoreRepository()
+        repository = StoreNonceRepository()
         nonce = Nonce(
             wallet_address="0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             chain_type="ethereum",

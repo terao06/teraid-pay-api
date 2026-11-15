@@ -8,15 +8,15 @@ from app.core.exceptions.custom_exception import (
     WalletConflictException,
 )
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
-from app.services.store_service import StoreService
+from app.services.store_wallet_service import StoreWalletService
 
 
 class TestCreateStoreWallet:
-    """StoreService の create_store_wallet を検証するテスト。"""
+    """StoreWalletService の create_store_wallet を検証するテスト。"""
 
-    @patch("app.services.store_service.StoreRepository")
-    @patch("app.services.store_service.WalletRepository")
-    @patch("app.services.store_service.NonceRepository")
+    @patch("app.services.store_wallet_service.StoreWalletRepository")
+    @patch("app.services.store_wallet_service.WalletRepository")
+    @patch("app.services.store_wallet_service.NonceRepository")
     def test_create_store_wallet(self, mock_nonce_repository_class, mock_wallet_repository_class, mock_store_repository_class):
         """primary の切り替えと nonce の使用済み更新を行い、レスポンスを返すことを検証する。"""
         mysql_session = Mock()
@@ -38,10 +38,10 @@ class TestCreateStoreWallet:
         mock_nonce_repository = mock_nonce_repository_class.return_value
 
 
-        with patch("app.services.store_service.datetime") as mock_datetime:
+        with patch("app.services.store_wallet_service.datetime") as mock_datetime:
             mock_datetime.now.return_value = fixed_now
 
-            result = StoreService().create_store_wallet(
+            result = StoreWalletService().create_store_wallet(
                 mysql_session=mysql_session,
                 store_id=store_id,
                 wallet_address=wallet_address,
@@ -96,7 +96,7 @@ class TestCreateStoreWallet:
             verified_at="2026-04-12 12:34",
         )
 
-    @patch("app.services.store_service.StoreRepository")
+    @patch("app.services.store_wallet_service.StoreWalletRepository")
     def test_create_store_wallet_conflict(self, mock_repository_class):
         """同一チェーン・ネットワークに同じウォレットが存在する場合は競合例外を送出する。"""
         mysql_session = Mock()
@@ -112,7 +112,7 @@ class TestCreateStoreWallet:
         mock_repository.get_wallet_by_store_id.return_value = SimpleNamespace(wallet_id=99)
 
         with pytest.raises(WalletConflictException):
-            StoreService().create_store_wallet(
+            StoreWalletService().create_store_wallet(
                 mysql_session=mysql_session,
                 store_id=store_id,
                 wallet_address=wallet_address,

@@ -316,7 +316,7 @@ class TestCreateMenu:
         "initialize_ssm",
         "use_local_s3_endpoint",
     )
-    @patch("app.services.store_service.S3Client")
+    @patch("app.services.store_menu_service.S3Client")
     def test_with_db_rolls_back_when_s3_upload_fails(
         self,
         mock_s3_client_class,
@@ -342,7 +342,7 @@ class TestCreateMenu:
 
     @pytest.mark.usefixtures("insert_menu_categories")
     @patch(
-        "app.repositories.mysql.store_repository.StoreRepository.create_menu_option",
+        "app.repositories.mysql.store_menu_repository.StoreMenuRepository.create_menu_option",
         side_effect=Exception("DB error"),
     )
     def test_with_db_rolls_back_when_option_registration_fails(
