@@ -5,7 +5,10 @@ from sqlalchemy.orm import Session
 
 from app.core.aws.s3_client import S3Client
 from app.core.aws.ssm_manager import SsmClient
-from app.core.exceptions.custom_exception import MenuCategoryImageInvalidException
+from app.core.exceptions.custom_exception import (
+    MenuCategoryImageInvalidException,
+    MenuCategoryNotFoundException,
+)
 from app.core.utils.image import ImageUtil
 from app.middlewares.transaction import add_mysql_rollback_callback
 from app.models.mysql.menu_category import MenuCategory
@@ -63,6 +66,50 @@ class StoreMenuCategoryService:
                     expires_in=params.menu_image_url_expires_in),
                 display_order=category.display_order, is_active=category.is_active))
         return MenuCategoryListResponse(menu_categories=responses, pagination=pagination)
+
+    def get_menu_category(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        menu_category_id: int,
+    ) -> MenuCategoryResponse:
+        """店舗に属するメニューカテゴリー詳細を画像URL付きで取得する。
+
+        Args:
+            mysql_session: SQLAlchemyのセッション。
+            store_id: 取得対象の店舗ID。
+            menu_category_id: 取得対象のメニューカテゴリーID。
+
+        Returns:
+            画像の署名付きURLを含むメニューカテゴリー詳細。
+
+        Raises:
+            MenuCategoryNotFoundException: 対象カテゴリーが存在しない場合。
+        """
+        category = StoreMenuCategoryRepository().get_menu_category(
+            mysql_session=mysql_session,
+            store_id=store_id,
+            menu_category_id=menu_category_id,
+        )
+        if category is None:
+            raise MenuCategoryNotFoundException(
+                "メニューカテゴリーが存在しません。"
+            )
+
+        params = SsmClient()
+        client = S3Client(s3_endpoint=params.s3_endpoint)
+        key = f"{store_id}/{category.menu_category_id}.{category.image_extension}"
+        return MenuCategoryResponse(
+            menu_category_id=category.menu_category_id,
+            name=category.name,
+            image_url=client.generate_presigned_get_url(
+                bucket_name=params.category_image_bucket,
+                file_name=key,
+                expires_in=params.menu_image_url_expires_in,
+            ),
+            display_order=category.display_order,
+            is_active=category.is_active,
+        )
 
     def create_menu_category(self, mysql_session: Session, store_id: int,
                              request: MenuCategoryCreateRequest) -> MenuCategoryCreateResponse:
