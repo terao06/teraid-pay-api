@@ -64,6 +64,8 @@ def get_menus(
     name: str | None = Query(default=None, min_length=1, max_length=255),
     menu_category_id: int | None = Query(default=None, ge=1),
     is_available: bool | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
     auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
 ):
     """認証済み管理者の店舗に紐づくメニュー商品を取得する。
@@ -79,6 +81,8 @@ def get_menus(
         name=name,
         menu_category_id=menu_category_id,
         is_available=is_available,
+        page=page,
+        page_size=page_size,
     )
 
 

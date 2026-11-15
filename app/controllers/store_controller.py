@@ -125,6 +125,8 @@ class StoreController:
         name: str | None = None,
         menu_category_id: int | None = None,
         is_available: bool | None = None,
+        page: int = 1,
+        page_size: int = 20,
     ) -> MenuListResponse:
         """認証済み管理者の店舗に紐づくメニュー商品を取得する。
 
@@ -142,6 +144,8 @@ class StoreController:
                 name=name,
                 menu_category_id=menu_category_id,
                 is_available=is_available,
+                page=page,
+                page_size=page_size,
             )
         except Exception:
             raise CustomHttpException.get_http_exception(

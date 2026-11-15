@@ -22,10 +22,23 @@ class MenuItemResponse(BaseModel):
     display_order: int = Field(..., description="Display order")
 
 
+class MenuPaginationResponse(BaseModel):
+    """メニュー一覧のページング情報。"""
+
+    page: int = Field(default=1, description="Current page number")
+    page_size: int = Field(default=20, description="Number of items per page")
+    total: int = Field(default=0, description="Total number of matching items")
+    total_pages: int = Field(default=0, description="Total number of pages")
+
+
 class MenuListResponse(BaseModel):
     """メニュー一覧 API のレスポンスモデル。"""
 
     menu_items: list[MenuItemResponse] = Field(
         default_factory=list,
         description="Menu items for the authenticated store",
+    )
+    pagination: MenuPaginationResponse = Field(
+        default_factory=MenuPaginationResponse,
+        description="Pagination metadata for the filtered menu items",
     )

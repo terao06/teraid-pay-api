@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 from app.models.responses.menu_list_response import (
     MenuItemResponse,
     MenuListResponse,
+    MenuPaginationResponse,
 )
 from app.services.store_service import StoreService
 
@@ -23,6 +24,7 @@ class TestGetMenus:
     ) -> None:
         """取得した商品とカテゴリー名を一覧レスポンスへ変換することを確認する。"""
         mysql_session = Mock()
+        mock_repository_class.return_value.count_menu_items.return_value = 6
         mock_repository_class.return_value.get_menu_items.return_value = [
             (
                 SimpleNamespace(
@@ -54,6 +56,8 @@ class TestGetMenus:
             name="バーガー",
             menu_category_id=1,
             is_available=True,
+            page=2,
+            page_size=5,
         )
 
         assert result == MenuListResponse(
@@ -70,7 +74,20 @@ class TestGetMenus:
                     is_available=True,
                     display_order=1,
                 )
-            ]
+            ],
+            pagination=MenuPaginationResponse(
+                page=2,
+                page_size=5,
+                total=6,
+                total_pages=2,
+            ),
+        )
+        mock_repository_class.return_value.count_menu_items.assert_called_once_with(
+            mysql_session=mysql_session,
+            store_id=101,
+            name="バーガー",
+            menu_category_id=1,
+            is_available=True,
         )
         mock_repository_class.return_value.get_menu_items.assert_called_once_with(
             mysql_session=mysql_session,
@@ -78,6 +95,8 @@ class TestGetMenus:
             name="バーガー",
             menu_category_id=1,
             is_available=True,
+            offset=5,
+            limit=5,
         )
         mock_s3_client_class.assert_called_once_with(s3_endpoint="http://s3.local")
         mock_s3_client_class.return_value.generate_presigned_get_url.assert_called_once_with(
@@ -96,7 +115,7 @@ class TestGetMenus:
         mock_s3_client_class,
     ) -> None:
         """商品が存在しない場合に空の一覧を返すことを確認する。"""
-        mock_repository_class.return_value.get_menu_items.return_value = []
+        mock_repository_class.return_value.count_menu_items.return_value = 0
         mysql_session = Mock()
 
         result = StoreService().get_menus(
@@ -105,12 +124,13 @@ class TestGetMenus:
         )
 
         assert result == MenuListResponse(menu_items=[])
-        mock_repository_class.return_value.get_menu_items.assert_called_once_with(
+        mock_repository_class.return_value.count_menu_items.assert_called_once_with(
             mysql_session=mysql_session,
             store_id=101,
             name=None,
             menu_category_id=None,
             is_available=None,
         )
+        mock_repository_class.return_value.get_menu_items.assert_not_called()
         mock_ssm_client_class.assert_not_called()
         mock_s3_client_class.assert_not_called()

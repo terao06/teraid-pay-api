@@ -19,6 +19,56 @@ from app.core.utils.datetime import JST
 class StoreRepository:
     """店舗ウォレット情報を取得するリポジトリです。"""
 
+    def _build_menu_items_query(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        name: str | None = None,
+        menu_category_id: int | None = None,
+        is_available: bool | None = None,
+    ):
+        query = (
+            mysql_session.query(
+                MenuItem,
+                MenuCategory.name.label("menu_category_name"),
+            )
+            .outerjoin(
+                MenuCategory,
+                and_(
+                    MenuItem.menu_category_id == MenuCategory.menu_category_id,
+                    MenuCategory.store_id == store_id,
+                    MenuCategory.deleted_at.is_(None),
+                ),
+            )
+            .filter(
+                MenuItem.store_id == store_id,
+                MenuItem.deleted_at.is_(None),
+            )
+        )
+
+        if name is not None:
+            normalized_name = name.strip()
+            if normalized_name:
+                escaped_name = (
+                    normalized_name
+                    .replace("\\", "\\\\")
+                    .replace("%", "\\%")
+                    .replace("_", "\\_")
+                )
+                query = query.filter(
+                    MenuItem.name.ilike(f"%{escaped_name}%", escape="\\")
+                )
+
+        if menu_category_id is not None:
+            query = query.filter(
+                MenuItem.menu_category_id == menu_category_id
+            )
+
+        if is_available is not None:
+            query = query.filter(MenuItem.is_available.is_(is_available))
+
+        return query
+
     def get_store_wallet_link(
         self,
         mysql_session: Session,
@@ -132,6 +182,8 @@ class StoreRepository:
         name: str | None = None,
         menu_category_id: int | None = None,
         is_available: bool | None = None,
+        offset: int = 0,
+        limit: int | None = None,
     ) -> list[tuple[MenuItem, str | None]]:
         """店舗に紐づく未削除のメニュー商品とカテゴリー名を取得する。
 
@@ -142,53 +194,37 @@ class StoreRepository:
         Returns:
             表示順で並べたメニュー商品とカテゴリー名。存在しない場合は空のリスト。
         """
-        query = (
-            mysql_session.query(
-                MenuItem,
-                MenuCategory.name.label("menu_category_name"),
-            )
-            .outerjoin(
-                MenuCategory,
-                and_(
-                    MenuItem.menu_category_id == MenuCategory.menu_category_id,
-                    MenuCategory.store_id == store_id,
-                    MenuCategory.deleted_at.is_(None),
-                ),
-            )
-            .filter(
-                MenuItem.store_id == store_id,
-                MenuItem.deleted_at.is_(None),
-            )
+        query = self._build_menu_items_query(
+            mysql_session=mysql_session,
+            store_id=store_id,
+            name=name,
+            menu_category_id=menu_category_id,
+            is_available=is_available,
         )
+        query = query.order_by(
+            MenuItem.display_order.asc(),
+            MenuItem.menu_item_id.asc(),
+        ).offset(offset)
+        if limit is not None:
+            query = query.limit(limit)
+        return query.all()
 
-        if name is not None:
-            normalized_name = name.strip()
-            if normalized_name:
-                escaped_name = (
-                    normalized_name
-                    .replace("\\", "\\\\")
-                    .replace("%", "\\%")
-                    .replace("_", "\\_")
-                )
-                query = query.filter(
-                    MenuItem.name.ilike(f"%{escaped_name}%", escape="\\")
-                )
-
-        if menu_category_id is not None:
-            query = query.filter(
-                MenuItem.menu_category_id == menu_category_id
-            )
-
-        if is_available is not None:
-            query = query.filter(MenuItem.is_available.is_(is_available))
-
-        return (
-            query.order_by(
-                MenuItem.display_order.asc(),
-                MenuItem.menu_item_id.asc(),
-            )
-            .all()
-        )
+    def count_menu_items(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        name: str | None = None,
+        menu_category_id: int | None = None,
+        is_available: bool | None = None,
+    ) -> int:
+        """検索条件に一致する未削除メニュー商品の件数を取得する。"""
+        return self._build_menu_items_query(
+            mysql_session=mysql_session,
+            store_id=store_id,
+            name=name,
+            menu_category_id=menu_category_id,
+            is_available=is_available,
+        ).count()
 
     def create_menu_item(
         self,

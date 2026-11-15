@@ -45,6 +45,8 @@ class TestGetMenus:
             name="バーガー",
             menu_category_id=12,
             is_available=True,
+            page=2,
+            page_size=10,
         )
 
         assert result == expected
@@ -54,6 +56,8 @@ class TestGetMenus:
             name="バーガー",
             menu_category_id=12,
             is_available=True,
+            page=2,
+            page_size=10,
         )
 
     @patch("app.controllers.store_controller.StoreService")

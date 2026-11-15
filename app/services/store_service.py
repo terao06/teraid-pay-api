@@ -48,6 +48,7 @@ from app.models.responses.menu_create_response import (
 from app.models.responses.menu_list_response import (
     MenuItemResponse,
     MenuListResponse,
+    MenuPaginationResponse,
 )
 from app.repositories.mysql.nonce_repository import NonceRepository
 from app.repositories.mysql.store_repository import StoreRepository
@@ -171,6 +172,8 @@ class StoreService:
         name: str | None = None,
         menu_category_id: int | None = None,
         is_available: bool | None = None,
+        page: int = 1,
+        page_size: int = 20,
     ) -> MenuListResponse:
         """店舗に紐づく未削除のメニュー商品一覧を取得する。
 
@@ -181,15 +184,35 @@ class StoreService:
         Returns:
             メニュー商品一覧のレスポンス。
         """
-        menu_items = StoreRepository().get_menu_items(
+        repository = StoreRepository()
+        total = repository.count_menu_items(
             mysql_session=mysql_session,
             store_id=store_id,
             name=name,
             menu_category_id=menu_category_id,
             is_available=is_available,
         )
+        total_pages = (total + page_size - 1) // page_size
+        pagination = MenuPaginationResponse(
+            page=page,
+            page_size=page_size,
+            total=total,
+            total_pages=total_pages,
+        )
+        if total == 0:
+            return MenuListResponse(menu_items=[], pagination=pagination)
+
+        menu_items = repository.get_menu_items(
+            mysql_session=mysql_session,
+            store_id=store_id,
+            name=name,
+            menu_category_id=menu_category_id,
+            is_available=is_available,
+            offset=(page - 1) * page_size,
+            limit=page_size,
+        )
         if not menu_items:
-            return MenuListResponse(menu_items=[])
+            return MenuListResponse(menu_items=[], pagination=pagination)
 
         ssm_params = SsmClient()
         s3_client = S3Client(s3_endpoint=ssm_params.s3_endpoint)
@@ -223,7 +246,10 @@ class StoreService:
                 )
             )
 
-        return MenuListResponse(menu_items=menu_item_responses)
+        return MenuListResponse(
+            menu_items=menu_item_responses,
+            pagination=pagination,
+        )
 
     def create_menu(
         self,

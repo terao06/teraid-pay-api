@@ -101,3 +101,30 @@ class TestGetMenuItems:
         )
 
         assert [menu_item.menu_item_id for menu_item, _ in result] == [22]
+
+    def test_get_menu_items_with_pagination(
+        self,
+        mysql_session: Session,
+    ) -> None:
+        """offsetとlimitを指定して対象ページの商品だけ取得できることを確認する。"""
+        result = StoreRepository().get_menu_items(
+            mysql_session=mysql_session,
+            store_id=101,
+            offset=1,
+            limit=2,
+        )
+
+        assert [menu_item.menu_item_id for menu_item, _ in result] == [22, 23]
+
+    def test_count_menu_items_with_filters(
+        self,
+        mysql_session: Session,
+    ) -> None:
+        """検索条件に一致する総件数を取得できることを確認する。"""
+        result = StoreRepository().count_menu_items(
+            mysql_session=mysql_session,
+            store_id=101,
+            is_available=True,
+        )
+
+        assert result == 3

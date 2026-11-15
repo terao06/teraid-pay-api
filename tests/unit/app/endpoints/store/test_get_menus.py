@@ -6,6 +6,7 @@ import pytest
 from app.models.responses.menu_list_response import (
     MenuItemResponse,
     MenuListResponse,
+    MenuPaginationResponse,
 )
 
 
@@ -33,7 +34,13 @@ class TestGetMenus:
                     is_available=True,
                     display_order=1,
                 )
-            ]
+            ],
+            pagination=MenuPaginationResponse(
+                page=1,
+                page_size=20,
+                total=1,
+                total_pages=1,
+            ),
         )
 
         response = client.get("/store/menu")
@@ -55,7 +62,13 @@ class TestGetMenus:
                         "is_available": True,
                         "display_order": 1,
                     }
-                ]
+                ],
+                "pagination": {
+                    "page": 1,
+                    "page_size": 20,
+                    "total": 1,
+                    "total_pages": 1,
+                },
             },
         }
         mock_get_menus.assert_called_once_with(
@@ -63,6 +76,8 @@ class TestGetMenus:
             name=None,
             menu_category_id=None,
             is_available=None,
+            page=1,
+            page_size=20,
         )
 
     @patch("app.endpoints.store.StoreController.get_menus")
@@ -80,6 +95,8 @@ class TestGetMenus:
                 "name": "バーガー",
                 "menu_category_id": 12,
                 "is_available": False,
+                "page": 2,
+                "page_size": 10,
             },
         )
 
@@ -89,6 +106,8 @@ class TestGetMenus:
             name="バーガー",
             menu_category_id=12,
             is_available=False,
+            page=2,
+            page_size=10,
         )
 
     @patch("app.endpoints.store.StoreController.get_menus")
@@ -209,7 +228,15 @@ class TestGetMenus:
         assert response.status_code == 200
         assert response.json() == {
             "status": "success",
-            "data": {"menu_items": []},
+            "data": {
+                "menu_items": [],
+                "pagination": {
+                    "page": 1,
+                    "page_size": 20,
+                    "total": 0,
+                    "total_pages": 0,
+                },
+            },
         }
         mock_ssm_client_class.assert_not_called()
         mock_s3_client_class.assert_not_called()

@@ -116,6 +116,23 @@ paths:
           description: 公開状態による完全一致検索。trueは販売中、falseは非公開。
           schema:
             type: boolean
+        - name: page
+          in: query
+          required: false
+          description: ページ番号。1から開始する。
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          required: false
+          description: 1ページあたりの取得件数。
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
       responses:
         '200':
           description: メニュー一覧取得成功。該当する商品がない場合は空配列を返す。
@@ -137,6 +154,11 @@ paths:
                       image_url: https://example.com/menus/101/10.jpeg?signature=...
                       is_available: true
                       display_order: 1
+                  pagination:
+                    page: 1
+                    page_size: 20
+                    total: 1
+                    total_pages: 1
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
@@ -535,13 +557,37 @@ components:
 
     MenuList:
       type: object
-      required: [menu_items]
+      required: [menu_items, pagination]
       properties:
         menu_items:
           type: array
           description: 認証店舗の未削除メニュー商品一覧
           items:
             $ref: '#/components/schemas/MenuItem'
+        pagination:
+          $ref: '#/components/schemas/MenuPagination'
+
+    MenuPagination:
+      type: object
+      required: [page, page_size, total, total_pages]
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          description: 現在のページ番号。
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: 1ページあたりの取得件数。
+        total:
+          type: integer
+          minimum: 0
+          description: 検索条件に一致する総件数。
+        total_pages:
+          type: integer
+          minimum: 0
+          description: 総ページ数。該当商品がない場合は0。
 
     MenuOptionCreateRequest:
       type: object
