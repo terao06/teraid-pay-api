@@ -5,6 +5,7 @@
     "scrfd_weight": "scrfd/scrfd.onnx",
     "face_image_bucket": "faces",
     "menu_image_bucket": "menus",
+    "category_image_bucket": "categories",
     "menu_image_url_expires_in": 3600
 
 }

@@ -5,6 +5,7 @@ import secrets
 from sqlalchemy.orm import Session
 
 from app.core.exceptions.custom_exception import (
+    MenuCategoryImageInvalidException,
     MenuCategoryNotFoundException,
     MenuImageInvalidException,
     StoreManagerInactiveException,
@@ -23,6 +24,7 @@ from app.core.aws.s3_client import S3Client
 from app.core.aws.ssm_manager import SsmClient
 from app.middlewares.transaction import add_mysql_rollback_callback
 from app.models.mysql.nonce import Nonce
+from app.models.mysql.menu_category import MenuCategory
 from app.models.mysql.menu_item import MenuItem
 from app.models.mysql.menu_option_group import MenuOptionGroup
 from app.models.mysql.menu_option import MenuOption
@@ -37,9 +39,11 @@ from app.models.responses.store_manager_login_response import (
     StoreManagerLoginResponse,
 )
 from app.models.responses.menu_category_response import (
+    MenuCategoryCreateResponse,
     MenuCategoryListResponse,
     MenuCategoryResponse,
 )
+from app.models.requests.menu_category_create_request import MenuCategoryCreateRequest
 from app.models.requests.menu_create_request import MenuCreateRequest
 from app.models.responses.menu_create_response import (
     MenuCreateResponse,
@@ -163,6 +167,65 @@ class StoreService:
                 )
                 for menu_category in menu_categories
             ]
+        )
+
+    def create_menu_category(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        request: MenuCategoryCreateRequest,
+    ) -> MenuCategoryCreateResponse:
+        """店舗に紐づくメニューカテゴリーとカテゴリー画像を登録する。"""
+        try:
+            category_image_bytes = ImageUtil.decode_base64_image(
+                content=request.category_image,
+                image_extension=request.image_extension.value,
+            )
+        except ValueError as exc:
+            raise MenuCategoryImageInvalidException(
+                "カテゴリー画像を読み込めません。"
+            ) from exc
+
+        store_repository = StoreRepository()
+        menu_category = MenuCategory(
+            store_id=store_id,
+            name=request.name,
+            image_extension=request.image_extension.value,
+            display_order=request.display_order,
+            is_active=request.is_active,
+        )
+        saved_menu_category = store_repository.create_menu_category(
+            mysql_session=mysql_session,
+            menu_category=menu_category,
+        )
+
+        ssm_params = SsmClient()
+        s3_client = S3Client(s3_endpoint=ssm_params.s3_endpoint)
+        image_object_key = (
+            f"{store_id}/{saved_menu_category.menu_category_id}."
+            f"{request.image_extension.value}"
+        )
+        s3_client.upload_object(
+            bucket_name=ssm_params.category_image_bucket,
+            file=BytesIO(category_image_bytes),
+            file_name=image_object_key,
+            content_type=ImageUtil.get_content_type(
+                image_extension=request.image_extension.value
+            ),
+        )
+        add_mysql_rollback_callback(
+            mysql_session=mysql_session,
+            callback=lambda: s3_client.delete_object(
+                bucket_name=ssm_params.category_image_bucket,
+                file_name=image_object_key,
+            ),
+        )
+
+        return MenuCategoryCreateResponse(
+            menu_category_id=saved_menu_category.menu_category_id,
+            name=saved_menu_category.name,
+            display_order=saved_menu_category.display_order,
+            is_active=saved_menu_category.is_active,
         )
 
     def get_menus(

@@ -19,7 +19,7 @@
 | テーブル名 | 用途 |
 | --- | --- |
 | store_managers | 店舗管理画面を利用する管理者の所属店舗、メールアドレス、利用可否を管理する。 |
-| menu_categories | 店舗ごとのメニューカテゴリを管理する。 |
+| menu_categories | 店舗ごとのメニューカテゴリ、カテゴリー画像の拡張子、表示可否を管理する。 |
 | menu_items | 商品名、基本価格、画像、販売可否を管理する。 |
 | menu_option_groups | サイズやトッピングなど、商品ごとの選択グループを管理する。 |
 | menu_options | 選択可能なオプションと追加料金を管理する。 |
@@ -52,11 +52,14 @@
 | menu_category_id | BIGINT | NO | AUTO_INCREMENT | PK | カテゴリID |
 | store_id | BIGINT | NO | - | FK → stores.store_id | 店舗ID |
 | name | VARCHAR(100) | NO | - | - | カテゴリ名 |
+| image_extension | VARCHAR(10) | NO | - | - | カテゴリー画像の拡張子 |
 | display_order | INT UNSIGNED | NO | 0 | - | 表示順 |
 | is_active | BOOLEAN | NO | TRUE | - | 有効フラグ |
 | created_at | DATETIME | NO | CURRENT_TIMESTAMP | - | 作成日時 |
 | updated_at | DATETIME | NO | CURRENT_TIMESTAMP | - | 更新日時 |
 | deleted_at | DATETIME | YES | NULL | - | 論理削除日時 |
+
+カテゴリー画像本体はS3の `category_image_bucket` に保存し、オブジェクトキーは `{store_id}/{menu_category_id}.{image_extension}` とする。DBには画像本体および署名付きURLを保存しない。
 
 ### 3.3 menu_items
 
@@ -206,6 +209,7 @@ erDiagram
         bigint menu_category_id PK
         bigint store_id FK
         varchar name
+        varchar image_extension
         int display_order
         boolean is_active
     }

@@ -12,6 +12,7 @@ class TestSsmClient:
         assert ssm_client.region_name == "ap-northeast-1"
         assert ssm_client.endpoint_url == "http://localhost:4566"
         assert ssm_client.client.meta.endpoint_url == "http://localhost:4566"
+        assert ssm_client.category_image_bucket == "categories"
         assert ssm_client.menu_image_url_expires_in == 3600
 
     def test_get_parameter_returns_string(self) -> None:

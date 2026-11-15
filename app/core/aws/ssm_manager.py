@@ -12,6 +12,7 @@ class SsmClient:
     scrfd_weight: str
     face_image_bucket: str
     menu_image_bucket: str
+    category_image_bucket: str
     menu_image_url_expires_in: int
 
     def __init__(self):
@@ -33,6 +34,9 @@ class SsmClient:
         self.scrfd_weight = self._get_string_parameter(name="scrfd_weight")
         self.face_image_bucket = self._get_string_parameter(name="face_image_bucket")
         self.menu_image_bucket = self._get_string_parameter(name="menu_image_bucket")
+        self.category_image_bucket = self._get_string_parameter(
+            name="category_image_bucket"
+        )
         self.menu_image_url_expires_in = self._get_integer_parameter(
             name="menu_image_url_expires_in"
         )
