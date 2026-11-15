@@ -102,6 +102,24 @@ class StoreMenuCategoryRepository:
             MenuCategory.deleted_at.is_(None),
         ).one_or_none()
 
+    def update_menu_category(
+        self,
+        mysql_session: Session,
+        menu_category: MenuCategory,
+    ) -> MenuCategory:
+        """メニューカテゴリーを更新してセッションへ反映する。
+
+        Args:
+            mysql_session: SQLAlchemyのセッション。
+            menu_category: 更新対象のメニューカテゴリー。
+
+        Returns:
+            更新済みのメニューカテゴリー。
+        """
+        mysql_session.add(menu_category)
+        mysql_session.flush()
+        return menu_category
+
     def create_menu_category(self, mysql_session: Session, menu_category: MenuCategory) -> MenuCategory:
         """メニューカテゴリーをセッションへ追加してIDを確定する。
 

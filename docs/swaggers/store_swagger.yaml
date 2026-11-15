@@ -207,6 +207,56 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
+    put:
+      tags: [StoreMenu]
+      summary: メニューカテゴリー更新
+      description: JWTで認証した店舗管理者のstore_idに紐づく未削除カテゴリーを更新する。画像を変更する場合だけcategory_imageとimage_extensionを指定する。
+      operationId: updateMenuCategory
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: menu_category_id
+          in: path
+          required: true
+          description: 更新対象のメニューカテゴリーID。
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MenuCategoryUpdateRequest'
+            example:
+              name: ハンバーガー・サンドイッチ
+              category_image: iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB...
+              image_extension: png
+              display_order: 2
+              is_active: true
+      responses:
+        '200':
+          description: カテゴリー更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuCategoryUpdateWrappedResponse'
+              example:
+                status: success
+                data:
+                  menu_category_id: 1
+                  name: ハンバーガー・サンドイッチ
+                  display_order: 2
+                  is_active: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/MenuCategoryDetailNotFound'
+        '422':
+          $ref: '#/components/responses/MenuCategoryValidationError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
   /store/menu:
     get:
       tags: [StoreMenu]
@@ -719,6 +769,53 @@ components:
           type: boolean
           description: 有効フラグ
 
+    MenuCategoryUpdateRequest:
+      type: object
+      required: [name, display_order, is_active]
+      description: category_imageとimage_extensionは両方指定または両方省略する。
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: メニューカテゴリー名
+        category_image:
+          type: string
+          format: byte
+          nullable: true
+          description: Base64形式の新しいカテゴリー画像。画像を変更しない場合は省略する。
+        image_extension:
+          type: string
+          enum: [jpeg, jpg, png]
+          nullable: true
+          description: 新しいカテゴリー画像の拡張子。category_imageと同時に指定する。
+        display_order:
+          type: integer
+          minimum: 0
+          description: 表示順
+        is_active:
+          type: boolean
+          description: 有効フラグ
+
+    MenuCategoryUpdateResult:
+      type: object
+      required: [menu_category_id, name, display_order, is_active]
+      properties:
+        menu_category_id:
+          type: integer
+          minimum: 1
+          description: 更新したメニューカテゴリーID
+        name:
+          type: string
+          description: メニューカテゴリー名
+        display_order:
+          type: integer
+          minimum: 0
+          description: 表示順
+        is_active:
+          type: boolean
+          description: 有効フラグ
+
     MenuItem:
       type: object
       required:
@@ -1159,6 +1256,16 @@ components:
           enum: [success]
         data:
           $ref: '#/components/schemas/MenuCategoryCreateResult'
+
+    MenuCategoryUpdateWrappedResponse:
+      type: object
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/MenuCategoryUpdateResult'
 
     MenuListWrappedResponse:
       type: object

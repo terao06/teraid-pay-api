@@ -12,6 +12,7 @@ from app.models.requests.wallet_nonce_create_request import WalletNonceCreateReq
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
 from app.models.requests.store_manager_login_request import StoreManagerLoginRequest
 from app.models.requests.menu_category_create_request import MenuCategoryCreateRequest
+from app.models.requests.menu_category_update_request import MenuCategoryUpdateRequest
 from app.models.requests.menu_create_request import MenuCreateRequest
 from app.core.utils.logging import TeraidPayApiLog
 
@@ -100,6 +101,31 @@ def get_menu_category(
     return StoreController().get_menu_category(
         store_id=auth_context.store_id,
         menu_category_id=menu_category_id,
+    )
+
+
+@store_router.put("/menu/categories/{menu_category_id}")
+@response_rapper()
+@request_rapper()
+def update_menu_category(
+    request: MenuCategoryUpdateRequest,
+    menu_category_id: int = Path(ge=1),
+    auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
+):
+    """認証済み管理者の店舗に属するメニューカテゴリーを更新する。
+
+    Args:
+        request: カテゴリー名、任意の画像、表示順、有効状態を含む更新情報。
+        menu_category_id: 更新対象のメニューカテゴリーID。
+        auth_context: JWT認証で取得した店舗管理者情報。
+
+    Returns:
+        更新済みカテゴリー情報を含む共通レスポンス。
+    """
+    return StoreController().update_menu_category(
+        store_id=auth_context.store_id,
+        menu_category_id=menu_category_id,
+        request=request,
     )
 
 
