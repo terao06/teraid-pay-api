@@ -35,9 +35,6 @@ class TestUpdateMenuCategory:
         )
         expected = MenuCategoryUpdateResponse(
             menu_category_id=14,
-            name="更新後",
-            display_order=2,
-            is_active=True,
         )
         mock_service_class.return_value.update_menu_category.return_value = expected
 

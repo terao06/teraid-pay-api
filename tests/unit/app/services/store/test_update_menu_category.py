@@ -59,9 +59,6 @@ class TestUpdateMenuCategory:
 
         assert result == MenuCategoryUpdateResponse(
             menu_category_id=14,
-            name="更新後",
-            display_order=2,
-            is_active=True,
         )
         repository.update_menu_category.assert_called_once_with(
             mysql_session=mysql_session,
