@@ -9,6 +9,15 @@ class MenuCategoryResponse(BaseModel):
     display_order: int = Field(..., description="Display order")
 
 
+class MenuCategoryCreateResponse(BaseModel):
+    """メニューカテゴリー登録 API のレスポンスモデル。"""
+
+    menu_category_id: int = Field(..., description="Menu category ID")
+    name: str = Field(..., description="Menu category name")
+    display_order: int = Field(..., description="Display order")
+    is_active: bool = Field(..., description="Active flag")
+
+
 class MenuCategoryListResponse(BaseModel):
     """メニューカテゴリー一覧 API のレスポンスモデル。"""
 

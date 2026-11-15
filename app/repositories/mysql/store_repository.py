@@ -175,6 +175,16 @@ class StoreRepository:
             .one_or_none()
         )
 
+    def create_menu_category(
+        self,
+        mysql_session: Session,
+        menu_category: MenuCategory,
+    ) -> MenuCategory:
+        """メニューカテゴリーを保存対象としてセッションへ追加する。"""
+        mysql_session.add(menu_category)
+        mysql_session.flush()
+        return menu_category
+
     def get_menu_items(
         self,
         mysql_session: Session,

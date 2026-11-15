@@ -35,6 +35,11 @@ class MenuCategory(Base):
         nullable=False,
         comment="カテゴリー名",
     )
+    image_extension = Column(
+        String(10),
+        nullable=False,
+        comment="カテゴリー画像の拡張子",
+    )
     display_order = Column(
         Integer,
         nullable=False,
