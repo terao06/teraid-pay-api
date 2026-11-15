@@ -9,7 +9,7 @@ from app.repositories.mysql.store_menu_category_repository import (
 
 
 @pytest.mark.usefixtures("insert_menu_categories")
-class TestGetMenuCategory:
+class TestGetMenuCategoryDetail:
     """店舗の未削除メニューカテゴリー詳細取得を検証する。"""
 
     @pytest.mark.parametrize(
@@ -22,7 +22,7 @@ class TestGetMenuCategory:
             (102, 16, 16),
         ],
     )
-    def test_get_menu_category(
+    def test_get_menu_category_detail(
         self,
         mysql_session: Session,
         store_id: int,
@@ -30,7 +30,7 @@ class TestGetMenuCategory:
         expected_menu_category_id: int | None,
     ) -> None:
         """店舗、ID、削除状態に一致するカテゴリーだけを取得する。"""
-        result = StoreMenuCategoryRepository().get_menu_category(
+        result = StoreMenuCategoryRepository().get_menu_category_detail(
             mysql_session=mysql_session,
             store_id=store_id,
             menu_category_id=menu_category_id,

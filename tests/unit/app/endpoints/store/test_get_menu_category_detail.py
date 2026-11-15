@@ -8,17 +8,17 @@ import pytest
 from app.models.responses.menu_category_response import MenuCategoryResponse
 
 
-class TestGetMenuCategory:
+class TestGetMenuCategoryDetail:
     """メニューカテゴリー詳細取得エンドポイントを検証する。"""
 
-    @patch("app.endpoints.store.StoreController.get_menu_category")
+    @patch("app.endpoints.store.StoreController.get_menu_category_detail")
     def test_returns_wrapped_menu_category(
         self,
-        mock_get_menu_category,
+        mock_get_menu_category_detail,
         client,
     ) -> None:
         """Controllerの取得結果を共通レスポンス形式で返す。"""
-        mock_get_menu_category.return_value = MenuCategoryResponse(
+        mock_get_menu_category_detail.return_value = MenuCategoryResponse(
             menu_category_id=14,
             name="無効カテゴリー",
             image_url="https://example.com/categories/101/14.png",
@@ -39,19 +39,19 @@ class TestGetMenuCategory:
                 "is_active": False,
             },
         }
-        mock_get_menu_category.assert_called_once_with(
+        mock_get_menu_category_detail.assert_called_once_with(
             store_id=101,
             menu_category_id=14,
         )
 
-    @patch("app.endpoints.store.StoreController.get_menu_category")
+    @patch("app.endpoints.store.StoreController.get_menu_category_detail")
     def test_returns_http_exception_from_controller(
         self,
-        mock_get_menu_category,
+        mock_get_menu_category_detail,
         client,
     ) -> None:
         """Controllerが送出したHTTPExceptionをそのまま返す。"""
-        mock_get_menu_category.side_effect = HTTPException(
+        mock_get_menu_category_detail.side_effect = HTTPException(
             status_code=404,
             detail={"status": "error", "message": "not found"},
         )

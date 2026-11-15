@@ -10,13 +10,13 @@ from app.models.responses.menu_category_response import MenuCategoryResponse
 from app.services.store_menu_category_service import StoreMenuCategoryService
 
 
-class TestGetMenuCategory:
+class TestGetMenuCategoryDetail:
     """StoreMenuCategoryServiceのカテゴリー詳細取得を検証する。"""
 
     @patch("app.services.store_menu_category_service.S3Client")
     @patch("app.services.store_menu_category_service.SsmClient")
     @patch("app.services.store_menu_category_service.StoreMenuCategoryRepository")
-    def test_get_menu_category(
+    def test_get_menu_category_detail(
         self,
         mock_repository_class,
         mock_ssm_client_class,
@@ -24,7 +24,7 @@ class TestGetMenuCategory:
     ) -> None:
         """取得したカテゴリーを署名付き画像URLを含むレスポンスへ変換する。"""
         mysql_session = Mock()
-        mock_repository_class.return_value.get_menu_category.return_value = (
+        mock_repository_class.return_value.get_menu_category_detail.return_value = (
             SimpleNamespace(
                 menu_category_id=14,
                 name="無効カテゴリー",
@@ -42,7 +42,7 @@ class TestGetMenuCategory:
             "https://example.com/categories/101/14.png"
         )
 
-        result = StoreMenuCategoryService().get_menu_category(
+        result = StoreMenuCategoryService().get_menu_category_detail(
             mysql_session=mysql_session,
             store_id=101,
             menu_category_id=14,
@@ -55,7 +55,7 @@ class TestGetMenuCategory:
             display_order=0,
             is_active=False,
         )
-        mock_repository_class.return_value.get_menu_category.assert_called_once_with(
+        mock_repository_class.return_value.get_menu_category_detail.assert_called_once_with(
             mysql_session=mysql_session,
             store_id=101,
             menu_category_id=14,
@@ -70,17 +70,17 @@ class TestGetMenuCategory:
     @patch("app.services.store_menu_category_service.S3Client")
     @patch("app.services.store_menu_category_service.SsmClient")
     @patch("app.services.store_menu_category_service.StoreMenuCategoryRepository")
-    def test_get_menu_category_raises_when_not_found(
+    def test_get_menu_category_detail_raises_when_not_found(
         self,
         mock_repository_class,
         mock_ssm_client_class,
         mock_s3_client_class,
     ) -> None:
         """カテゴリーが存在しない場合は専用例外を送出する。"""
-        mock_repository_class.return_value.get_menu_category.return_value = None
+        mock_repository_class.return_value.get_menu_category_detail.return_value = None
 
         with pytest.raises(MenuCategoryNotFoundException):
-            StoreMenuCategoryService().get_menu_category(
+            StoreMenuCategoryService().get_menu_category_detail(
                 mysql_session=Mock(),
                 store_id=101,
                 menu_category_id=999,
