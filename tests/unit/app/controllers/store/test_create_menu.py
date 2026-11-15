@@ -18,10 +18,7 @@ from app.models.requests.menu_create_request import (
     MenuOptionCreateRequest,
     MenuOptionGroupCreateRequest,
 )
-from app.models.responses.menu_create_response import (
-    MenuCreateResponse,
-    MenuOptionGroupCreateResponse,
-)
+from app.models.responses.menu_create_response import MenuCreateResponse
 
 
 class TestCreateMenu:
@@ -49,15 +46,7 @@ class TestCreateMenu:
                 )
             ],
         )
-        expected = MenuCreateResponse(
-            menu_item_id=10,
-            menu_option_groups=[
-                MenuOptionGroupCreateResponse(
-                    menu_option_group_id=20,
-                    menu_option_ids=[30],
-                )
-            ],
-        )
+        expected = MenuCreateResponse(menu_item_id=10)
         mock_service_class.return_value.create_menu.return_value = expected
 
         result = StoreController.create_menu.__wrapped__(

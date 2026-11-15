@@ -12,10 +12,7 @@ from sqlalchemy.orm import Session
 from app.models.mysql.menu_item import MenuItem
 from app.models.mysql.menu_option_group import MenuOptionGroup
 from app.models.mysql.menu_option import MenuOption
-from app.models.responses.menu_create_response import (
-    MenuCreateResponse,
-    MenuOptionGroupCreateResponse,
-)
+from app.models.responses.menu_create_response import MenuCreateResponse
 from tests.unit.test_data.s3.build_s3 import ENDPOINT_URL as S3_ENDPOINT_URL
 from tests.unit.test_data.s3.build_s3 import REGION_NAME as S3_REGION_NAME
 from tests.unit.test_data.ssm.build_ssm import (
@@ -83,30 +80,14 @@ class TestCreateMenu:
         client,
     ) -> None:
         """controllerの登録結果を201の共通レスポンス形式で返すことを確認する。"""
-        mock_create_menu.return_value = MenuCreateResponse(
-            menu_item_id=10,
-            menu_option_groups=[
-                MenuOptionGroupCreateResponse(
-                    menu_option_group_id=20,
-                    menu_option_ids=[30, 31],
-                )
-            ],
-        )
+        mock_create_menu.return_value = MenuCreateResponse(menu_item_id=10)
 
         response = client.post("/store/menu", json=MENU_REQUEST)
 
         assert response.status_code == 201
         assert response.json() == {
             "status": "success",
-            "data": {
-                "menu_item_id": 10,
-                "menu_option_groups": [
-                    {
-                        "menu_option_group_id": 20,
-                        "menu_option_ids": [30, 31],
-                    }
-                ],
-            },
+            "data": {"menu_item_id": 10},
         }
         mock_create_menu.assert_called_once()
         assert mock_create_menu.call_args.kwargs["store_id"] == 101
@@ -209,12 +190,6 @@ class TestCreateMenu:
         assert response.status_code == 201
         response_data = response.json()["data"]
         menu_item_id = response_data["menu_item_id"]
-        menu_option_group_id = response_data["menu_option_groups"][0][
-            "menu_option_group_id"
-        ]
-        menu_option_ids = response_data["menu_option_groups"][0][
-            "menu_option_ids"
-        ]
 
         menu_item = (
             mysql_session.query(MenuItem)
@@ -224,13 +199,16 @@ class TestCreateMenu:
         menu_option_group = (
             mysql_session.query(MenuOptionGroup)
             .filter(
-                MenuOptionGroup.menu_option_group_id == menu_option_group_id
+                MenuOptionGroup.menu_item_id == menu_item_id
             )
             .one()
         )
         menu_options = (
             mysql_session.query(MenuOption)
-            .filter(MenuOption.menu_option_id.in_(menu_option_ids))
+            .filter(
+                MenuOption.menu_option_group_id
+                == menu_option_group.menu_option_group_id
+            )
             .order_by(MenuOption.display_order.asc())
             .all()
         )

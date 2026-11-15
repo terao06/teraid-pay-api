@@ -13,10 +13,7 @@ from app.models.requests.menu_create_request import (
     MenuOptionCreateRequest,
     MenuOptionGroupCreateRequest,
 )
-from app.models.responses.menu_create_response import (
-    MenuCreateResponse,
-    MenuOptionGroupCreateResponse,
-)
+from app.models.responses.menu_create_response import MenuCreateResponse
 from app.services.store_menu_service import StoreMenuService
 
 
@@ -115,15 +112,7 @@ class TestCreateMenu:
             request=request,
         )
 
-        assert result == MenuCreateResponse(
-            menu_item_id=10,
-            menu_option_groups=[
-                MenuOptionGroupCreateResponse(
-                    menu_option_group_id=20,
-                    menu_option_ids=[30, 31],
-                )
-            ],
-        )
+        assert result == MenuCreateResponse(menu_item_id=10)
         mock_repository.get_active_menu_category.assert_called_once_with(
             mysql_session=mysql_session,
             store_id=101,
@@ -192,10 +181,7 @@ class TestCreateMenu:
             request=request,
         )
 
-        assert result == MenuCreateResponse(
-            menu_item_id=11,
-            menu_option_groups=[],
-        )
+        assert result == MenuCreateResponse(menu_item_id=11)
         mock_repository.get_active_menu_category.assert_not_called()
         mock_repository.create_menu_option_group.assert_not_called()
         mock_repository.create_menu_option.assert_not_called()

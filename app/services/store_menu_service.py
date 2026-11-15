@@ -22,7 +22,7 @@ from app.models.mysql.menu_option import MenuOption
 from app.models.mysql.menu_option_group import MenuOptionGroup
 from app.models.requests.menu_create_request import MenuCreateRequest
 from app.models.requests.menu_update_request import MenuUpdateRequest
-from app.models.responses.menu_create_response import MenuCreateResponse, MenuOptionGroupCreateResponse
+from app.models.responses.menu_create_response import MenuCreateResponse
 from app.models.responses.menu_detail_response import (
     MenuDetailResponse,
     MenuOptionGroupResponse,
@@ -259,7 +259,7 @@ class StoreMenuService:
             request: メニューとオプション構成を含む登録リクエスト。
 
         Returns:
-            登録されたメニューIDとオプショングループ・オプションID。
+            登録されたメニューID。
 
         Raises:
             MenuImageInvalidException: Base64画像をデコードできない場合。
@@ -280,23 +280,18 @@ class StoreMenuService:
             description=request.description, price=request.price, token_symbol=request.token_symbol,
             image_extension=request.image_extension.value, is_available=request.is_available,
             display_order=request.display_order))
-        group_responses = []
         for group_request in request.option_groups:
             group = repository.create_menu_option_group(
                 mysql_session=mysql_session, menu_option_group=MenuOptionGroup(
                 menu_item_id=item.menu_item_id, name=group_request.name,
                 min_selections=group_request.min_selections, max_selections=group_request.max_selections,
                 display_order=group_request.display_order, is_active=group_request.is_active))
-            option_ids = []
             for option_request in group_request.options:
-                option = repository.create_menu_option(
+                repository.create_menu_option(
                     mysql_session=mysql_session, menu_option=MenuOption(
                     menu_option_group_id=group.menu_option_group_id, name=option_request.name,
                     additional_price=option_request.additional_price,
                     display_order=option_request.display_order, is_available=option_request.is_available))
-                option_ids.append(option.menu_option_id)
-            group_responses.append(MenuOptionGroupCreateResponse(
-                menu_option_group_id=group.menu_option_group_id, menu_option_ids=option_ids))
         params = SsmClient()
         client = S3Client(s3_endpoint=params.s3_endpoint)
         key = f"{store_id}/{item.menu_item_id}.{request.image_extension.value}"
@@ -305,4 +300,4 @@ class StoreMenuService:
                                  image_extension=request.image_extension.value))
         add_mysql_rollback_callback(mysql_session=mysql_session, callback=lambda: client.delete_object(
             bucket_name=params.menu_image_bucket, file_name=key))
-        return MenuCreateResponse(menu_item_id=item.menu_item_id, menu_option_groups=group_responses)
+        return MenuCreateResponse(menu_item_id=item.menu_item_id)
