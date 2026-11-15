@@ -6,15 +6,15 @@ from app.models.responses.menu_category_response import (
     MenuCategoryPaginationResponse,
     MenuCategoryResponse,
 )
-from app.services.store_service import StoreService
+from app.services.store_menu_category_service import StoreMenuCategoryService
 
 
 class TestGetMenuCategories:
-    """StoreService のメニューカテゴリー取得処理を検証する。"""
+    """StoreMenuCategoryService のメニューカテゴリー取得処理を検証する。"""
 
-    @patch("app.services.store_service.S3Client")
-    @patch("app.services.store_service.SsmClient")
-    @patch("app.services.store_service.StoreRepository")
+    @patch("app.services.store_menu_category_service.S3Client")
+    @patch("app.services.store_menu_category_service.SsmClient")
+    @patch("app.services.store_menu_category_service.StoreMenuCategoryRepository")
     def test_get_menu_categories(
         self,
         mock_repository_class,
@@ -50,7 +50,7 @@ class TestGetMenuCategories:
             "https://example.com/categories/101/2.jpg",
         ]
 
-        result = StoreService().get_menu_categories(
+        result = StoreMenuCategoryService().get_menu_categories(
             mysql_session=mysql_session,
             store_id=101,
             name="バーガー",
@@ -110,7 +110,7 @@ class TestGetMenuCategories:
             "expires_in": 3600,
         }
 
-    @patch("app.services.store_service.StoreRepository")
+    @patch("app.services.store_menu_category_service.StoreMenuCategoryRepository")
     def test_get_menu_categories_returns_empty_list(
         self,
         mock_repository_class,
@@ -118,7 +118,7 @@ class TestGetMenuCategories:
         """カテゴリーが存在しない場合に空の一覧を返すことを確認する。"""
         mock_repository_class.return_value.count_menu_categories.return_value = 0
 
-        result = StoreService().get_menu_categories(
+        result = StoreMenuCategoryService().get_menu_categories(
             mysql_session=Mock(),
             store_id=101,
         )

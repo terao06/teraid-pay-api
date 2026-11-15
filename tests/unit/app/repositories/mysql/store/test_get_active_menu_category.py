@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy.orm import Session
 
-from app.repositories.mysql.store_repository import StoreRepository
+from app.repositories.mysql.store_menu_category_repository import StoreMenuCategoryRepository
 
 
 @pytest.mark.usefixtures("insert_menu_categories")
@@ -26,7 +26,7 @@ class TestGetActiveMenuCategory:
         expected_menu_category_id: int | None,
     ) -> None:
         """店舗、ID、有効状態、削除状態に一致するカテゴリーだけを取得することを確認する。"""
-        result = StoreRepository().get_active_menu_category(
+        result = StoreMenuCategoryRepository().get_active_menu_category(
             mysql_session=mysql_session,
             store_id=store_id,
             menu_category_id=menu_category_id,

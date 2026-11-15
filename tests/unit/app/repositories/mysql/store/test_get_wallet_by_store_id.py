@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy.orm import Session
 
-from app.repositories.mysql.store_repository import StoreRepository
+from app.repositories.mysql.store_wallet_repository import StoreWalletRepository
 
 
 @pytest.mark.usefixtures("insert_stores", "insert_wallets", "insert_store_wallets")
@@ -28,7 +28,7 @@ class TestGetWalletByStoreId:
         expected_wallet_id: int | None,
     ) -> None:
         """正常系の処理結果を検証する。"""
-        repository = StoreRepository()
+        repository = StoreWalletRepository()
 
         result = repository.get_wallet_by_store_id(
             mysql_session=mysql_session,

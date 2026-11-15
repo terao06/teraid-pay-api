@@ -2,6 +2,14 @@
 
 **Rule:** In each command, **define → use**. Do **not** escape `$`. Use generic `'path/to/file.ext'`.
 
+## Docstring quality gate
+
+- Pythonコードを追加・変更した後は、完了報告前に変更対象のモジュール、クラス、関数、メソッドのdocstringを必ず精査する。
+- 新規の公開クラス・公開関数・公開メソッドには、責務、`Args`、`Returns`、必要に応じて`Raises`を含む日本語docstringを追加する。
+- private helperにも、処理内容や返却値が名前だけでは明確でない場合はdocstringを追加する。
+- 実装と一致しない既存docstring、移動元にだけ残ったdocstring、文字化けしたdocstringを放置しない。
+- テスト完了だけを完了条件にせず、`ast`等で変更対象のdocstring欠落を機械的に確認する。
+
 ---
 
 ## 1) READ (UTF‑8 no BOM, line‑numbered)

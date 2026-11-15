@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.models.mysql.menu_item import MenuItem
-from app.repositories.mysql.store_repository import StoreRepository
+from app.repositories.mysql.store_menu_repository import StoreMenuRepository
 
 
 @pytest.mark.usefixtures("insert_menu_items")
@@ -31,7 +31,7 @@ class TestGetMenuItems:
         expected_menu_items: list[tuple[int, str | None]],
     ) -> None:
         """店舗の未削除商品と未削除カテゴリー名を表示順で取得することを確認する。"""
-        result = StoreRepository().get_menu_items(
+        result = StoreMenuRepository().get_menu_items(
             mysql_session=mysql_session,
             store_id=store_id,
         )
@@ -74,7 +74,7 @@ class TestGetMenuItems:
         expected_ids: list[int],
     ) -> None:
         """商品名・カテゴリー・公開状態を組み合わせて検索できることを確認する。"""
-        result = StoreRepository().get_menu_items(
+        result = StoreMenuRepository().get_menu_items(
             mysql_session=mysql_session,
             store_id=101,
             **filters,
@@ -94,7 +94,7 @@ class TestGetMenuItems:
         )
         assert menu_name is not None
 
-        result = StoreRepository().get_menu_items(
+        result = StoreMenuRepository().get_menu_items(
             mysql_session=mysql_session,
             store_id=101,
             name=menu_name,
@@ -107,7 +107,7 @@ class TestGetMenuItems:
         mysql_session: Session,
     ) -> None:
         """offsetとlimitを指定して対象ページの商品だけ取得できることを確認する。"""
-        result = StoreRepository().get_menu_items(
+        result = StoreMenuRepository().get_menu_items(
             mysql_session=mysql_session,
             store_id=101,
             offset=1,
@@ -121,7 +121,7 @@ class TestGetMenuItems:
         mysql_session: Session,
     ) -> None:
         """検索条件に一致する総件数を取得できることを確認する。"""
-        result = StoreRepository().count_menu_items(
+        result = StoreMenuRepository().count_menu_items(
             mysql_session=mysql_session,
             store_id=101,
             is_available=True,

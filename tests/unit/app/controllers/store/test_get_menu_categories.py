@@ -17,7 +17,7 @@ from app.models.responses.menu_category_response import (
 class TestGetMenuCategories:
     """StoreController のメニューカテゴリー取得処理を検証する。"""
 
-    @patch("app.controllers.store_controller.StoreService")
+    @patch("app.controllers.store_controller.StoreMenuCategoryService")
     def test_get_menu_categories(self, mock_service_class) -> None:
         """サービスのカテゴリー取得結果をそのまま返すことを確認する。"""
         mysql_session = Mock()
@@ -60,7 +60,7 @@ class TestGetMenuCategories:
             page_size=20,
         )
 
-    @patch("app.controllers.store_controller.StoreService")
+    @patch("app.controllers.store_controller.StoreMenuCategoryService")
     def test_get_menu_categories_raise_http_exception_when_service_fails(
         self,
         mock_service_class,

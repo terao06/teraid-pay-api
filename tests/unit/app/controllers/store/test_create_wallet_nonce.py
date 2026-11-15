@@ -18,7 +18,7 @@ from app.models.responses.wallet_nonce_create_response import WalletNonceCreateR
 class TestCreateWalletNonce:
     """create_wallet_nonce の動作を検証する。"""
 
-    @patch("app.controllers.store_controller.StoreService")
+    @patch("app.controllers.store_controller.StoreWalletService")
     def test_create_wallet_nonce(self, mock_service_class) -> None:
         """nonce 作成処理がサービスに正しく委譲されることを確認する。"""
 
@@ -56,7 +56,7 @@ class TestCreateWalletNonce:
             expires_at="2026-04-12 12:10",
         )
 
-    @patch("app.controllers.store_controller.StoreService")
+    @patch("app.controllers.store_controller.StoreWalletService")
     def test_create_wallet_nonce_raise_http_exception_when_store_not_found(
         self,
         mock_service_class,
@@ -87,7 +87,7 @@ class TestCreateWalletNonce:
             "message": STORE_NOT_FOUND_ERROR,
         }
 
-    @patch("app.controllers.store_controller.StoreService")
+    @patch("app.controllers.store_controller.StoreWalletService")
     def test_create_wallet_nonce_raise_http_exception_when_service_fails(
         self,
         mock_service_class,

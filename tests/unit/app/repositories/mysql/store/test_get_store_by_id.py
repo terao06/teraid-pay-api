@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy.orm import Session
 
-from app.repositories.mysql.store_repository import StoreRepository
+from app.repositories.mysql.store_manager_repository import StoreManagerRepository
 
 
 @pytest.mark.usefixtures("insert_stores", "insert_wallets", "insert_store_wallets")
@@ -24,7 +24,7 @@ class TestGetStoreById:
         expected_store_id: int | None,
     ) -> None:
         """正常系の処理結果を検証する。"""
-        repository = StoreRepository()
+        repository = StoreManagerRepository()
 
         result = repository.get_store_by_id(mysql_session, store_id)
 

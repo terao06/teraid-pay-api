@@ -129,8 +129,8 @@ class TestGetMenus:
             "detail": {"status": "error", "message": "server error"}
         }
 
-    @patch("app.services.store_service.S3Client")
-    @patch("app.services.store_service.SsmClient")
+    @patch("app.services.store_menu_service.S3Client")
+    @patch("app.services.store_menu_service.SsmClient")
     @pytest.mark.usefixtures("insert_menu_items")
     def test_with_db(
         self,
@@ -213,8 +213,8 @@ class TestGetMenus:
         assert 25 not in menu_item_ids
         assert 26 not in menu_item_ids
 
-    @patch("app.services.store_service.S3Client")
-    @patch("app.services.store_service.SsmClient")
+    @patch("app.services.store_menu_service.S3Client")
+    @patch("app.services.store_menu_service.SsmClient")
     @pytest.mark.usefixtures("insert_menu_items")
     def test_with_db_returns_empty_list_when_not_found(
         self,

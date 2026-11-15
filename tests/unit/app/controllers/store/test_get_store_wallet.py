@@ -13,7 +13,7 @@ from app.models.responses.wallet_response import WalletResponse
 class TestGetStoreWallet:
     """StoreController の単体テスト。"""
 
-    @patch("app.controllers.store_controller.StoreService")
+    @patch("app.controllers.store_controller.StoreWalletService")
     def test_get_store_wallet(self, mock_service_class) -> None:
         """サービスの戻り値をそのまま返し、引数を正しく引き渡すことを確認する。"""
 
@@ -47,7 +47,7 @@ class TestGetStoreWallet:
         )
         assert result == expected
 
-    @patch("app.controllers.store_controller.StoreService")
+    @patch("app.controllers.store_controller.StoreWalletService")
     def test_get_store_wallet_raise_http_exception_when_service_fails(
         self,
         mock_service_class,

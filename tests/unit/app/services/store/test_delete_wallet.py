@@ -2,16 +2,16 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from app.services.store_service import StoreService
+from app.services.store_wallet_service import StoreWalletService
 
 
 class TestDeleteWallet:
-    """StoreService の delete_wallet を検証するテスト。"""
+    """StoreWalletService の delete_wallet を検証するテスト。"""
 
-    @patch("app.services.store_service.StoreRepository")
-    @patch("app.services.store_service.WalletRepository")
+    @patch("app.services.store_wallet_service.StoreWalletRepository")
+    @patch("app.services.store_wallet_service.WalletRepository")
     def test_delete_wallet(self, mock_wallet_repository_class, mock_store_repository_class):
-        """WalletRepository と StoreRepository の各削除メソッドが正しい引数で呼ばれることを検証する。"""
+        """WalletRepositoryとStoreWalletRepositoryの削除処理が正しい引数で呼ばれることを検証する。"""
         mysql_session = Mock()
         store_id = 10
         wallet_id = 42
@@ -20,7 +20,7 @@ class TestDeleteWallet:
         mock_store_repository = mock_store_repository_class.return_value
         mock_store_repository.get_store_wallet_link.return_value = Mock()
 
-        StoreService().delete_wallet(
+        StoreWalletService().delete_wallet(
             mysql_session=mysql_session,
             store_id=store_id,
             wallet_id=wallet_id,
@@ -40,14 +40,14 @@ class TestDeleteWallet:
             wallet_id=wallet_id,
         )
 
-    @patch("app.services.store_service.StoreRepository")
-    @patch("app.services.store_service.WalletRepository")
+    @patch("app.services.store_wallet_service.StoreWalletRepository")
+    @patch("app.services.store_wallet_service.WalletRepository")
     def test_delete_wallet_store_repository_not_called_when_wallet_repository_raises(
         self,
         mock_wallet_repository_class,
         mock_store_repository_class,
     ):
-        """WalletRepositoryが例外を送出した場合、StoreRepositoryの削除処理を呼ばないことを検証する。"""
+        """WalletRepositoryが例外を送出した場合、StoreWalletRepositoryの削除処理を呼ばないことを検証する。"""
         mysql_session = Mock()
         store_id = 10
         wallet_id = 42
@@ -58,7 +58,7 @@ class TestDeleteWallet:
         mock_wallet_repository.delete_wallet_by_wallet_id.side_effect = Exception("DB error")
 
         with pytest.raises(Exception, match="DB error"):
-            StoreService().delete_wallet(
+            StoreWalletService().delete_wallet(
                 mysql_session=mysql_session,
                 store_id=store_id,
                 wallet_id=wallet_id,

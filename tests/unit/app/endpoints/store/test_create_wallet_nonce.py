@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.models.mysql.nonce import Nonce
 from app.models.mysql.store_nonce import StoreNonce
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
-from app.services.store_service import JST
+from app.core.utils.datetime import JST
 
 
 class TestCreateWalletNonce:
@@ -84,7 +84,7 @@ class TestCreateWalletNonce:
         }
     
     @pytest.mark.usefixtures("insert_stores")
-    @patch("app.services.store_service.secrets.token_urlsafe", return_value="generated-nonce")
+    @patch("app.services.store_wallet_service.secrets.token_urlsafe", return_value="generated-nonce")
     def test_with_db(
         self,
         mock_token_urlsafe,
@@ -94,7 +94,7 @@ class TestCreateWalletNonce:
         """DB 連携時に nonce 作成結果と保存内容が一致することを確認する。"""
         fixed_now = datetime(2026, 4, 12, 12, 0, 0, tzinfo=JST)
 
-        with patch("app.services.store_service.datetime") as mock_datetime:
+        with patch("app.services.store_wallet_service.datetime") as mock_datetime:
             mock_datetime.now.return_value = fixed_now
 
             response = store_client_with_db.post(

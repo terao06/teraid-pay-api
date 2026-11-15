@@ -114,7 +114,7 @@ class TestVerifyAndCreateWallet:
         }
 
     @pytest.mark.usefixtures("insert_stores", "insert_wallets", "insert_store_wallets", "insert_nonces", "insert_store_nonces")
-    @patch("app.services.store_service.datetime")
+    @patch("app.services.store_wallet_service.datetime")
     def test_with_db(
         self,
         mock_datetime,

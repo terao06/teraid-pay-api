@@ -16,7 +16,7 @@ from app.models.responses.menu_list_response import (
 class TestGetMenus:
     """StoreController のメニュー一覧取得処理を検証する。"""
 
-    @patch("app.controllers.store_controller.StoreService")
+    @patch("app.controllers.store_controller.StoreMenuService")
     def test_get_menus(self, mock_service_class) -> None:
         """サービスのメニュー取得結果をそのまま返すことを確認する。"""
         mysql_session = Mock()
@@ -60,7 +60,7 @@ class TestGetMenus:
             page_size=10,
         )
 
-    @patch("app.controllers.store_controller.StoreService")
+    @patch("app.controllers.store_controller.StoreMenuService")
     def test_get_menus_raise_http_exception_when_service_fails(
         self,
         mock_service_class,

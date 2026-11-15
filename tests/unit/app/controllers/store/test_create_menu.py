@@ -27,7 +27,7 @@ from app.models.responses.menu_create_response import (
 class TestCreateMenu:
     """StoreController のメニュー登録処理を検証する。"""
 
-    @patch("app.controllers.store_controller.StoreService")
+    @patch("app.controllers.store_controller.StoreMenuService")
     def test_create_menu(self, mock_service_class) -> None:
         """リクエストと店舗IDをサービスへ渡して登録結果を返すことを確認する。"""
         mysql_session = Mock()
@@ -74,7 +74,7 @@ class TestCreateMenu:
             request=request,
         )
 
-    @patch("app.controllers.store_controller.StoreService")
+    @patch("app.controllers.store_controller.StoreMenuService")
     def test_create_menu_raise_not_found_when_category_not_found(
         self,
         mock_service_class,
@@ -106,7 +106,7 @@ class TestCreateMenu:
             "message": MENU_CATEGORY_NOT_FOUND_ERROR,
         }
 
-    @patch("app.controllers.store_controller.StoreService")
+    @patch("app.controllers.store_controller.StoreMenuService")
     def test_create_menu_raise_unprocessable_when_menu_image_invalid(
         self,
         mock_service_class,
@@ -137,7 +137,7 @@ class TestCreateMenu:
             "message": MENU_IMAGE_INVALID_ERROR,
         }
 
-    @patch("app.controllers.store_controller.StoreService")
+    @patch("app.controllers.store_controller.StoreMenuService")
     def test_create_menu_raise_http_exception_when_service_fails(
         self,
         mock_service_class,
