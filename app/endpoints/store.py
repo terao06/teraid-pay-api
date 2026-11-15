@@ -20,7 +20,14 @@ store_router = APIRouter()
 @response_rapper()
 @request_rapper()
 def login_store_manager(request: StoreManagerLoginRequest):
-    """店舗管理者をメールアドレスとパスワードで認証する。"""
+    """店舗管理者をメールアドレスとパスワードで認証する。
+
+    Args:
+        request: メールアドレスとパスワードを含むログイン情報。
+
+    Returns:
+        JWTアクセストークンと店舗管理者情報を含む共通レスポンス。
+    """
     return StoreController().login_store_manager(request=request)
 
 
@@ -45,17 +52,31 @@ def get_wallet_nonce(
 @response_rapper()
 @request_rapper()
 def get_menu_categories(
+    name: str | None = Query(default=None, min_length=1, max_length=100),
+    is_active: bool = Query(default=True),
+    page: int = Query(default=1, ge=1),
+    page_size: int | None = Query(default=None, ge=1, le=100),
     auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
 ):
-    """認証済み管理者の店舗に紐づく有効なメニューカテゴリーを取得する。
+    """認証済み管理者の店舗に紐づくメニューカテゴリーを検索する。
 
     Args:
+        name: カテゴリー名の部分一致検索条件。
+        is_active: 有効状態の完全一致検索条件。
+        page: 取得するページ番号。
+        page_size: 1ページあたりの取得件数。未指定時は全件取得する。
         auth_context: JWT認証で取得した店舗管理者情報。
 
     Returns:
-        共通レスポンス形式で整形されるメニューカテゴリー一覧。
+        カテゴリー一覧とページネーションを含む共通レスポンス。
     """
-    return StoreController().get_menu_categories(store_id=auth_context.store_id)
+    return StoreController().get_menu_categories(
+        store_id=auth_context.store_id,
+        name=name,
+        is_active=is_active,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @store_router.post("/menu/categories", status_code=201)
@@ -65,7 +86,15 @@ def create_menu_category(
     request: MenuCategoryCreateRequest,
     auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
 ):
-    """認証済み管理者の店舗へ画像付きメニューカテゴリーを登録する。"""
+    """認証済み管理者の店舗へ画像付きメニューカテゴリーを登録する。
+
+    Args:
+        request: カテゴリー名、画像、表示順、有効状態を含む登録情報。
+        auth_context: JWT認証で取得した店舗管理者情報。
+
+    Returns:
+        登録したカテゴリー情報を含む共通レスポンス。
+    """
     return StoreController().create_menu_category(
         store_id=auth_context.store_id,
         request=request,
@@ -86,10 +115,15 @@ def get_menus(
     """認証済み管理者の店舗に紐づくメニュー商品を取得する。
 
     Args:
+        name: 商品名の部分一致検索条件。
+        menu_category_id: カテゴリー ID の完全一致検索条件。
+        is_available: 販売可能状態の完全一致検索条件。
+        page: 取得するページ番号。
+        page_size: 1ページあたりの取得件数。
         auth_context: JWT認証で取得した店舗管理者情報。
 
     Returns:
-        共通レスポンス形式で整形されるメニュー商品一覧。
+        商品一覧とページネーションを含む共通レスポンス。
     """
     return StoreController().get_menus(
         store_id=auth_context.store_id,

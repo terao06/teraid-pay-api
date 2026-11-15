@@ -9,6 +9,7 @@ from app.core.exceptions.message import (
 )
 from app.models.responses.menu_category_response import (
     MenuCategoryListResponse,
+    MenuCategoryPaginationResponse,
     MenuCategoryResponse,
 )
 
@@ -25,9 +26,17 @@ class TestGetMenuCategories:
                 MenuCategoryResponse(
                     menu_category_id=1,
                     name="ハンバーガー",
+                    image_url="https://example.com/categories/101/1.png",
                     display_order=1,
+                    is_active=True,
                 )
-            ]
+            ],
+            pagination=MenuCategoryPaginationResponse(
+                page=1,
+                page_size=20,
+                total=1,
+                total_pages=1,
+            ),
         )
         mock_service_class.return_value.get_menu_categories.return_value = expected
 
@@ -35,12 +44,20 @@ class TestGetMenuCategories:
             StoreController(),
             mysql_session=mysql_session,
             store_id=101,
+            name="バーガー",
+            is_active=True,
+            page=1,
+            page_size=20,
         )
 
         assert result == expected
         mock_service_class.return_value.get_menu_categories.assert_called_once_with(
             mysql_session=mysql_session,
             store_id=101,
+            name="バーガー",
+            is_active=True,
+            page=1,
+            page_size=20,
         )
 
     @patch("app.controllers.store_controller.StoreService")

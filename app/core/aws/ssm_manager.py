@@ -16,8 +16,13 @@ class SsmClient:
     menu_image_url_expires_in: int
 
     def __init__(self):
-        """
-        SSM クライアントの初期化
+        """SSMクライアントと利用するパラメーターを初期化する。
+
+        Args:
+            なし。
+
+        Returns:
+            なし。
         """
         self.region_name = os.getenv("AWS_REGION", "ap-northeast-1")
         self.endpoint_url = os.getenv("SSM_ENDPOINT", "http://localstack:4566")
@@ -42,9 +47,14 @@ class SsmClient:
         )
 
     def _get_parameter(self, name: str, with_decryption: bool = True) -> Union[str, Dict[str, Any]]:
-        """
-        指定されたパラメータ名で値を取得する。
-        JSON形式の場合は辞書型にパースして返す。
+        """指定されたパラメーターを取得し、JSON形式の場合は辞書へ変換する。
+
+        Args:
+            name: 取得するSSMパラメーター名。
+            with_decryption: SecureStringを復号して取得するか。
+
+        Returns:
+            文字列またはJSONから変換した辞書。
         """
         try:
             response = self.client.get_parameter(
@@ -60,6 +70,15 @@ class SsmClient:
             raise e
 
     def _get_string_parameter(self, name: str, with_decryption: bool = True) -> str:
+        """指定されたSSMパラメーターを文字列として取得する。
+
+        Args:
+            name: 取得するSSMパラメーター名。
+            with_decryption: SecureStringを復号して取得するか。
+
+        Returns:
+            文字列のパラメーター値。
+        """
         value = self._get_parameter(name=name, with_decryption=with_decryption)
         if not isinstance(value, str):
             raise ValueError(f"SSM parameter '{name}' must be a string.")
@@ -67,6 +86,15 @@ class SsmClient:
         return value
 
     def _get_integer_parameter(self, name: str, with_decryption: bool = True) -> int:
+        """指定されたSSMパラメーターを整数として取得する。
+
+        Args:
+            name: 取得するSSMパラメーター名。
+            with_decryption: SecureStringを復号して取得するか。
+
+        Returns:
+            整数のパラメーター値。
+        """
         value = self._get_parameter(name=name, with_decryption=with_decryption)
         if not isinstance(value, int) or isinstance(value, bool):
             raise ValueError(f"SSM parameter '{name}' must be an integer.")

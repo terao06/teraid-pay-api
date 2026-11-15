@@ -52,7 +52,15 @@ class StoreController:
         mysql_session: Session,
         request: StoreManagerLoginRequest,
     ) -> StoreManagerLoginResponse:
-        """店舗管理者を認証し、アクセストークンを返す。"""
+        """店舗管理者を認証し、アクセストークンを返す。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            request: メールアドレスとパスワードを含むログイン情報。
+
+        Returns:
+            JWTアクセストークンと店舗管理者情報。
+        """
         try:
             return StoreService().login_store_manager(
                 mysql_session=mysql_session,
@@ -102,20 +110,32 @@ class StoreController:
         self,
         mysql_session: Session,
         store_id: int,
+        name: str | None = None,
+        is_active: bool = True,
+        page: int = 1,
+        page_size: int | None = None,
     ) -> MenuCategoryListResponse:
         """認証済み管理者の店舗に紐づくメニューカテゴリーを取得する。
 
         Args:
             mysql_session: SQLAlchemy のセッションです。
             store_id: 取得対象の店舗 IDです。
+            name: カテゴリー名の部分一致検索条件です。
+            is_active: 有効状態の完全一致検索条件です。
+            page: 取得するページ番号です。
+            page_size: 1ページあたりの取得件数です。未指定時は全件取得します。
 
         Returns:
-            MenuCategoryListResponse: メニューカテゴリー一覧レスポンスです。
+            MenuCategoryListResponse: カテゴリー一覧とページネーションです。
         """
         try:
             return StoreService().get_menu_categories(
                 mysql_session=mysql_session,
                 store_id=store_id,
+                name=name,
+                is_active=is_active,
+                page=page,
+                page_size=page_size,
             )
         except Exception:
             raise CustomHttpException.get_http_exception(
@@ -130,7 +150,16 @@ class StoreController:
         store_id: int,
         request: MenuCategoryCreateRequest,
     ) -> MenuCategoryCreateResponse:
-        """認証済み管理者の店舗へメニューカテゴリーを登録する。"""
+        """認証済み管理者の店舗へメニューカテゴリーを登録する。
+
+        Args:
+            mysql_session: SQLAlchemy のセッション。
+            store_id: 登録先店舗の ID。
+            request: カテゴリー名、画像、表示順、有効状態を含む登録情報。
+
+        Returns:
+            登録したメニューカテゴリー情報。
+        """
         try:
             return StoreService().create_menu_category(
                 mysql_session=mysql_session,
@@ -164,9 +193,14 @@ class StoreController:
         Args:
             mysql_session: SQLAlchemy のセッションです。
             store_id: 取得対象の店舗 IDです。
+            name: 商品名の部分一致検索条件です。
+            menu_category_id: カテゴリー ID の完全一致検索条件です。
+            is_available: 販売可能状態の完全一致検索条件です。
+            page: 取得するページ番号です。
+            page_size: 1ページあたりの取得件数です。
 
         Returns:
-            MenuListResponse: メニュー商品一覧レスポンスです。
+            MenuListResponse: 商品一覧とページネーションです。
         """
         try:
             return StoreService().get_menus(
@@ -273,9 +307,12 @@ class StoreController:
         store_id: int,
         request: WalletVerifyRequest) -> WalletVerifyResponse:
         """署名済み nonce を検証し、店舗ウォレットを作成する。
+
         Args:
             mysql_session: SQLAlchemy のセッション。
+            store_id: 対象店舗の ID。
             request: 店舗 ID、ウォレットアドレス、署名、チェーン種別、ネットワーク名を含む検証リクエスト。
+
         Returns:
             検証済みとして登録された店舗ウォレット情報。
         """
