@@ -14,21 +14,15 @@ class MenuCategoryResponse(BaseModel):
 
 
 class MenuCategoryCreateResponse(BaseModel):
-    """メニューカテゴリー登録 API のレスポンスモデル。"""
+    """登録したメニューカテゴリーIDを表す。"""
 
     menu_category_id: int = Field(..., description="Menu category ID")
-    name: str = Field(..., description="Menu category name")
-    display_order: int = Field(..., description="Display order")
-    is_active: bool = Field(..., description="Active flag")
 
 
 class MenuCategoryUpdateResponse(BaseModel):
-    """メニューカテゴリー更新APIのレスポンスモデル。"""
+    """更新したメニューカテゴリーIDを表す。"""
 
     menu_category_id: int = Field(..., description="Menu category ID")
-    name: str = Field(..., description="Menu category name")
-    display_order: int = Field(..., description="Display order")
-    is_active: bool = Field(..., description="Active flag")
 
 
 class MenuCategoryPaginationResponse(BaseModel):

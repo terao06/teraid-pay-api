@@ -86,9 +86,6 @@ class TestUpdateMenuCategory:
         """Controllerの更新結果を共通レスポンス形式で返す。"""
         mock_update_menu_category.return_value = MenuCategoryUpdateResponse(
             menu_category_id=14,
-            name="更新カテゴリー",
-            display_order=2,
-            is_active=True,
         )
 
         response = client.put(
@@ -101,9 +98,6 @@ class TestUpdateMenuCategory:
             "status": "success",
             "data": {
                 "menu_category_id": 14,
-                "name": "更新カテゴリー",
-                "display_order": 2,
-                "is_active": True,
             },
         }
         request = mock_update_menu_category.call_args.kwargs["request"]
@@ -191,9 +185,6 @@ class TestUpdateMenuCategory:
             assert response.status_code == 200
             assert response.json()["data"] == {
                 "menu_category_id": 14,
-                "name": "更新カテゴリー",
-                "display_order": 2,
-                "is_active": True,
             }
             mysql_session.expire_all()
             category = (

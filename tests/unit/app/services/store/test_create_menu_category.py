@@ -1,3 +1,5 @@
+"""メニューカテゴリー登録Serviceのテスト。"""
+
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -12,6 +14,8 @@ from ._helpers import build_menu_image
 
 
 class TestCreateMenuCategory:
+    """StoreMenuCategoryServiceのカテゴリー登録処理を検証する。"""
+
     @patch("app.services.store_menu_category_service.S3Client")
     @patch("app.services.store_menu_category_service.SsmClient")
     @patch("app.services.store_menu_category_service.StoreMenuCategoryRepository")
@@ -21,6 +25,8 @@ class TestCreateMenuCategory:
         mock_ssm_client_class,
         mock_s3_client_class,
     ) -> None:
+        """カテゴリーを登録し、登録IDだけを返すことを確認する。"""
+
         mysql_session = Mock()
         mysql_session.info = {}
         request = MenuCategoryCreateRequest(
@@ -36,6 +42,8 @@ class TestCreateMenuCategory:
         )
 
         def save_category(mysql_session, menu_category):
+            """登録対象へ採番済みIDを設定して返す。"""
+
             menu_category.menu_category_id = 18
             return menu_category
 
@@ -50,9 +58,6 @@ class TestCreateMenuCategory:
 
         assert result == MenuCategoryCreateResponse(
             menu_category_id=18,
-            name="ハンバーガー",
-            display_order=1,
-            is_active=True,
         )
         saved_category = mock_repository.create_menu_category.call_args.kwargs[
             "menu_category"
@@ -69,6 +74,8 @@ class TestCreateMenuCategory:
 
     @patch("app.services.store_menu_category_service.StoreMenuCategoryRepository")
     def test_rejects_invalid_category_image(self, mock_repository_class) -> None:
+        """画像形式と拡張子が一致しない場合は例外を送出する。"""
+
         request = MenuCategoryCreateRequest(
             name="ハンバーガー",
             category_image=build_menu_image(format="PNG"),
