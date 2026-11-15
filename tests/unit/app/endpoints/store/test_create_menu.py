@@ -67,6 +67,11 @@ MENU_REQUEST = {
     ],
 }
 
+DB_MENU_REQUEST = {
+    **MENU_REQUEST,
+    "menu_category_id": 17,
+}
+
 
 class TestCreateMenu:
     """メニュー登録エンドポイントの単体テスト。"""
@@ -192,11 +197,14 @@ class TestCreateMenu:
     )
     def test_with_db(
         self,
-        store_client_with_db,
+        store_client_with_db_for_menu_create,
         mysql_session: Session,
     ) -> None:
         """DB 連携で商品、オプショングループ、オプションを登録することを確認する。"""
-        response = store_client_with_db.post("/store/menu", json=MENU_REQUEST)
+        response = store_client_with_db_for_menu_create.post(
+            "/store/menu",
+            json=DB_MENU_REQUEST,
+        )
 
         assert response.status_code == 201
         response_data = response.json()["data"]
@@ -227,8 +235,8 @@ class TestCreateMenu:
             .all()
         )
 
-        assert menu_item.store_id == 101
-        assert menu_item.menu_category_id == 12
+        assert menu_item.store_id == 106
+        assert menu_item.menu_category_id == 17
         assert menu_item.name == "チーズバーガー"
         assert menu_item.price == Decimal("800.000000")
         assert menu_item.image_extension == "png"
@@ -252,7 +260,7 @@ class TestCreateMenu:
         )
         s3_response = s3_client.get_object(
             Bucket="menus",
-            Key=f"101/{menu_item_id}.png",
+            Key=f"106/{menu_item_id}.png",
         )
         assert s3_response["Body"].read() != b""
 
