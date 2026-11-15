@@ -1,5 +1,7 @@
 """店舗メニューとオプションを操作するRepository。"""
 
+from datetime import datetime
+
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 from app.models.mysql.menu_category import MenuCategory
@@ -10,7 +12,7 @@ from app.repositories.mysql.store_menu_category_repository import StoreMenuCateg
 
 
 class StoreMenuRepository(StoreMenuCategoryRepository):
-    """店舗単位のメニュー検索とメニュー構成要素の登録処理を提供する。"""
+    """店舗単位のメニュー検索と構成要素の保存・論理削除を提供する。"""
 
     def _build_menu_items_query(self, mysql_session: Session, store_id: int, name: str | None = None,
                      menu_category_id: int | None = None, is_available: bool | None = None):
@@ -146,84 +148,186 @@ class StoreMenuRepository(StoreMenuCategoryRepository):
             .all()
         )
 
-    def get_menu_item_for_update(
+    def get_menu_item(
         self,
         mysql_session: Session,
         store_id: int,
         menu_item_id: int,
+        lock_for_update: bool = False,
     ) -> MenuItem | None:
-        """店舗に属する未削除の商品を排他ロックして取得する。
+        """店舗に属する未削除の商品を取得する。
 
         Args:
             mysql_session: SQLAlchemyのセッション。
             store_id: 認証済み管理者の店舗ID。
-            menu_item_id: 更新対象のメニュー商品ID。
+            menu_item_id: 取得対象のメニュー商品ID。
+            lock_for_update: 取得行を排他ロックする場合はTrue。
 
         Returns:
-            ロックしたメニュー商品。該当商品がない場合はNone。
+            メニュー商品。該当商品がない場合はNone。
         """
-        return (
+        query = (
             mysql_session.query(MenuItem)
             .filter(
                 MenuItem.menu_item_id == menu_item_id,
                 MenuItem.store_id == store_id,
                 MenuItem.deleted_at.is_(None),
             )
-            .with_for_update()
-            .one_or_none()
         )
+        if lock_for_update:
+            query = query.with_for_update()
+        return query.one_or_none()
 
-    def update_menu_item(
+    def save_menu_item(
         self,
         mysql_session: Session,
         menu_item: MenuItem,
     ) -> MenuItem:
-        """メニュー商品を更新してセッションへ反映する。
+        """メニュー商品を保存してIDを確定する。
 
         Args:
             mysql_session: SQLAlchemyのセッション。
-            menu_item: 更新対象のメニュー商品。
+            menu_item: 保存対象のメニュー商品。
 
         Returns:
-            更新済みのメニュー商品。
+            保存済みのメニュー商品。
         """
         mysql_session.add(menu_item)
         mysql_session.flush()
         return menu_item
 
-    def create_menu_item(self, mysql_session: Session, menu_item: MenuItem) -> MenuItem:
-        """メニューをセッションへ追加してIDを確定する。
+    def get_menu_option_groups(
+        self,
+        mysql_session: Session,
+        menu_item_id: int,
+        lock_for_update: bool = False,
+    ) -> list[MenuOptionGroup]:
+        """商品の未削除オプショングループを取得する。
 
         Args:
             mysql_session: SQLAlchemyのセッション。
-            menu_item: 登録対象のメニュー。
+            menu_item_id: 取得対象のメニュー商品ID。
+            lock_for_update: 取得行を排他ロックする場合はTrue。
 
         Returns:
-            IDが付与されたメニュー。
+            表示順とID順に並んだオプショングループ一覧。
         """
-        mysql_session.add(menu_item); mysql_session.flush(); return menu_item
+        query = (
+            mysql_session.query(MenuOptionGroup)
+            .filter(
+                MenuOptionGroup.menu_item_id == menu_item_id,
+                MenuOptionGroup.deleted_at.is_(None),
+            )
+            .order_by(
+                MenuOptionGroup.display_order.asc(),
+                MenuOptionGroup.menu_option_group_id.asc(),
+            )
+        )
+        if lock_for_update:
+            query = query.with_for_update()
+        return query.all()
 
-    def create_menu_option_group(self, mysql_session: Session,
-                                 menu_option_group: MenuOptionGroup) -> MenuOptionGroup:
-        """メニューオプショングループを追加してIDを確定する。
+    def get_menu_options(
+        self,
+        mysql_session: Session,
+        menu_option_group_ids: list[int],
+        lock_for_update: bool = False,
+    ) -> list[MenuOption]:
+        """指定グループの未削除オプションを取得する。
 
         Args:
             mysql_session: SQLAlchemyのセッション。
-            menu_option_group: 登録対象のオプショングループ。
+            menu_option_group_ids: 取得対象のオプショングループID一覧。
+            lock_for_update: 取得行を排他ロックする場合はTrue。
 
         Returns:
-            IDが付与されたオプショングループ。
+            表示順とID順に並んだオプション一覧。対象IDがなければ空配列。
         """
-        mysql_session.add(menu_option_group); mysql_session.flush(); return menu_option_group
+        if not menu_option_group_ids:
+            return []
+        query = (
+            mysql_session.query(MenuOption)
+            .filter(
+                MenuOption.menu_option_group_id.in_(menu_option_group_ids),
+                MenuOption.deleted_at.is_(None),
+            )
+            .order_by(
+                MenuOption.display_order.asc(),
+                MenuOption.menu_option_id.asc(),
+            )
+        )
+        if lock_for_update:
+            query = query.with_for_update()
+        return query.all()
 
-    def create_menu_option(self, mysql_session: Session, menu_option: MenuOption) -> MenuOption:
-        """メニューオプションを追加してIDを確定する。
+    def save_menu_option_group(
+        self,
+        mysql_session: Session,
+        menu_option_group: MenuOptionGroup,
+    ) -> MenuOptionGroup:
+        """オプショングループを保存してIDを確定する。
 
         Args:
             mysql_session: SQLAlchemyのセッション。
-            menu_option: 登録対象のオプション。
+            menu_option_group: 保存対象のオプショングループ。
 
         Returns:
-            IDが付与されたオプション。
+            保存済みのオプショングループ。
         """
-        mysql_session.add(menu_option); mysql_session.flush(); return menu_option
+        mysql_session.add(menu_option_group)
+        mysql_session.flush()
+        return menu_option_group
+
+    def save_menu_option(
+        self,
+        mysql_session: Session,
+        menu_option: MenuOption,
+    ) -> MenuOption:
+        """オプションを保存してIDを確定する。
+
+        Args:
+            mysql_session: SQLAlchemyのセッション。
+            menu_option: 保存対象のオプション。
+
+        Returns:
+            保存済みのオプション。
+        """
+        mysql_session.add(menu_option)
+        mysql_session.flush()
+        return menu_option
+
+    def soft_delete_menu_option_group(
+        self,
+        mysql_session: Session,
+        menu_option_group: MenuOptionGroup,
+    ) -> None:
+        """オプショングループを論理削除する。
+
+        Args:
+            mysql_session: SQLAlchemyのセッション。
+            menu_option_group: 論理削除するオプショングループ。
+
+        Returns:
+            なし。
+        """
+        menu_option_group.deleted_at = datetime.now()
+        mysql_session.add(menu_option_group)
+        mysql_session.flush()
+
+    def soft_delete_menu_option(
+        self,
+        mysql_session: Session,
+        menu_option: MenuOption,
+    ) -> None:
+        """オプションを論理削除する。
+
+        Args:
+            mysql_session: SQLAlchemyのセッション。
+            menu_option: 論理削除するオプション。
+
+        Returns:
+            なし。
+        """
+        menu_option.deleted_at = datetime.now()
+        mysql_session.add(menu_option)
+        mysql_session.flush()

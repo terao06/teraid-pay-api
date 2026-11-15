@@ -50,6 +50,17 @@ class MenuImageInvalidException(Exception):
     pass
 
 
+class MenuOptionConfigurationInvalidException(Exception):
+    """指定されたオプションIDの所属関係が不正であることを表す。
+
+    Args:
+        message: 例外の詳細メッセージ。省略可能。
+
+    Returns:
+        不正なメニューオプション構成を表す例外。
+    """
+
+
 class MenuCategoryImageInvalidException(Exception):
     pass
 

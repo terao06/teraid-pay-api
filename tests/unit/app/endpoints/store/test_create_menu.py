@@ -320,12 +320,12 @@ class TestCreateMenu:
 
     @pytest.mark.usefixtures("insert_menu_categories")
     @patch(
-        "app.repositories.mysql.store_menu_repository.StoreMenuRepository.create_menu_option",
+        "app.repositories.mysql.store_menu_repository.StoreMenuRepository.save_menu_option",
         side_effect=Exception("DB error"),
     )
     def test_with_db_rolls_back_when_option_registration_fails(
         self,
-        mock_create_menu_option,
+        mock_save_menu_option,
         store_client_with_db,
         mysql_session: Session,
     ) -> None:
@@ -335,7 +335,7 @@ class TestCreateMenu:
         response = store_client_with_db.post("/store/menu", json=request_json)
 
         assert response.status_code == 500
-        assert mock_create_menu_option.called
+        assert mock_save_menu_option.called
         assert (
             mysql_session.query(MenuItem)
             .filter(MenuItem.name == "ロールバック確認商品")

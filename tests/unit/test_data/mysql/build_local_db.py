@@ -1,3 +1,5 @@
+"""MySQLテストDBの構築とテーブル別テストデータ投入処理を提供する。"""
+
 import importlib
 import os
 import pkgutil
@@ -112,6 +114,30 @@ def insert_menu_categories(engine) -> str:
 
 def insert_menu_items(engine) -> str:
     return _execute_sql_file(engine, "menu_items.sql")
+
+
+def insert_menu_option_groups(engine) -> str:
+    """メニューオプショングループのテストデータを投入する。
+
+    Args:
+        engine: SQLを実行するSQLAlchemy Engine。
+
+    Returns:
+        実行したSQLファイル名。
+    """
+    return _execute_sql_file(engine, "menu_option_groups.sql")
+
+
+def insert_menu_options(engine) -> str:
+    """メニューオプションのテストデータを投入する。
+
+    Args:
+        engine: SQLを実行するSQLAlchemy Engine。
+
+    Returns:
+        実行したSQLファイル名。
+    """
+    return _execute_sql_file(engine, "menu_options.sql")
 
 
 def insert_users(engine) -> str:

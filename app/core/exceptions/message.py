@@ -12,6 +12,7 @@ STORE_MANAGER_INACTIVE_ERROR = "この管理者アカウントは利用できま
 MENU_CATEGORY_NOT_FOUND_ERROR = "メニューカテゴリーが存在しません。"
 MENU_ITEM_NOT_FOUND_ERROR = "メニュー商品が存在しません。"
 MENU_IMAGE_INVALID_ERROR = "メニュー画像が正しくありません。"
+MENU_OPTION_CONFIGURATION_INVALID_ERROR = "メニューオプション構成が正しくありません。"
 MENU_CATEGORY_IMAGE_INVALID_ERROR = "カテゴリー画像が正しくありません。"
 WALLET_CONFLICT_ERROR = "すでにウォレットは作成されています。"
 NOT_MATCH_ERROR = "ウォレット情報が一致しませんでした。"

@@ -9,6 +9,9 @@ from app.models.requests.store_manager_login_request import StoreManagerLoginReq
 from app.models.requests.menu_category_create_request import MenuCategoryCreateRequest
 from app.models.requests.menu_category_update_request import MenuCategoryUpdateRequest
 from app.models.requests.menu_create_request import MenuCreateRequest
+from app.models.requests.menu_option_groups_update_request import (
+    MenuOptionGroupsUpdateRequest,
+)
 from app.models.requests.menu_update_request import MenuUpdateRequest
 from app.models.responses.store_manager_login_response import StoreManagerLoginResponse
 from app.models.responses.menu_category_response import (
@@ -20,6 +23,9 @@ from app.models.responses.menu_category_response import (
 from app.models.responses.menu_create_response import MenuCreateResponse
 from app.models.responses.menu_detail_response import MenuDetailResponse
 from app.models.responses.menu_list_response import MenuListResponse
+from app.models.responses.menu_option_groups_update_response import (
+    MenuOptionGroupsUpdateResponse,
+)
 from app.models.responses.menu_update_response import MenuUpdateResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
@@ -34,6 +40,7 @@ from app.core.exceptions.message import (
     MENU_CATEGORY_NOT_FOUND_ERROR,
     MENU_ITEM_NOT_FOUND_ERROR,
     MENU_IMAGE_INVALID_ERROR,
+    MENU_OPTION_CONFIGURATION_INVALID_ERROR,
     LOGIN_FAILED_ERROR,
     STORE_MANAGER_INACTIVE_ERROR,
     STORE_NOT_FOUND_ERROR,
@@ -48,6 +55,7 @@ from app.core.exceptions.custom_exception import (
     MenuCategoryNotFoundException,
     MenuImageInvalidException,
     MenuItemNotFoundException,
+    MenuOptionConfigurationInvalidException,
     StoreManagerInactiveException,
     StoreNotFoundException,
     UnauthorizedException,
@@ -393,6 +401,51 @@ class StoreController:
             raise CustomHttpException.get_http_exception(
                 status_code=422,
                 message=MENU_IMAGE_INVALID_ERROR,
+            )
+        except Exception:
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR,
+            )
+
+    @mysql_transaction
+    def update_menu_option_groups(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        menu_item_id: int,
+        request: MenuOptionGroupsUpdateRequest,
+    ) -> MenuOptionGroupsUpdateResponse:
+        """認証店舗に属する商品のオプション構成を完全同期する。
+
+        Args:
+            mysql_session: SQLAlchemyのセッション。
+            store_id: 認証済み管理者の店舗ID。
+            menu_item_id: 更新対象のメニュー商品ID。
+            request: 更新後のオプショングループとオプションの全構成。
+
+        Returns:
+            更新後のオプショングループIDとオプションID一覧。
+
+        Raises:
+            HTTPException: 商品未存在、構成不正、または処理失敗の場合。
+        """
+        try:
+            return StoreMenuService().update_menu_option_groups(
+                mysql_session=mysql_session,
+                store_id=store_id,
+                menu_item_id=menu_item_id,
+                request=request,
+            )
+        except MenuItemNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=404,
+                message=MENU_ITEM_NOT_FOUND_ERROR,
+            )
+        except MenuOptionConfigurationInvalidException:
+            raise CustomHttpException.get_http_exception(
+                status_code=422,
+                message=MENU_OPTION_CONFIGURATION_INVALID_ERROR,
             )
         except Exception:
             raise CustomHttpException.get_http_exception(

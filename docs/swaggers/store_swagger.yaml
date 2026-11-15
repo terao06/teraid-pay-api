@@ -502,6 +502,62 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
+  /store/menu/{menu_item_id}/option-groups:
+    put:
+      tags: [StoreMenu]
+      summary: メニューオプション構成更新
+      description: JWTで認証した店舗管理者の商品について、オプショングループとオプションをリクエストの完全な構成へ同期する。
+      operationId: updateMenuOptionGroups
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: menu_item_id
+          in: path
+          required: true
+          description: 更新対象のメニュー商品ID
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MenuOptionGroupsUpdateRequest'
+            example:
+              option_groups:
+                - menu_option_group_id: 20
+                  name: サイズ
+                  min_selections: 1
+                  max_selections: 1
+                  display_order: 1
+                  is_active: true
+                  options:
+                    - menu_option_id: 30
+                      name: 通常
+                      additional_price: '0.000000'
+                      display_order: 1
+                      is_available: true
+                    - name: 特大
+                      additional_price: '200.000000'
+                      display_order: 2
+                      is_available: true
+      responses:
+        '200':
+          description: メニューオプション構成更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuOptionGroupsUpdateWrappedResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/MenuItemNotFound'
+        '422':
+          $ref: '#/components/responses/MenuValidationError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
   /store/wallet:
     get:
       tags: [StoreWallet]
@@ -1133,6 +1189,105 @@ components:
           minimum: 1
           description: メニュー商品ID
 
+    MenuOptionUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [name, additional_price, display_order, is_available]
+      properties:
+        menu_option_id:
+          type: integer
+          minimum: 1
+          description: 更新対象のオプションID。新規追加時は省略する。
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: オプション名
+        additional_price:
+          oneOf:
+            - type: number
+              minimum: 0
+            - type: string
+              pattern: '^\d{1,14}(\.\d{1,6})?$'
+          description: 追加料金。小数点以下6桁まで指定可能。
+        display_order:
+          type: integer
+          minimum: 0
+          description: 表示順
+        is_available:
+          type: boolean
+          description: 選択可能フラグ
+
+    MenuOptionGroupUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [name, min_selections, max_selections, display_order, is_active, options]
+      properties:
+        menu_option_group_id:
+          type: integer
+          minimum: 1
+          description: 更新対象のグループID。新規追加時は省略する。
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: オプショングループ名
+        min_selections:
+          type: integer
+          minimum: 0
+          description: 最小選択数。max_selections以下であること。
+        max_selections:
+          type: integer
+          minimum: 1
+          description: 最大選択数
+        display_order:
+          type: integer
+          minimum: 0
+          description: 表示順
+        is_active:
+          type: boolean
+          description: 有効フラグ
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/MenuOptionUpdateRequest'
+
+    MenuOptionGroupsUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [option_groups]
+      properties:
+        option_groups:
+          type: array
+          description: 更新後の完全なオプション構成。空配列の場合は既存構成をすべて論理削除する。
+          items:
+            $ref: '#/components/schemas/MenuOptionGroupUpdateRequest'
+
+    MenuOptionGroupUpdateResult:
+      type: object
+      required: [menu_option_group_id, menu_option_ids]
+      properties:
+        menu_option_group_id:
+          type: integer
+          minimum: 1
+        menu_option_ids:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+
+    MenuOptionGroupsUpdateResult:
+      type: object
+      required: [menu_item_id, menu_option_groups]
+      properties:
+        menu_item_id:
+          type: integer
+          minimum: 1
+        menu_option_groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/MenuOptionGroupUpdateResult'
+
     MenuList:
       type: object
       required: [menu_items, pagination]
@@ -1542,6 +1697,16 @@ components:
           enum: [success]
         data:
           $ref: '#/components/schemas/MenuUpdateResult'
+
+    MenuOptionGroupsUpdateWrappedResponse:
+      type: object
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/MenuOptionGroupsUpdateResult'
 
     MenuCreateWrappedResponse:
       type: object
