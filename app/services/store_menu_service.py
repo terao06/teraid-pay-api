@@ -10,6 +10,7 @@ from app.core.exceptions.custom_exception import (
     MenuCategoryNotFoundException,
     MenuImageInvalidException,
     MenuItemNotFoundException,
+    MenuOptionConfigurationInvalidException,
 )
 from app.core.utils.image import ImageUtil
 from app.helpers.image_replacement_helper import (
@@ -21,20 +22,27 @@ from app.models.mysql.menu_item import MenuItem
 from app.models.mysql.menu_option import MenuOption
 from app.models.mysql.menu_option_group import MenuOptionGroup
 from app.models.requests.menu_create_request import MenuCreateRequest
+from app.models.requests.menu_option_groups_update_request import (
+    MenuOptionGroupsUpdateRequest,
+)
 from app.models.requests.menu_update_request import MenuUpdateRequest
-from app.models.responses.menu_create_response import MenuCreateResponse, MenuOptionGroupCreateResponse
+from app.models.responses.menu_create_response import MenuCreateResponse
 from app.models.responses.menu_detail_response import (
     MenuDetailResponse,
     MenuOptionGroupResponse,
     MenuOptionResponse,
 )
 from app.models.responses.menu_list_response import MenuItemResponse, MenuListResponse, MenuPaginationResponse
+from app.models.responses.menu_option_groups_update_response import (
+    MenuOptionGroupsUpdateResponse,
+    MenuOptionGroupUpdateResult,
+)
 from app.models.responses.menu_update_response import MenuUpdateResponse
 from app.repositories.mysql.store_menu_repository import StoreMenuRepository
 
 
 class StoreMenuService:
-    """メニュー検索と、オプション・画像を含むメニュー登録を調整する。"""
+    """メニュー検索と、オプション・画像を含む登録・更新を調整する。"""
 
     def get_menus(self, mysql_session: Session, store_id: int, name: str | None = None,
                   menu_category_id: int | None = None, is_available: bool | None = None,
@@ -192,10 +200,11 @@ class StoreMenuService:
             MenuImageInvalidException: 差し替え画像を読み込めない場合。
         """
         repository = StoreMenuRepository()
-        item = repository.get_menu_item_for_update(
+        item = repository.get_menu_item(
             mysql_session=mysql_session,
             store_id=store_id,
             menu_item_id=menu_item_id,
+            lock_for_update=True,
         )
         if item is None:
             raise MenuItemNotFoundException("メニュー商品が存在しません。")
@@ -241,12 +250,162 @@ class StoreMenuService:
         item.token_symbol = request.token_symbol
         item.is_available = request.is_available
         item.display_order = request.display_order
-        updated_item = repository.update_menu_item(
+        updated_item = repository.save_menu_item(
             mysql_session=mysql_session,
             menu_item=item,
         )
         return MenuUpdateResponse(
             menu_item_id=updated_item.menu_item_id,
+        )
+
+    def update_menu_option_groups(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        menu_item_id: int,
+        request: MenuOptionGroupsUpdateRequest,
+    ) -> MenuOptionGroupsUpdateResponse:
+        """商品のオプション構成を更新後の完全な状態へ同期する。
+
+        Args:
+            mysql_session: SQLAlchemyのセッション。
+            store_id: 認証済み管理者の店舗ID。
+            menu_item_id: 更新対象のメニュー商品ID。
+            request: 更新後のオプショングループとオプションの全構成。
+
+        Returns:
+            更新後のオプショングループIDとオプションID一覧。
+
+        Raises:
+            MenuItemNotFoundException: 対象商品が認証店舗に存在しない場合。
+            MenuOptionConfigurationInvalidException: 指定IDの所属関係が不正な場合。
+        """
+        repository = StoreMenuRepository()
+        item = repository.get_menu_item(
+            mysql_session=mysql_session,
+            store_id=store_id,
+            menu_item_id=menu_item_id,
+            lock_for_update=True,
+        )
+        if item is None:
+            raise MenuItemNotFoundException("メニュー商品が存在しません。")
+
+        existing_groups = repository.get_menu_option_groups(
+            mysql_session=mysql_session,
+            menu_item_id=menu_item_id,
+            lock_for_update=True,
+        )
+        group_by_id = {
+            group.menu_option_group_id: group for group in existing_groups
+        }
+        existing_options = repository.get_menu_options(
+            mysql_session=mysql_session,
+            menu_option_group_ids=list(group_by_id),
+            lock_for_update=True,
+        )
+        option_by_id = {
+            option.menu_option_id: option for option in existing_options
+        }
+
+        for group_request in request.option_groups:
+            group_id = group_request.menu_option_group_id
+            if group_id is not None and group_id not in group_by_id:
+                raise MenuOptionConfigurationInvalidException(
+                    "オプショングループが更新対象の商品に属していません。"
+                )
+            for option_request in group_request.options:
+                option_id = option_request.menu_option_id
+                if option_id is None:
+                    continue
+                option = option_by_id.get(option_id)
+                if (
+                    option is None
+                    or group_id is None
+                    or option.menu_option_group_id != group_id
+                ):
+                    raise MenuOptionConfigurationInvalidException(
+                        "オプションが指定されたグループに属していません。"
+                    )
+
+        retained_group_ids: set[int] = set()
+        retained_option_ids: set[int] = set()
+        response_groups: list[MenuOptionGroupUpdateResult] = []
+
+        for group_request in request.option_groups:
+            if group_request.menu_option_group_id is None:
+                group = repository.save_menu_option_group(
+                    mysql_session=mysql_session,
+                    menu_option_group=MenuOptionGroup(
+                        menu_item_id=menu_item_id,
+                        name=group_request.name,
+                        min_selections=group_request.min_selections,
+                        max_selections=group_request.max_selections,
+                        display_order=group_request.display_order,
+                        is_active=group_request.is_active,
+                    ),
+                )
+            else:
+                group = group_by_id[group_request.menu_option_group_id]
+                group.name = group_request.name
+                group.min_selections = group_request.min_selections
+                group.max_selections = group_request.max_selections
+                group.display_order = group_request.display_order
+                group.is_active = group_request.is_active
+                group = repository.save_menu_option_group(
+                    mysql_session=mysql_session,
+                    menu_option_group=group,
+                )
+
+            retained_group_ids.add(group.menu_option_group_id)
+            response_option_ids: list[int] = []
+            for option_request in group_request.options:
+                if option_request.menu_option_id is None:
+                    option = repository.save_menu_option(
+                        mysql_session=mysql_session,
+                        menu_option=MenuOption(
+                            menu_option_group_id=group.menu_option_group_id,
+                            name=option_request.name,
+                            additional_price=option_request.additional_price,
+                            display_order=option_request.display_order,
+                            is_available=option_request.is_available,
+                        ),
+                    )
+                else:
+                    option = option_by_id[option_request.menu_option_id]
+                    option.name = option_request.name
+                    option.additional_price = option_request.additional_price
+                    option.display_order = option_request.display_order
+                    option.is_available = option_request.is_available
+                    option = repository.save_menu_option(
+                        mysql_session=mysql_session,
+                        menu_option=option,
+                    )
+                retained_option_ids.add(option.menu_option_id)
+                response_option_ids.append(option.menu_option_id)
+
+            response_groups.append(
+                MenuOptionGroupUpdateResult(
+                    menu_option_group_id=group.menu_option_group_id,
+                    menu_option_ids=response_option_ids,
+                )
+            )
+
+        for option in existing_options:
+            if option.menu_option_id not in retained_option_ids:
+                repository.soft_delete_menu_option(
+                    mysql_session=mysql_session,
+                    menu_option=option,
+                )
+        for group in existing_groups:
+            if group.menu_option_group_id not in retained_group_ids:
+                repository.soft_delete_menu_option_group(
+                    mysql_session=mysql_session,
+                    menu_option_group=group,
+                )
+
+        return MenuOptionGroupsUpdateResponse(
+            menu_item_id=menu_item_id,
+            menu_option_groups=response_groups,
         )
 
     def create_menu(self, mysql_session: Session, store_id: int,
@@ -259,7 +418,7 @@ class StoreMenuService:
             request: メニューとオプション構成を含む登録リクエスト。
 
         Returns:
-            登録されたメニューIDとオプショングループ・オプションID。
+            登録されたメニューID。
 
         Raises:
             MenuImageInvalidException: Base64画像をデコードできない場合。
@@ -275,28 +434,23 @@ class StoreMenuService:
                 mysql_session=mysql_session, store_id=store_id,
                 menu_category_id=request.menu_category_id) is None:
             raise MenuCategoryNotFoundException("指定されたメニューカテゴリーは利用できません。")
-        item = repository.create_menu_item(mysql_session=mysql_session, menu_item=MenuItem(
+        item = repository.save_menu_item(mysql_session=mysql_session, menu_item=MenuItem(
             store_id=store_id, menu_category_id=request.menu_category_id, name=request.name,
             description=request.description, price=request.price, token_symbol=request.token_symbol,
             image_extension=request.image_extension.value, is_available=request.is_available,
             display_order=request.display_order))
-        group_responses = []
         for group_request in request.option_groups:
-            group = repository.create_menu_option_group(
+            group = repository.save_menu_option_group(
                 mysql_session=mysql_session, menu_option_group=MenuOptionGroup(
                 menu_item_id=item.menu_item_id, name=group_request.name,
                 min_selections=group_request.min_selections, max_selections=group_request.max_selections,
                 display_order=group_request.display_order, is_active=group_request.is_active))
-            option_ids = []
             for option_request in group_request.options:
-                option = repository.create_menu_option(
+                repository.save_menu_option(
                     mysql_session=mysql_session, menu_option=MenuOption(
                     menu_option_group_id=group.menu_option_group_id, name=option_request.name,
                     additional_price=option_request.additional_price,
                     display_order=option_request.display_order, is_available=option_request.is_available))
-                option_ids.append(option.menu_option_id)
-            group_responses.append(MenuOptionGroupCreateResponse(
-                menu_option_group_id=group.menu_option_group_id, menu_option_ids=option_ids))
         params = SsmClient()
         client = S3Client(s3_endpoint=params.s3_endpoint)
         key = f"{store_id}/{item.menu_item_id}.{request.image_extension.value}"
@@ -305,4 +459,4 @@ class StoreMenuService:
                                  image_extension=request.image_extension.value))
         add_mysql_rollback_callback(mysql_session=mysql_session, callback=lambda: client.delete_object(
             bucket_name=params.menu_image_bucket, file_name=key))
-        return MenuCreateResponse(menu_item_id=item.menu_item_id, menu_option_groups=group_responses)
+        return MenuCreateResponse(menu_item_id=item.menu_item_id)

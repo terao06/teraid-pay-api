@@ -31,11 +31,11 @@ class TestCreateMenu:
             display_order=1,
         )
 
-        saved_menu_item = repository.create_menu_item(
+        saved_menu_item = repository.save_menu_item(
             mysql_session=mysql_session,
             menu_item=menu_item,
         )
-        saved_menu_option_group = repository.create_menu_option_group(
+        saved_menu_option_group = repository.save_menu_option_group(
             mysql_session=mysql_session,
             menu_option_group=MenuOptionGroup(
                 menu_item_id=saved_menu_item.menu_item_id,
@@ -46,7 +46,7 @@ class TestCreateMenu:
                 is_active=True,
             ),
         )
-        saved_menu_option = repository.create_menu_option(
+        saved_menu_option = repository.save_menu_option(
             mysql_session=mysql_session,
             menu_option=MenuOption(
                 menu_option_group_id=(

@@ -66,11 +66,11 @@ class TestUpdateMenu:
             display_order=1,
         )
         repository = mock_repository_class.return_value
-        repository.get_menu_item_for_update.return_value = item
+        repository.get_menu_item.return_value = item
         repository.get_active_menu_category.return_value = SimpleNamespace(
             menu_category_id=12
         )
-        repository.update_menu_item.side_effect = (
+        repository.save_menu_item.side_effect = (
             lambda mysql_session, menu_item: menu_item
         )
         request = _build_request()
@@ -85,17 +85,18 @@ class TestUpdateMenu:
         assert result == MenuUpdateResponse(
             menu_item_id=21,
         )
-        repository.get_menu_item_for_update.assert_called_once_with(
+        repository.get_menu_item.assert_called_once_with(
             mysql_session=mysql_session,
             store_id=101,
             menu_item_id=21,
+            lock_for_update=True,
         )
         repository.get_active_menu_category.assert_called_once_with(
             mysql_session=mysql_session,
             store_id=101,
             menu_category_id=12,
         )
-        repository.update_menu_item.assert_called_once_with(
+        repository.save_menu_item.assert_called_once_with(
             mysql_session=mysql_session,
             menu_item=item,
         )
@@ -127,11 +128,11 @@ class TestUpdateMenu:
             display_order=1,
         )
         repository = mock_repository_class.return_value
-        repository.get_menu_item_for_update.return_value = item
+        repository.get_menu_item.return_value = item
         repository.get_active_menu_category.return_value = SimpleNamespace(
             menu_category_id=12
         )
-        repository.update_menu_item.side_effect = (
+        repository.save_menu_item.side_effect = (
             lambda mysql_session, menu_item: menu_item
         )
         mock_ssm_client_class.return_value = SimpleNamespace(
@@ -192,7 +193,7 @@ class TestUpdateMenu:
     ) -> None:
         """商品またはカテゴリーを利用できない場合は専用例外を送出する。"""
         repository = mock_repository_class.return_value
-        repository.get_menu_item_for_update.return_value = item
+        repository.get_menu_item.return_value = item
         repository.get_active_menu_category.return_value = category
 
         with pytest.raises(expected_exception):
@@ -203,7 +204,7 @@ class TestUpdateMenu:
                 request=_build_request(),
             )
 
-        repository.update_menu_item.assert_not_called()
+        repository.save_menu_item.assert_not_called()
 
     @patch("app.helpers.image_replacement_helper.S3Client")
     @patch("app.helpers.image_replacement_helper.SsmClient")
@@ -216,7 +217,7 @@ class TestUpdateMenu:
     ) -> None:
         """画像の実形式と拡張子が異なる場合は専用例外を送出する。"""
         repository = mock_repository_class.return_value
-        repository.get_menu_item_for_update.return_value = SimpleNamespace(
+        repository.get_menu_item.return_value = SimpleNamespace(
             menu_item_id=21,
             image_extension="png",
         )
@@ -237,4 +238,4 @@ class TestUpdateMenu:
 
         mock_ssm_client_class.assert_not_called()
         mock_s3_client_class.assert_not_called()
-        repository.update_menu_item.assert_not_called()
+        repository.save_menu_item.assert_not_called()
