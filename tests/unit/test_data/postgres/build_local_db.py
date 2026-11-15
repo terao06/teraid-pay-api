@@ -9,6 +9,7 @@ from pathlib import Path
 from PIL import Image
 
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
 
@@ -68,6 +69,39 @@ def build_database_url() -> str:
     database = os.getenv("POSTGRES_DB_NAME", "vector_db")
     driver = detect_driver()
     return f"postgresql+{driver}://{user}:{password}@{host}:{port}/{database}"
+
+
+def ensure_database_exists(database_url: str | None = None) -> None:
+    """テスト対象DBが存在しない場合、管理用DBへ接続して作成する。"""
+    target_url = make_url(database_url or build_database_url())
+    database_name = target_url.database
+    if not database_name:
+        raise ValueError("PostgreSQL database name is not configured.")
+
+    maintenance_engine = create_engine(
+        target_url.set(database="postgres"),
+        echo=False,
+        future=True,
+        isolation_level="AUTOCOMMIT",
+    )
+    try:
+        wait_for_database(maintenance_engine)
+        with maintenance_engine.connect() as connection:
+            database_exists = connection.execute(
+                text("SELECT 1 FROM pg_database WHERE datname = :database_name"),
+                {"database_name": database_name},
+            ).scalar_one_or_none()
+            if database_exists is not None:
+                return
+
+            quoted_database_name = connection.dialect.identifier_preparer.quote(
+                database_name
+            )
+            connection.exec_driver_sql(
+                f"CREATE DATABASE {quoted_database_name}"
+            )
+    finally:
+        maintenance_engine.dispose()
 
 
 def _parse_sql_statements(sql_file_name: str) -> list[str]:
@@ -188,6 +222,7 @@ def main() -> None:
     import_postgres_models()
 
     database_url = build_database_url()
+    ensure_database_exists(database_url)
     engine = create_engine(database_url, echo=False, future=True)
 
     try:

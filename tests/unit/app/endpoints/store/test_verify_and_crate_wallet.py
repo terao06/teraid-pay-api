@@ -33,7 +33,7 @@ class TestVerifyAndCreateWallet:
         )
 
         response = client.post(
-            "/store/10/wallet",
+            "/store/wallet",
             json={
                 "wallet_address": "0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
                 "signature": "signed-message",
@@ -59,7 +59,7 @@ class TestVerifyAndCreateWallet:
             },
         }
         mock_verify_and_create_wallet_nonce.assert_called_once()
-        assert mock_verify_and_create_wallet_nonce.call_args.kwargs["store_id"] == 10
+        assert mock_verify_and_create_wallet_nonce.call_args.kwargs["store_id"] == 101
         request = mock_verify_and_create_wallet_nonce.call_args.kwargs["request"]
         assert request.wallet_address == "0xABCDEF1234567890ABCDEF1234567890ABCDEF12"
         assert request.signature == "signed-message"
@@ -94,7 +94,7 @@ class TestVerifyAndCreateWallet:
         )
 
         response = client.post(
-            "/store/10/wallet",
+            "/store/wallet",
             json={
                 "wallet_address": "0xABCDEF1234567890ABCDEF1234567890ABCDEF12",
                 "signature": "signed-message",
@@ -118,7 +118,7 @@ class TestVerifyAndCreateWallet:
     def test_with_db(
         self,
         mock_datetime,
-        client_with_db,
+        store_client_with_db_for_wallet_create,
         mysql_session: Session,
     ) -> None:
         """DB 連携で nonce 検証から wallet 作成、nonce 使用済み化まで行うことを検証する。"""
@@ -126,8 +126,8 @@ class TestVerifyAndCreateWallet:
         wallet_address = "0x7d5e89df8eaf8872895865aef6de2d9373a159de"
         mock_datetime.now.return_value = fixed_now
 
-        response = client_with_db.post(
-            "/store/101/wallet",
+        response = store_client_with_db_for_wallet_create.post(
+            "/store/wallet",
             json={
                 "wallet_address": "0x7d5E89df8eaF8872895865AEf6De2d9373a159dE",
                 "signature": "28704a0a4569f9cd6e64ef2f887948d95f9c8df3925db552db22d91703724c5679a5beb30eda5643b56cd07646e8120a784f7acb9a6f53f877ca15fa9bc4b01e1c",
@@ -156,7 +156,7 @@ class TestVerifyAndCreateWallet:
             mysql_session.query(Wallet)
             .join(StoreWallet, Wallet.wallet_id == StoreWallet.wallet_id)
             .filter(
-                StoreWallet.store_id == 101,
+                StoreWallet.store_id == 105,
                 Wallet.wallet_address == wallet_address,
                 Wallet.chain_type == "ethereum",
                 Wallet.network_name == "sepolia",

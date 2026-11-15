@@ -1,225 +1,778 @@
 openapi: 3.0.3
 info:
-  title: Teraid Pay API
-  version: 1.0.0
-  description: 店舗ウォレット API の Swagger 定義。
+  title: Teraid Pay Store API
+  version: 1.2.0
+  description: 店舗管理者のログイン、店舗ウォレットおよびメニュー管理APIのOpenAPI定義。
 servers:
   - url: http://localhost:8005
-    description: ローカル開発環境
+    description: Dockerローカル開発環境
 
 tags:
-  - name: Store
-    description: 店舗ウォレット操作
+  - name: StoreManager
+    description: 店舗管理者認証
+  - name: StoreWallet
+    description: 店舗ウォレット管理
+  - name: StoreMenu
+    description: 店舗メニュー管理
 
 paths:
-  /store/{store_id}/wallet:
-    get:
-      tags:
-        - Store
-      summary: 店舗ウォレット取得
-      operationId: getStoreWallet
-      parameters:
-        - name: store_id
-          in: path
-          required: true
-          description: 店舗ID
-          schema:
-            type: integer
+  /store/manager/login:
+    post:
+      tags: [StoreManager]
+      summary: 店舗管理者ログイン
+      description: メールアドレスとパスワードを検証し、店舗管理者用JWTを発行する。
+      operationId: loginStoreManager
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreManagerLoginRequest'
+            example:
+              email: api-manager@example.com
+              password: password123
       responses:
         '200':
-          description: 成功レスポンス
+          description: ログイン成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GetWalletResponse'
+                $ref: '#/components/schemas/StoreManagerLoginWrappedResponse'
+              example:
+                status: success
+                data:
+                  access_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  token_type: Bearer
+                  expires_in: 3600
+                  store_manager:
+                    store_manager_id: 9001
+                    store_id: 9001
+                    name: API Demo Store Manager
+                    roll_id: 1
+        '401':
+          $ref: '#/components/responses/LoginUnauthorized'
+        '403':
+          $ref: '#/components/responses/ManagerInactive'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /store/menu/categories:
+    get:
+      tags: [StoreMenu]
+      summary: メニューカテゴリー取得
+      description: JWTで認証した店舗管理者のstore_idに紐づく、有効かつ未削除のカテゴリーを表示順で取得する。
+      operationId: getMenuCategories
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: カテゴリー取得成功。該当するカテゴリーがない場合は空配列を返す。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuCategoryListWrappedResponse'
+              example:
+                status: success
+                data:
+                  menu_categories:
+                    - menu_category_id: 9001
+                      name: API Demo Category
+                      display_order: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /store/menu:
+    get:
+      tags: [StoreMenu]
+      summary: メニュー一覧取得
+      description: JWTで認証した店舗管理者のstore_idに紐づく、未削除のメニュー商品を表示順で取得する。商品画像は署名付きURLで返す。
+      operationId: getMenus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: name
+          in: query
+          required: false
+          description: 商品名の部分一致検索。大文字・小文字を区別しない。
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+        - name: menu_category_id
+          in: query
+          required: false
+          description: メニューカテゴリーIDによる完全一致検索。
+          schema:
+            type: integer
+            minimum: 1
+        - name: is_available
+          in: query
+          required: false
+          description: 公開状態による完全一致検索。trueは販売中、falseは非公開。
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          required: false
+          description: ページ番号。1から開始する。
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          required: false
+          description: 1ページあたりの取得件数。
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: メニュー一覧取得成功。該当する商品がない場合は空配列を返す。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuListWrappedResponse'
+              example:
+                status: success
+                data:
+                  menu_items:
+                    - menu_item_id: 10
+                      menu_category_id: 1
+                      menu_category_name: ハンバーガー
+                      name: チーズバーガー
+                      description: チェダーチーズ入り
+                      price: '800.000000'
+                      token_symbol: JPYC
+                      image_url: https://example.com/menus/101/10.jpeg?signature=...
+                      is_available: true
+                      display_order: 1
+                  pagination:
+                    page: 1
+                    page_size: 20
+                    total: 1
+                    total_pages: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    post:
+      tags: [StoreMenu]
+      summary: メニュー登録
+      description: JWTで認証した店舗へ、商品、オプショングループ、オプションおよび商品画像を登録する。画像は全DBデータ登録後にS3へ保存する。
+      operationId: createMenu
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MenuCreateRequest'
+            example:
+              menu_category_id: 9001
+              name: チーズバーガー
+              description: チェダーチーズ入り
+              price: '800.000000'
+              token_symbol: JPYC
+              menu_image: iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB...
+              image_extension: png
+              is_available: true
+              display_order: 1
+              option_groups:
+                - name: サイズ
+                  min_selections: 1
+                  max_selections: 1
+                  display_order: 1
+                  is_active: true
+                  options:
+                    - name: 通常
+                      additional_price: '0.000000'
+                      display_order: 1
+                      is_available: true
+                    - name: 大盛り
+                      additional_price: '100.000000'
+                      display_order: 2
+                      is_available: true
+      responses:
+        '201':
+          description: メニュー登録成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuCreateWrappedResponse'
+              example:
+                status: success
+                data:
+                  menu_item_id: 10
+                  menu_option_groups:
+                    - menu_option_group_id: 20
+                      menu_option_ids: [30, 31]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/MenuCategoryNotFound'
+        '422':
+          $ref: '#/components/responses/MenuValidationError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /store/wallet:
+    get:
+      tags: [StoreWallet]
+      summary: 店舗ウォレット取得
+      description: JWTで認証した店舗管理者のstore_idを使用して店舗ウォレットを取得する。
+      operationId: getStoreWallet
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 取得成功。ウォレット未登録の場合はdataがnullになる。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetWalletWrappedResponse'
               examples:
                 found:
-                  summary: ウォレットが見つかりました
+                  summary: ウォレット登録済み
                   value:
                     status: success
                     data:
-                      wallet_id: 201
-                      wallet_address: 0x1111111111111111111111111111111111111111
+                      wallet_id: 9001
+                      wallet_address: '0x9001000000000000000000000000000000000001'
                       chain_type: ethereum
                       network_name: sepolia
                       token_symbol: JPYC
                       chain_id: 11155111
                       is_active: true
-                      verified_at: '2024-01-10 12:00'
-                      created_at: '2024-01-01 09:00'
-                      updated_at: '2024-01-11 10:30'
-                notFoundAsNull:
-                  summary: ウォレットが存在しない場合（業務レスポンス）
+                      is_permitted: true
+                      verified_at: '2026-11-14 12:00'
+                      created_at: '2026-11-14 12:00'
+                      updated_at: '2026-11-14 12:00'
+                notRegistered:
+                  summary: ウォレット未登録
                   value:
                     status: success
                     data: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '500':
-          description: サーバーエラー
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+          $ref: '#/components/responses/ServerError'
 
     post:
-      tags:
-        - Store
-      summary: nonce を検証してウォレットを作成
-      operationId: verifyAndCreateWallet
-      parameters:
-        - name: store_id
-          in: path
-          required: true
-          description: 店舗ID
-          schema:
-            type: integer
+      tags: [StoreWallet]
+      summary: 店舗ウォレット認証・登録
+      description: 発行済みnonceの署名を検証し、JWTで認証した店舗へウォレットを登録する。
+      operationId: verifyAndCreateStoreWallet
+      security:
+        - BearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/WalletVerifyRequest'
-            examples:
-              default:
-                value:
-                  wallet_address: 0xABCDEF1234567890ABCDEF1234567890ABCDEF12
-                  signature: signed-message
-                  chain_type: ethereum
-                  network_name: sepolia
-                  token_symbol: JPYC
-                  chain_id: 11155111
+            example:
+              wallet_address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
+              signature: '0x署名値'
+              chain_type: ethereum
+              network_name: sepolia
+              token_symbol: JPYC
+              chain_id: 11155111
       responses:
         '200':
-          description: nonce 検証・ウォレット作成に成功
+          description: ウォレット登録成功
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/StoreWalletVerifyWrappedResponse'
         '401':
-          description: 認証失敗
+          description: JWTまたはウォレット署名の認証失敗
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: 店舗が存在しない
+          description: JWTに紐づく店舗が存在しない
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: ウォレットがすでに存在する
+          description: 対象店舗に同一チェーンのウォレットが登録済み
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '500':
-          description: サーバーエラー
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+          $ref: '#/components/responses/ServerError'
 
-  /store/{store_id}/wallet/{wallet_id}:
-    delete:
-      tags:
-        - Store
-      summary: 店舗ウォレット削除
-      operationId: deleteWallet
-      parameters:
-        - name: store_id
-          in: path
-          required: true
-          description: 店舗ID
-          schema:
-            type: integer
-        - name: wallet_id
-          in: path
-          required: true
-          description: ウォレットID
-          schema:
-            type: integer
-      responses:
-        '200':
-          description: ウォレット削除に成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeleteWalletWrappedResponse'
-              examples:
-                success:
-                  summary: 削除成功
-                  value:
-                    status: success
-                    data: null
-        '500':
-          description: サーバーエラー
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /store/{store_id}/wallet/nonce:
+  /store/wallet/nonce:
     post:
-      tags:
-        - Store
-      summary: ウォレット nonce を作成
-      operationId: createWalletNonce
-      parameters:
-        - name: store_id
-          in: path
-          required: true
-          description: 店舗ID
-          schema:
-            type: integer
+      tags: [StoreWallet]
+      summary: ウォレット認証用nonce発行
+      description: JWTで認証した店舗向けに、ウォレット署名で使用するnonceを発行する。
+      operationId: createStoreWalletNonce
+      security:
+        - BearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/WalletNonceCreateRequest'
-            examples:
-              default:
-                value:
-                  wallet_address: 0xABCDEF1234567890ABCDEF1234567890ABCDEF12
-                  chain_type: ethereum
-                  network_name: sepolia
+            example:
+              wallet_address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
+              chain_type: ethereum
+              network_name: sepolia
       responses:
         '200':
-          description: nonce の生成に成功
+          description: nonce発行成功
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/WalletNonceCreateWrappedResponse'
+              example:
+                status: success
+                data:
+                  nonce: generated-nonce
+                  expires_at: '2026-11-14 12:10'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
-          description: 店舗が存在しない
+          description: 店舗が存在しない、またはウォレットアドレスが使用済み
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '500':
-          description: サーバーエラー
+          $ref: '#/components/responses/ServerError'
+
+  /store/wallet/{wallet_id}:
+    delete:
+      tags: [StoreWallet]
+      summary: 店舗ウォレット削除
+      description: JWTで認証した店舗に紐づくウォレットを論理削除する。
+      operationId: deleteStoreWallet
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: wallet_id
+          in: path
+          required: true
+          description: 削除対象のウォレットID
+          schema:
+            type: integer
+          example: 9001
+      responses:
+        '200':
+          description: ウォレット削除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteWalletWrappedResponse'
+              example:
+                status: success
+                data: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: 認証店舗に紐づくウォレットが存在しない
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/ServerError'
 
 components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 店舗管理者ログインAPIで発行されたJWT。
+
+  responses:
+    LoginUnauthorized:
+      description: メールアドレスまたはパスワードが不正
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ManagerInactive:
+      description: 店舗管理者アカウントが利用不可
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: JWTが未指定、不正、または期限切れ
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ValidationError:
+      description: リクエスト形式不正
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+    MenuCategoryNotFound:
+      description: 指定したカテゴリーが認証店舗に存在しない、無効、または削除済み
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            detail:
+              status: error
+              message: メニューカテゴリーが存在しません。
+    MenuValidationError:
+      description: リクエスト形式、画像データ、または画像拡張子が不正
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - $ref: '#/components/schemas/ValidationErrorResponse'
+              - $ref: '#/components/schemas/ErrorResponse'
+    ServerError:
+      description: サーバーエラー
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
   schemas:
-    WalletNonceCreateRequest:
+    StoreManagerLoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          minLength: 3
+          maxLength: 255
+          description: 店舗管理者のメールアドレス
+          example: api-manager@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+          description: 店舗管理者のパスワード
+          example: password123
+
+    MenuCategory:
+      type: object
+      required: [menu_category_id, name, display_order]
+      properties:
+        menu_category_id:
+          type: integer
+          minimum: 1
+          description: メニューカテゴリーID
+        name:
+          type: string
+          description: メニューカテゴリー名
+        display_order:
+          type: integer
+          minimum: 0
+          description: 表示順
+
+    MenuCategoryList:
+      type: object
+      required: [menu_categories]
+      properties:
+        menu_categories:
+          type: array
+          description: 認証店舗の有効なメニューカテゴリー一覧
+          items:
+            $ref: '#/components/schemas/MenuCategory'
+
+    MenuItem:
       type: object
       required:
-        - wallet_address
+        - menu_item_id
+        - menu_category_id
+        - menu_category_name
+        - name
+        - description
+        - price
+        - token_symbol
+        - image_url
+        - is_available
+        - display_order
+      properties:
+        menu_item_id:
+          type: integer
+          minimum: 1
+          description: メニュー商品ID
+        menu_category_id:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: メニューカテゴリーID。未分類またはカテゴリー削除済みの場合はnull。
+        menu_category_name:
+          type: string
+          nullable: true
+          description: メニューカテゴリー名。未分類またはカテゴリー削除済みの場合はnull。
+        name:
+          type: string
+          description: 商品名
+        description:
+          type: string
+          nullable: true
+          description: 商品説明
+        price:
+          type: string
+          pattern: '^\d{1,14}(\.\d{6})$'
+          description: 基本価格。小数点以下6桁の文字列。
+        token_symbol:
+          type: string
+          description: トークンシンボル
+        image_url:
+          type: string
+          format: uri
+          description: 商品画像を取得する有効期限付き署名付きURL
+        is_available:
+          type: boolean
+          description: 販売可能フラグ
+        display_order:
+          type: integer
+          minimum: 0
+          description: 表示順
+
+    MenuList:
+      type: object
+      required: [menu_items, pagination]
+      properties:
+        menu_items:
+          type: array
+          description: 認証店舗の未削除メニュー商品一覧
+          items:
+            $ref: '#/components/schemas/MenuItem'
+        pagination:
+          $ref: '#/components/schemas/MenuPagination'
+
+    MenuPagination:
+      type: object
+      required: [page, page_size, total, total_pages]
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          description: 現在のページ番号。
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: 1ページあたりの取得件数。
+        total:
+          type: integer
+          minimum: 0
+          description: 検索条件に一致する総件数。
+        total_pages:
+          type: integer
+          minimum: 0
+          description: 総ページ数。該当商品がない場合は0。
+
+    MenuOptionCreateRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          description: オプション名
+        additional_price:
+          oneOf:
+            - type: number
+              minimum: 0
+            - type: string
+              pattern: '^\d{1,14}(\.\d{1,6})?$'
+          default: '0'
+          description: 追加料金。小数点以下6桁まで指定可能。
+        display_order:
+          type: integer
+          minimum: 0
+          default: 0
+          description: 表示順
+        is_available:
+          type: boolean
+          default: true
+          description: 選択可能フラグ
+
+    MenuOptionGroupCreateRequest:
+      type: object
+      required: [name, options]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          description: オプショングループ名
+        min_selections:
+          type: integer
+          minimum: 0
+          default: 0
+          description: 最小選択数。max_selections以下であること。
+        max_selections:
+          type: integer
+          minimum: 1
+          default: 1
+          description: 最大選択数
+        display_order:
+          type: integer
+          minimum: 0
+          default: 0
+          description: 表示順
+        is_active:
+          type: boolean
+          default: true
+          description: 有効フラグ
+        options:
+          type: array
+          description: オプション一覧。オプションがない場合は空配列。
+          items:
+            $ref: '#/components/schemas/MenuOptionCreateRequest'
+
+    MenuCreateRequest:
+      type: object
+      required: [name, price, menu_image, image_extension, option_groups]
+      properties:
+        menu_category_id:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: 認証店舗に紐づく有効なカテゴリーID。未分類の場合は省略可能。
+        name:
+          type: string
+          maxLength: 255
+          description: 商品名
+        description:
+          type: string
+          nullable: true
+          description: 商品説明
+        price:
+          oneOf:
+            - type: number
+              minimum: 0
+            - type: string
+              pattern: '^\d{1,14}(\.\d{1,6})?$'
+          description: 基本価格。小数点以下6桁まで指定可能。
+        token_symbol:
+          type: string
+          maxLength: 20
+          default: JPYC
+          description: トークンシンボル
+        menu_image:
+          type: string
+          format: byte
+          description: Base64形式の商品画像
+        image_extension:
+          type: string
+          enum: [jpeg, jpg, png]
+          description: 商品画像の拡張子。menu_imageの実形式と一致すること。
+        is_available:
+          type: boolean
+          default: true
+          description: 販売可能フラグ
+        display_order:
+          type: integer
+          minimum: 0
+          default: 0
+          description: 表示順
+        option_groups:
+          type: array
+          description: オプショングループ一覧。メニューだけ登録する場合は空配列。
+          items:
+            $ref: '#/components/schemas/MenuOptionGroupCreateRequest'
+
+    MenuOptionGroupCreateResult:
+      type: object
+      required: [menu_option_group_id, menu_option_ids]
+      properties:
+        menu_option_group_id:
+          type: integer
+          description: 登録したオプショングループID
+        menu_option_ids:
+          type: array
+          description: 登録したオプションID一覧
+          items:
+            type: integer
+
+    MenuCreateResult:
+      type: object
+      required: [menu_item_id, menu_option_groups]
+      properties:
+        menu_item_id:
+          type: integer
+          description: 登録した商品ID
+        menu_option_groups:
+          type: array
+          description: 登録したオプショングループとオプションのID
+          items:
+            $ref: '#/components/schemas/MenuOptionGroupCreateResult'
+
+    StoreManagerInfo:
+      type: object
+      required: [store_manager_id, store_id, name, roll_id]
+      properties:
+        store_manager_id:
+          type: integer
+          description: 店舗管理者ID
+        store_id:
+          type: integer
+          description: 所属店舗ID
+        name:
+          type: string
+          description: 店舗管理者名
+        roll_id:
+          type: integer
+          description: ロールID
+
+    StoreManagerLogin:
+      type: object
+      required: [access_token, token_type, expires_in, store_manager]
+      properties:
+        access_token:
+          type: string
+          description: JWTアクセストークン
+        token_type:
+          type: string
+          enum: [Bearer]
+        expires_in:
+          type: integer
+          description: アクセストークンの有効期間（秒）
+        store_manager:
+          $ref: '#/components/schemas/StoreManagerInfo'
+
+    WalletNonceCreateRequest:
+      type: object
+      required: [wallet_address]
       properties:
         wallet_address:
           type: string
           minLength: 42
           maxLength: 42
-          description: ウォレットアドレス
+          description: 署名に使用するウォレットアドレス
         chain_type:
           type: string
           maxLength: 50
           default: ethereum
-          description: ブロックチェーンの種別
+          description: ブロックチェーン種別
         network_name:
           type: string
           maxLength: 50
@@ -228,44 +781,37 @@ components:
 
     WalletVerifyRequest:
       type: object
-      required:
-        - wallet_address
-        - signature
-        - chain_type
-        - network_name
-        - token_symbol
-        - chain_id
+      required: [wallet_address, signature, chain_type, network_name, token_symbol, chain_id]
       properties:
         wallet_address:
           type: string
           minLength: 42
           maxLength: 42
-          description: ウォレットアドレス
+          description: nonce発行時と同じウォレットアドレス
         signature:
           type: string
           minLength: 1
-          description: 署名
+          description: 発行されたnonceをEIP-191形式で署名した値
         chain_type:
           type: string
           minLength: 1
           maxLength: 50
-          description: ブロックチェーンの種別
+          description: ブロックチェーン種別
         network_name:
           type: string
           minLength: 1
           maxLength: 50
           description: ブロックチェーンのネットワーク名
-
         token_symbol:
           type: string
           minLength: 1
           maxLength: 20
           description: トークンシンボル
-
         chain_id:
           type: integer
           minimum: 1
           description: チェーンID
+
     StoreWallet:
       type: object
       required:
@@ -277,6 +823,7 @@ components:
         - chain_id
         - is_active
         - is_permitted
+        - verified_at
         - created_at
         - updated_at
       properties:
@@ -288,46 +835,43 @@ components:
           description: ウォレットアドレス
         chain_type:
           type: string
-          description: ブロックチェーンの種別
+          description: ブロックチェーン種別
         network_name:
           type: string
-          description: ブロックチェーンのネットワーク名
-        is_active:
-          type: boolean
-          description: ウォレットが有効かどうか
-        is_permitted:
-          type: boolean
-          description: permit 許可済みかどうか
-        verified_at:
-          type: string
-          nullable: true
-          description: ウォレットが検証された日時
-        created_at:
-          type: string
-          description: ウォレットが作成された日時
-        updated_at:
-          type: string
-          description: ウォレットが最後に更新された日時
-
+          description: ネットワーク名
         token_symbol:
           type: string
           description: トークンシンボル
-
         chain_id:
           type: integer
           description: チェーンID
+        is_active:
+          type: boolean
+          description: ウォレットが有効か
+        is_permitted:
+          type: boolean
+          description: permit許可済みか
+        verified_at:
+          type: string
+          nullable: true
+          description: ウォレット認証日時（YYYY-MM-DD HH:mm）
+        created_at:
+          type: string
+          description: 作成日時（YYYY-MM-DD HH:mm）
+        updated_at:
+          type: string
+          description: 更新日時（YYYY-MM-DD HH:mm）
+
     WalletNonceCreate:
       type: object
-      required:
-        - nonce
-        - expires_at
+      required: [nonce, expires_at]
       properties:
         nonce:
           type: string
-          description: ワンタイムトークン（nonce）
+          description: ウォレット署名に使用するnonce
         expires_at:
           type: string
-          description: nonce の有効期限日時
+          description: nonce有効期限（YYYY-MM-DD HH:mm）
 
     StoreWalletVerify:
       type: object
@@ -343,35 +887,65 @@ components:
       properties:
         wallet_address:
           type: string
-          description: ウォレットアドレス
         chain_type:
           type: string
-          description: ブロックチェーンの種別
         network_name:
           type: string
-          description: ブロックチェーンのネットワーク名
-        is_active:
-          type: boolean
-          description: ウォレットが有効かどうか
-        is_permitted:
-          type: boolean
-          description: permit 許可済みかどうか
-        verified_at:
-          type: string
-          description: ウォレットが検証された日時
-
         token_symbol:
           type: string
-          description: トークンシンボル
-
         chain_id:
           type: integer
-          description: チェーンID
-    GetWalletResponse:
+        is_active:
+          type: boolean
+        is_permitted:
+          type: boolean
+        verified_at:
+          type: string
+          description: ウォレット認証日時（YYYY-MM-DD HH:mm）
+
+    StoreManagerLoginWrappedResponse:
       type: object
-      required:
-        - status
-        - data
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/StoreManagerLogin'
+
+    MenuCategoryListWrappedResponse:
+      type: object
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/MenuCategoryList'
+
+    MenuListWrappedResponse:
+      type: object
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/MenuList'
+
+    MenuCreateWrappedResponse:
+      type: object
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/MenuCreateResult'
+
+    GetWalletWrappedResponse:
+      type: object
+      required: [status, data]
       properties:
         status:
           type: string
@@ -383,9 +957,7 @@ components:
 
     WalletNonceCreateWrappedResponse:
       type: object
-      required:
-        - status
-        - data
+      required: [status, data]
       properties:
         status:
           type: string
@@ -395,9 +967,7 @@ components:
 
     StoreWalletVerifyWrappedResponse:
       type: object
-      required:
-        - status
-        - data
+      required: [status, data]
       properties:
         status:
           type: string
@@ -407,21 +977,19 @@ components:
 
     DeleteWalletWrappedResponse:
       type: object
-      required:
-        - status
-        - data
+      required: [status, data]
       properties:
         status:
           type: string
           enum: [success]
         data:
+          type: object
           nullable: true
+          description: 常にnull
 
     ErrorDetail:
       type: object
-      required:
-        - status
-        - message
+      required: [status, message]
       properties:
         status:
           type: string
@@ -432,8 +1000,31 @@ components:
 
     ErrorResponse:
       type: object
-      required:
-        - detail
+      required: [detail]
       properties:
         detail:
           $ref: '#/components/schemas/ErrorDetail'
+
+    ValidationErrorItem:
+      type: object
+      required: [loc, msg, type]
+      properties:
+        loc:
+          type: array
+          items:
+            oneOf:
+              - type: string
+              - type: integer
+        msg:
+          type: string
+        type:
+          type: string
+
+    ValidationErrorResponse:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationErrorItem'

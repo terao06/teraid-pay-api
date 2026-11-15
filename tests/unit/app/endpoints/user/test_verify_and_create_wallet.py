@@ -127,7 +127,7 @@ class TestVerifyAndCreateWallet:
         mock_datetime.now.return_value = fixed_now
 
         response = client_with_db.post(
-            "/user/101/wallet",
+            "/user/108/wallet",
             json={
                 "wallet_address": "0x7d5E89df8eaF8872895865AEf6De2d9373a159dE",
                 "signature": "fcf1c4e7921a1ec72c818ed1cb5af485993be09e66fa541f0e95159c77c007fe5e335650237dbd6c24c266a96ca441f8bdf26cd52a2fc581d469790a8b11d2fe1c",
@@ -157,7 +157,7 @@ class TestVerifyAndCreateWallet:
             mysql_session.query(Wallet)
             .join(UserWallet, Wallet.wallet_id == UserWallet.wallet_id)
             .filter(
-                UserWallet.user_id == 101,
+                UserWallet.user_id == 108,
                 Wallet.wallet_address == wallet_address,
                 Wallet.chain_type == "ethereum",
                 Wallet.network_name == "sepolia",
@@ -180,7 +180,7 @@ class TestVerifyAndCreateWallet:
 
         created_user_wallet = (
             mysql_session.query(UserWallet)
-            .filter(UserWallet.user_id == 101, UserWallet.wallet_id == created_wallet.wallet_id)
+            .filter(UserWallet.user_id == 108, UserWallet.wallet_id == created_wallet.wallet_id)
             .one()
         )
         assert created_user_wallet.deleted_at is None

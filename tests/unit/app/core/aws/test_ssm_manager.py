@@ -12,6 +12,7 @@ class TestSsmClient:
         assert ssm_client.region_name == "ap-northeast-1"
         assert ssm_client.endpoint_url == "http://localhost:4566"
         assert ssm_client.client.meta.endpoint_url == "http://localhost:4566"
+        assert ssm_client.menu_image_url_expires_in == 3600
 
     def test_get_parameter_returns_string(self) -> None:
         value = SsmClient()._get_parameter("s3_endpoint")
@@ -22,6 +23,11 @@ class TestSsmClient:
         value = SsmClient()._get_parameter("llm_weight_bucket")
 
         assert value == "weights"
+
+    def test_get_integer_parameter_returns_integer(self) -> None:
+        value = SsmClient()._get_integer_parameter("menu_image_url_expires_in")
+
+        assert value == 3600
 
     def test_get_parameter_with_client_error(self) -> None:
         ssm_client = SsmClient()

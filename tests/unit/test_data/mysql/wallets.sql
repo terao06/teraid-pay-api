@@ -1,3 +1,4 @@
+-- テスト用データ
 INSERT INTO wallets (
     wallet_id,
     wallet_address,
@@ -163,5 +164,58 @@ INSERT INTO wallets (
     '2024-06-01 00:00:00',
     '2024-06-01 00:00:00',
     '2024-06-02 00:00:00',
+    NULL
+);
+
+-- 更新・削除系テスト専用データ
+INSERT INTO wallets (
+    wallet_id,
+    wallet_address,
+    chain_type,
+    network_name,
+    token_symbol,
+    chain_id,
+    wallet_name,
+    is_active,
+    is_permitted,
+    verified_at,
+    created_at,
+    updated_at,
+    deleted_at
+) VALUES
+    (311, '0x3110000000000000000000000000000000000000', 'ETH', 'sepolia', 'JPYC', 11155111, NULL, TRUE, TRUE, '2024-07-01 00:00:00', '2024-07-01 00:00:00', '2024-07-01 00:00:00', NULL),
+    (312, '0x3120000000000000000000000000000000000000', 'ETH', 'sepolia', 'JPYC', 11155111, NULL, TRUE, TRUE, '2024-07-02 00:00:00', '2024-07-02 00:00:00', '2024-07-02 00:00:00', NULL),
+    (313, '0x3130000000000000000000000000000000000000', 'ETH', 'sepolia', 'JPYC', 11155111, NULL, TRUE, TRUE, '2024-07-03 00:00:00', '2024-07-03 00:00:00', '2024-07-03 00:00:00', NULL),
+    (314, '0x3140000000000000000000000000000000000000', 'ETH', 'sepolia', 'JPYC', 11155111, NULL, TRUE, FALSE, '2024-07-04 00:00:00', '2024-07-04 00:00:00', '2024-07-04 00:00:00', NULL),
+    (315, '0x3150000000000000000000000000000000000000', 'ETH', 'sepolia', 'JPYC', 11155111, NULL, TRUE, TRUE, '2024-07-05 00:00:00', '2024-07-05 00:00:00', '2024-07-05 00:00:00', NULL);
+
+-- API動作確認用データ
+INSERT INTO wallets (
+    wallet_id,
+    wallet_address,
+    chain_type,
+    network_name,
+    token_symbol,
+    chain_id,
+    wallet_name,
+    is_active,
+    is_permitted,
+    verified_at,
+    created_at,
+    updated_at,
+    deleted_at
+) VALUES (
+    9001,
+    '0x9001000000000000000000000000000000000001',
+    'ethereum',
+    'sepolia',
+    'JPYC',
+    11155111,
+    'API Demo Store Wallet',
+    TRUE,
+    TRUE,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP,
     NULL
 );

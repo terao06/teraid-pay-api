@@ -20,7 +20,7 @@ class TestDeleteWallet:
         """controller の成功結果を wrapper 付きで返すことを検証する。"""
         mock_delete_wallet.return_value = None
 
-        response = client.delete("/store/10/wallet/301")
+        response = client.delete("/store/wallet/301")
 
         assert response.status_code == 200
         assert response.json() == {
@@ -28,6 +28,7 @@ class TestDeleteWallet:
             "data": None,
         }
         mock_delete_wallet.assert_called_once()
+        assert mock_delete_wallet.call_args.kwargs["store_id"] == 101
         assert mock_delete_wallet.call_args.kwargs["wallet_id"] == 301
 
     @patch("app.endpoints.store.StoreController.delete_wallet")
@@ -45,7 +46,7 @@ class TestDeleteWallet:
             },
         )
 
-        response = client.delete("/store/10/wallet/301")
+        response = client.delete("/store/wallet/301")
 
         assert response.status_code == 500
         assert response.json() == {
@@ -58,11 +59,11 @@ class TestDeleteWallet:
     @pytest.mark.usefixtures("insert_stores", "insert_wallets", "insert_store_wallets")
     def test_with_db(
         self,
-        client_with_db,
+        store_client_with_db,
         mysql_session: Session,
     ) -> None:
         """DB 連携で wallet と store_wallet の論理削除が行われることを検証する。"""
-        wallet_id = 301
+        wallet_id = 311
 
         before_wallet = mysql_session.query(Wallet).filter(Wallet.wallet_id == wallet_id).one()
         before_store_wallet = (
@@ -75,7 +76,7 @@ class TestDeleteWallet:
         before_wallet_updated_at = before_wallet.updated_at
         before_store_wallet_updated_at = before_store_wallet.updated_at
 
-        response = client_with_db.delete(f"/store/101/wallet/{wallet_id}")
+        response = store_client_with_db.delete(f"/store/wallet/{wallet_id}")
 
         assert response.status_code == 200
         assert response.json() == {
@@ -98,3 +99,32 @@ class TestDeleteWallet:
         assert after_store_wallet.deleted_at is not None
         assert after_store_wallet.updated_at is not None
         assert after_store_wallet.updated_at > before_store_wallet_updated_at
+
+    @pytest.mark.usefixtures("insert_stores", "insert_wallets", "insert_store_wallets")
+    def test_with_db_rejects_wallet_belonging_to_another_store(
+        self,
+        store_client_with_db_without_wallet_manager,
+        mysql_session: Session,
+    ) -> None:
+        """認証管理者と異なる店舗のウォレットを削除できないことを検証する。"""
+        wallet_id = 301
+
+        response = store_client_with_db_without_wallet_manager.delete(
+            f"/store/wallet/{wallet_id}"
+        )
+
+        assert response.status_code == 404
+        assert response.json() == {
+            "detail": {
+                "status": "error",
+                "message": "ウォレット情報を取得できませんでした。",
+            }
+        }
+
+        mysql_session.expire_all()
+        wallet = (
+            mysql_session.query(Wallet)
+            .filter(Wallet.wallet_id == wallet_id)
+            .one()
+        )
+        assert wallet.deleted_at is None

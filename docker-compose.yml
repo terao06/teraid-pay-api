@@ -55,6 +55,10 @@ services:
   teraid-pay-api-vector-db:
     image: pgvector/pgvector:pg16
     container_name: teraid-pay-api-vector-db
+    command:
+      - postgres
+      - -c
+      - hba_file=/etc/postgresql/pg_hba.conf
     ports:
       - 5432:5432
     environment:
@@ -64,6 +68,7 @@ services:
     volumes:
       - ./local_data/vector_db:/var/lib/postgresql/data
       - ./local_setting/local_postgres/create_tables.sh:/docker-entrypoint-initdb.d/init.sh
+      - ./local_setting/local_postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
     networks:
       - teraid-pay-api-network
   teraid-pay-api-s3:

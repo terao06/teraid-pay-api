@@ -19,7 +19,15 @@ class TeraidPayApiLog:
     _default_logger = None
     
     # センシティブな情報をマスキングするためのキーワードリスト
-    SENSITIVE_KEYS = {'client_id', 'secret_hash', 'client_secret'}
+    SENSITIVE_KEYS = {
+        'client_id',
+        'secret_hash',
+        'client_secret',
+        'password',
+        'access_token',
+        'refresh_token',
+        'authorization',
+    }
     
     @classmethod
     def mask_sensitive_data(cls, data: Any, mask_string: str = "***") -> Any:

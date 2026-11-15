@@ -151,3 +151,18 @@ INSERT INTO nonces (
     '2026-04-13 11:25:00',
     '2026-04-13 11:25:00'
 );
+
+-- 削除系テスト専用データ
+INSERT INTO nonces (
+    nonce_id,
+    wallet_address,
+    chain_type,
+    network_name,
+    nonce,
+    expires_at,
+    used_at,
+    created_at,
+    updated_at
+) VALUES
+    (8, '0x8888888888888888888888888888888888888888', 'ethereum', 'sepolia', 'store-delete-test', '2026-04-13 12:30:00', NULL, '2026-04-13 11:30:00', '2026-04-13 11:30:00'),
+    (9, '0x9999999999999999999999999999999999999999', 'ethereum', 'sepolia', 'user-delete-test', '2026-04-13 12:35:00', NULL, '2026-04-13 11:35:00', '2026-04-13 11:35:00');
