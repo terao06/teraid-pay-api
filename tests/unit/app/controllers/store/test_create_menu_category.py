@@ -1,3 +1,5 @@
+"""メニューカテゴリー登録Controllerのテスト。"""
+
 from unittest.mock import Mock, patch
 
 from fastapi import HTTPException
@@ -11,8 +13,12 @@ from app.models.responses.menu_category_response import MenuCategoryCreateRespon
 
 
 class TestCreateMenuCategory:
+    """StoreControllerのメニューカテゴリー登録処理を検証する。"""
+
     @patch("app.controllers.store_controller.StoreMenuCategoryService")
     def test_create_menu_category(self, mock_service_class) -> None:
+        """Serviceが返した登録カテゴリーIDをそのまま返す。"""
+
         mysql_session = Mock()
         request = MenuCategoryCreateRequest(
             name="ハンバーガー",
@@ -22,9 +28,6 @@ class TestCreateMenuCategory:
         )
         expected = MenuCategoryCreateResponse(
             menu_category_id=18,
-            name="ハンバーガー",
-            display_order=1,
-            is_active=True,
         )
         mock_service_class.return_value.create_menu_category.return_value = expected
 
@@ -44,6 +47,8 @@ class TestCreateMenuCategory:
 
     @patch("app.controllers.store_controller.StoreMenuCategoryService")
     def test_maps_invalid_image_to_422(self, mock_service_class) -> None:
+        """画像不正例外を422のHTTPExceptionへ変換する。"""
+
         request = MenuCategoryCreateRequest(
             name="ハンバーガー",
             category_image="invalid",
@@ -69,6 +74,8 @@ class TestCreateMenuCategory:
 
     @patch("app.controllers.store_controller.StoreMenuCategoryService")
     def test_maps_unexpected_error_to_500(self, mock_service_class) -> None:
+        """想定外例外を500のHTTPExceptionへ変換する。"""
+
         request = MenuCategoryCreateRequest(
             name="ハンバーガー",
             category_image="image",

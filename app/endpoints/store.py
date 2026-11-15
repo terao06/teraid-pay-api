@@ -124,7 +124,7 @@ def update_menu_category(
         auth_context: JWT認証で取得した店舗管理者情報。
 
     Returns:
-        更新済みカテゴリー情報を含む共通レスポンス。
+        更新したメニューカテゴリーIDを含む共通レスポンス。
     """
     return StoreController().update_menu_category(
         store_id=auth_context.store_id,
@@ -147,7 +147,7 @@ def create_menu_category(
         auth_context: JWT認証で取得した店舗管理者情報。
 
     Returns:
-        登録したカテゴリー情報を含む共通レスポンス。
+        登録したメニューカテゴリーIDを含む共通レスポンス。
     """
     return StoreController().create_menu_category(
         store_id=auth_context.store_id,

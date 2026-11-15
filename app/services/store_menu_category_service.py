@@ -134,7 +134,7 @@ class StoreMenuCategoryService:
             request: カテゴリー名、任意の画像、表示順、有効状態を含む更新情報。
 
         Returns:
-            更新済みのメニューカテゴリー情報。
+            更新したメニューカテゴリーID。
 
         Raises:
             MenuCategoryNotFoundException: 対象カテゴリーが存在しない場合。
@@ -183,9 +183,6 @@ class StoreMenuCategoryService:
         )
         return MenuCategoryUpdateResponse(
             menu_category_id=updated_category.menu_category_id,
-            name=updated_category.name,
-            display_order=updated_category.display_order,
-            is_active=updated_category.is_active,
         )
 
     def create_menu_category(self, mysql_session: Session, store_id: int,
@@ -198,7 +195,7 @@ class StoreMenuCategoryService:
             request: カテゴリー名、画像、表示順、有効状態を含む登録リクエスト。
 
         Returns:
-            登録されたカテゴリー情報。
+            登録したメニューカテゴリーID。
 
         Raises:
             MenuCategoryImageInvalidException: Base64画像をデコードできない場合。
@@ -220,6 +217,4 @@ class StoreMenuCategoryService:
                                  image_extension=request.image_extension.value))
         add_mysql_rollback_callback(mysql_session=mysql_session, callback=lambda: client.delete_object(
             bucket_name=params.category_image_bucket, file_name=key))
-        return MenuCategoryCreateResponse(menu_category_id=category.menu_category_id,
-                                          name=category.name, display_order=category.display_order,
-                                          is_active=category.is_active)
+        return MenuCategoryCreateResponse(menu_category_id=category.menu_category_id)

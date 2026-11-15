@@ -218,7 +218,7 @@ class StoreController:
             request: カテゴリー名、任意の画像、表示順、有効状態を含む更新情報。
 
         Returns:
-            更新済みのメニューカテゴリー情報。
+            更新したメニューカテゴリーID。
 
         Raises:
             HTTPException: カテゴリー未存在、画像不正、または処理失敗の場合。
@@ -261,7 +261,7 @@ class StoreController:
             request: カテゴリー名、画像、表示順、有効状態を含む登録情報。
 
         Returns:
-            登録したメニューカテゴリー情報。
+            登録したメニューカテゴリーID。
         """
         try:
             return StoreMenuCategoryService().create_menu_category(

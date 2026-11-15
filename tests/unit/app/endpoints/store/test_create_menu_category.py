@@ -1,3 +1,5 @@
+"""メニューカテゴリー登録Endpointのテスト。"""
+
 import base64
 from io import BytesIO
 from unittest.mock import patch
@@ -16,6 +18,12 @@ from tests.unit.test_data.ssm.build_ssm import AWS_ACCESS_KEY_ID, AWS_SECRET_ACC
 
 
 def build_category_image() -> str:
+    """テスト用PNG画像をBase64文字列として生成する。
+
+    Returns:
+        PNG画像を表すBase64文字列。
+    """
+
     image = Image.new("RGB", (16, 16), color=(0, 128, 255))
     with BytesIO() as buffer:
         image.save(buffer, format="PNG")
@@ -32,17 +40,18 @@ CATEGORY_REQUEST = {
 
 
 class TestCreateMenuCategory:
+    """メニューカテゴリー登録Endpointのレスポンスと永続化を検証する。"""
+
     @patch("app.endpoints.store.StoreController.create_menu_category")
     def test_returns_wrapped_created_category(
         self,
         mock_create_menu_category,
         client,
     ) -> None:
+        """登録カテゴリーIDだけを共通レスポンス形式で返す。"""
+
         mock_create_menu_category.return_value = MenuCategoryCreateResponse(
             menu_category_id=18,
-            name="ハンバーガー",
-            display_order=1,
-            is_active=True,
         )
 
         response = client.post("/store/menu/categories", json=CATEGORY_REQUEST)
@@ -52,9 +61,6 @@ class TestCreateMenuCategory:
             "status": "success",
             "data": {
                 "menu_category_id": 18,
-                "name": "ハンバーガー",
-                "display_order": 1,
-                "is_active": True,
             },
         }
         request = mock_create_menu_category.call_args.kwargs["request"]
@@ -68,6 +74,8 @@ class TestCreateMenuCategory:
         mock_create_menu_category,
         client,
     ) -> None:
+        """ControllerのHTTPExceptionをそのまま返す。"""
+
         mock_create_menu_category.side_effect = HTTPException(
             status_code=500,
             detail={"status": "error", "message": "server error"},
@@ -90,6 +98,8 @@ class TestCreateMenuCategory:
         ],
     )
     def test_returns_validation_error(self, request_json, client) -> None:
+        """不正な登録リクエストへ422を返す。"""
+
         response = client.post("/store/menu/categories", json=request_json)
 
         assert response.status_code == 422
@@ -104,6 +114,8 @@ class TestCreateMenuCategory:
         store_client_with_db_for_menu_create,
         mysql_session: Session,
     ) -> None:
+        """登録APIがカテゴリーと画像を永続化し、登録IDだけを返す。"""
+
         response = store_client_with_db_for_menu_create.post(
             "/store/menu/categories",
             json={**CATEGORY_REQUEST, "name": "カテゴリー登録APIテスト"},
