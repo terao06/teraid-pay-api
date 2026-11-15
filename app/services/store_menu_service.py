@@ -6,11 +6,16 @@ from sqlalchemy.orm import Session
 from app.core.aws.s3_client import S3Client
 from app.core.aws.ssm_manager import SsmClient
 from app.core.exceptions.custom_exception import (
+    InvalidImageError,
     MenuCategoryNotFoundException,
     MenuImageInvalidException,
     MenuItemNotFoundException,
 )
 from app.core.utils.image import ImageUtil
+from app.helpers.image_replacement_helper import (
+    ImageBucketType,
+    ImageReplacementHelper,
+)
 from app.middlewares.transaction import add_mysql_rollback_callback
 from app.models.mysql.menu_item import MenuItem
 from app.models.mysql.menu_option import MenuOption
@@ -208,13 +213,25 @@ class StoreMenuService:
             )
 
         if request.menu_image is not None and request.image_extension is not None:
-            self._replace_menu_image(
-                mysql_session=mysql_session,
-                store_id=store_id,
-                item=item,
-                menu_image=request.menu_image,
-                image_extension=request.image_extension.value,
+            old_extension = item.image_extension
+            old_key = f"{store_id}/{item.menu_item_id}.{old_extension}"
+            new_key = (
+                f"{store_id}/{item.menu_item_id}.{request.image_extension.value}"
             )
+            try:
+                ImageReplacementHelper().replace_image(
+                    mysql_session=mysql_session,
+                    image_content=request.menu_image,
+                    old_key=old_key,
+                    new_key=new_key,
+                    old_extension=old_extension,
+                    new_extension=request.image_extension.value,
+                    image_bucket_type=ImageBucketType.MENU,
+                )
+            except InvalidImageError as exc:
+                raise MenuImageInvalidException(
+                    "メニュー画像を読み込めません。"
+                ) from exc
             item.image_extension = request.image_extension.value
 
         item.menu_category_id = request.menu_category_id
@@ -231,111 +248,6 @@ class StoreMenuService:
         return MenuUpdateResponse(
             menu_item_id=updated_item.menu_item_id,
         )
-
-    def _replace_menu_image(
-        self,
-        mysql_session: Session,
-        store_id: int,
-        item: MenuItem,
-        menu_image: str,
-        image_extension: str,
-    ) -> None:
-        """商品画像を差し替え、DBロールバック時の復元処理を登録する。
-
-        Args:
-            mysql_session: 補償処理を紐づけるSQLAlchemyのセッション。
-            store_id: 更新対象の店舗ID。
-            item: 更新対象のメニュー商品。
-            menu_image: Base64形式の新しい商品画像。
-            image_extension: 新しい商品画像の拡張子。
-
-        Returns:
-            なし。
-
-        Raises:
-            MenuImageInvalidException: 差し替え画像を読み込めない場合。
-        """
-        try:
-            new_image_bytes = ImageUtil.decode_base64_image(
-                content=menu_image,
-                image_extension=image_extension,
-            )
-        except ValueError as exc:
-            raise MenuImageInvalidException(
-                "メニュー画像を読み込めません。"
-            ) from exc
-
-        params = SsmClient()
-        client = S3Client(s3_endpoint=params.s3_endpoint)
-        old_extension = item.image_extension
-        old_key = f"{store_id}/{item.menu_item_id}.{old_extension}"
-        new_key = f"{store_id}/{item.menu_item_id}.{image_extension}"
-        old_image_bytes = client.get_object(
-            bucket_name=params.menu_image_bucket,
-            key=old_key,
-        )
-        add_mysql_rollback_callback(
-            mysql_session=mysql_session,
-            callback=lambda: self._restore_menu_image(
-                client=client,
-                bucket_name=params.menu_image_bucket,
-                old_key=old_key,
-                old_image_bytes=old_image_bytes,
-                old_extension=old_extension,
-                new_key=new_key,
-            ),
-        )
-        client.upload_object(
-            bucket_name=params.menu_image_bucket,
-            file=BytesIO(new_image_bytes),
-            file_name=new_key,
-            content_type=ImageUtil.get_content_type(
-                image_extension=image_extension,
-            ),
-        )
-        if new_key != old_key:
-            client.delete_object(
-                bucket_name=params.menu_image_bucket,
-                file_name=old_key,
-            )
-
-    @staticmethod
-    def _restore_menu_image(
-        client: S3Client,
-        bucket_name: str,
-        old_key: str,
-        old_image_bytes: bytes,
-        old_extension: str,
-        new_key: str,
-    ) -> None:
-        """新画像を除去し、メモリに保持した旧商品画像をS3へ復元する。
-
-        Args:
-            client: S3操作に使用するクライアント。
-            bucket_name: 商品画像を保存するバケット名。
-            old_key: 復元する旧画像のオブジェクトキー。
-            old_image_bytes: メモリに保持した旧画像データ。
-            old_extension: 旧画像の拡張子。
-            new_key: 削除対象となる新画像のオブジェクトキー。
-
-        Returns:
-            なし。
-        """
-        try:
-            if new_key != old_key:
-                client.delete_object(
-                    bucket_name=bucket_name,
-                    file_name=new_key,
-                )
-        finally:
-            client.upload_object(
-                bucket_name=bucket_name,
-                file=BytesIO(old_image_bytes),
-                file_name=old_key,
-                content_type=ImageUtil.get_content_type(
-                    image_extension=old_extension,
-                ),
-            )
 
     def create_menu(self, mysql_session: Session, store_id: int,
                     request: MenuCreateRequest) -> MenuCreateResponse:

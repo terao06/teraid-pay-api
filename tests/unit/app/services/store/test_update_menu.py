@@ -43,8 +43,8 @@ def _build_request(**overrides) -> MenuUpdateRequest:
 class TestUpdateMenu:
     """StoreMenuServiceのメニュー基本情報更新を検証する。"""
 
-    @patch("app.services.store_menu_service.S3Client")
-    @patch("app.services.store_menu_service.SsmClient")
+    @patch("app.helpers.image_replacement_helper.S3Client")
+    @patch("app.helpers.image_replacement_helper.SsmClient")
     @patch("app.services.store_menu_service.StoreMenuRepository")
     def test_updates_menu_without_replacing_image(
         self,
@@ -103,8 +103,8 @@ class TestUpdateMenu:
         mock_ssm_client_class.assert_not_called()
         mock_s3_client_class.assert_not_called()
 
-    @patch("app.services.store_menu_service.S3Client")
-    @patch("app.services.store_menu_service.SsmClient")
+    @patch("app.helpers.image_replacement_helper.S3Client")
+    @patch("app.helpers.image_replacement_helper.SsmClient")
     @patch("app.services.store_menu_service.StoreMenuRepository")
     def test_replaces_image_and_registers_rollback_compensation(
         self,
@@ -205,8 +205,8 @@ class TestUpdateMenu:
 
         repository.update_menu_item.assert_not_called()
 
-    @patch("app.services.store_menu_service.S3Client")
-    @patch("app.services.store_menu_service.SsmClient")
+    @patch("app.helpers.image_replacement_helper.S3Client")
+    @patch("app.helpers.image_replacement_helper.SsmClient")
     @patch("app.services.store_menu_service.StoreMenuRepository")
     def test_rejects_invalid_menu_image(
         self,

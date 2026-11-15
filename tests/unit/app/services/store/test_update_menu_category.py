@@ -21,8 +21,8 @@ from ._helpers import build_menu_image
 class TestUpdateMenuCategory:
     """StoreMenuCategoryServiceのカテゴリー更新を検証する。"""
 
-    @patch("app.services.store_menu_category_service.S3Client")
-    @patch("app.services.store_menu_category_service.SsmClient")
+    @patch("app.helpers.image_replacement_helper.S3Client")
+    @patch("app.helpers.image_replacement_helper.SsmClient")
     @patch("app.services.store_menu_category_service.StoreMenuCategoryRepository")
     def test_updates_category_without_replacing_image(
         self,
@@ -71,8 +71,8 @@ class TestUpdateMenuCategory:
         mock_ssm_client_class.assert_not_called()
         mock_s3_client_class.assert_not_called()
 
-    @patch("app.services.store_menu_category_service.S3Client")
-    @patch("app.services.store_menu_category_service.SsmClient")
+    @patch("app.helpers.image_replacement_helper.S3Client")
+    @patch("app.helpers.image_replacement_helper.SsmClient")
     @patch("app.services.store_menu_category_service.StoreMenuCategoryRepository")
     def test_replaces_image_and_restores_same_key_on_rollback(
         self,
@@ -134,8 +134,8 @@ class TestUpdateMenuCategory:
         assert restored_upload.kwargs["file"].read() == b"old-image"
         s3_client.delete_object.assert_not_called()
 
-    @patch("app.services.store_menu_category_service.S3Client")
-    @patch("app.services.store_menu_category_service.SsmClient")
+    @patch("app.helpers.image_replacement_helper.S3Client")
+    @patch("app.helpers.image_replacement_helper.SsmClient")
     @patch("app.services.store_menu_category_service.StoreMenuCategoryRepository")
     def test_replaces_image_with_new_key_and_restores_old_key_on_rollback(
         self,
@@ -218,8 +218,8 @@ class TestUpdateMenuCategory:
 
         mock_repository_class.return_value.update_menu_category.assert_not_called()
 
-    @patch("app.services.store_menu_category_service.S3Client")
-    @patch("app.services.store_menu_category_service.SsmClient")
+    @patch("app.helpers.image_replacement_helper.S3Client")
+    @patch("app.helpers.image_replacement_helper.SsmClient")
     @patch("app.services.store_menu_category_service.StoreMenuCategoryRepository")
     def test_rejects_invalid_category_image(
         self,

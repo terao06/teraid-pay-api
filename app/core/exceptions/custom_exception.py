@@ -54,6 +54,17 @@ class MenuCategoryImageInvalidException(Exception):
     pass
 
 
+class InvalidImageError(Exception):
+    """共通画像差し替え処理で画像を読み込めなかったことを表す。
+
+    Args:
+        message: 例外の詳細メッセージ。省略可能。
+
+    Returns:
+        不正な画像を表す例外。
+    """
+
+
 class WalletNotFoundException(Exception):
     pass
 
