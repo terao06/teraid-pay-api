@@ -46,6 +46,28 @@ class MenuItemNotFoundException(Exception):
     """
 
 
+class DeviceActivationStateInvalidException(Exception):
+    """未有効化デバイスを利用可能に変更しようとしたことを表す。
+
+    Args:
+        message: 例外の詳細メッセージ。省略可能。
+
+    Returns:
+        デバイスの有効化状態が不正であることを表す例外。
+    """
+
+
+class DeviceNotFoundException(Exception):
+    """認証店舗に対象デバイスが存在しないことを表す。
+
+    Args:
+        message: 例外の詳細メッセージ。省略可能。
+
+    Returns:
+        デバイスが存在しないことを表す例外。
+    """
+
+
 class MenuImageInvalidException(Exception):
     pass
 
