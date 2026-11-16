@@ -10,6 +10,8 @@ from app.middlewares.request_wrapper import request_rapper
 from app.middlewares.response_wrapper import response_rapper
 from app.models.requests.wallet_nonce_create_request import WalletNonceCreateRequest
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
+from app.models.requests.device_create_request import DeviceCreateRequest
+from app.models.requests.device_update_request import DeviceUpdateRequest
 from app.models.requests.store_manager_login_request import StoreManagerLoginRequest
 from app.models.requests.menu_category_create_request import MenuCategoryCreateRequest
 from app.models.requests.menu_category_update_request import MenuCategoryUpdateRequest
@@ -36,6 +38,106 @@ def login_store_manager(request: StoreManagerLoginRequest):
         JWTアクセストークンと店舗管理者情報を含む共通レスポンス。
     """
     return StoreController().login_store_manager(request=request)
+
+
+@store_router.post("/devices", status_code=201)
+@response_rapper()
+@request_rapper()
+def create_device(
+    request: DeviceCreateRequest,
+    auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
+):
+    """認証済み管理者の店舗へデバイスを登録する。
+
+    Args:
+        request: デバイス名を含む登録リクエスト。
+        auth_context: JWT認証で取得した店舗管理者情報。
+
+    Returns:
+        登録したデバイスIDを含む共通レスポンス。
+    """
+    return StoreController().create_device(
+        store_id=auth_context.store_id,
+        request=request,
+    )
+
+
+@store_router.get("/devices")
+@response_rapper()
+@request_rapper()
+def get_devices(
+    device_name: str | None = Query(default=None, min_length=1, max_length=100),
+    is_active: bool | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
+):
+    """認証済み管理者の店舗に紐づくデバイス一覧を取得する。
+
+    Args:
+        device_name: デバイス名の部分一致条件。
+        is_active: 利用可能状態の完全一致条件。
+        page: 取得するページ番号。
+        page_size: 1ページあたりの取得件数。
+        auth_context: JWT認証で取得した店舗管理者情報。
+
+    Returns:
+        デバイス一覧とページネーション情報を含む共通レスポンス。
+    """
+    return StoreController().get_devices(
+        store_id=auth_context.store_id,
+        device_name=device_name,
+        is_active=is_active,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@store_router.get("/devices/{device_id}")
+@response_rapper()
+@request_rapper()
+def get_device_detail(
+    device_id: int = Path(ge=1),
+    auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
+):
+    """認証済み管理者の店舗に属するデバイス詳細を取得する。
+
+    Args:
+        device_id: 取得対象のデバイスID。
+        auth_context: JWT認証で取得した店舗管理者情報。
+
+    Returns:
+        管理画面へ表示可能なデバイス詳細情報を含む共通レスポンス。
+    """
+    return StoreController().get_device_detail(
+        store_id=auth_context.store_id,
+        device_id=device_id,
+    )
+
+
+@store_router.put("/devices/{device_id}")
+@response_rapper()
+@request_rapper()
+def update_device(
+    request: DeviceUpdateRequest,
+    device_id: int = Path(ge=1),
+    auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
+):
+    """認証済み管理者の店舗に属するデバイスを更新する。
+
+    Args:
+        request: デバイス名または利用状態を含む更新リクエスト。
+        device_id: 更新対象のデバイスID。
+        auth_context: JWT認証で取得した店舗管理者情報。
+
+    Returns:
+        更新したデバイスIDを含む共通レスポンス。
+    """
+    return StoreController().update_device(
+        store_id=auth_context.store_id,
+        device_id=device_id,
+        request=request,
+    )
 
 
 @store_router.get("/wallet")

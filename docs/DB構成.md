@@ -5,6 +5,7 @@
 | 区分 | テーブル名 |
 | --- | --- |
 | 追加 | store_managers |
+| 追加 | devices |
 | 追加 | menu_categories |
 | 追加 | menu_items |
 | 追加 | menu_option_groups |
@@ -19,6 +20,7 @@
 | テーブル名 | 用途 |
 | --- | --- |
 | store_managers | 店舗管理画面を利用する管理者の所属店舗、メールアドレス、利用可否を管理する。 |
+| devices | 店舗に常設するAndroid端末の登録、有効化、認証情報、利用可否を管理する。 |
 | menu_categories | 店舗ごとのメニューカテゴリ、カテゴリー画像の拡張子、表示可否を管理する。 |
 | menu_items | 商品名、基本価格、画像、販売可否を管理する。 |
 | menu_option_groups | サイズやトッピングなど、商品ごとの選択グループを管理する。 |
@@ -162,11 +164,32 @@
 | --- | --- | --- | --- | --- | --- |
 | menu_order_id | BIGINT | YES | NULL | FK → menu_orders.menu_order_id | 関連する注文ID。既存の自由金額決済ではNULL |
 
+### 3.10 devices
+
+| カラム | 型 | NULL | デフォルト | キー | 説明 |
+| --- | --- | --- | --- | --- | --- |
+| device_id | BIGINT | NO | AUTO_INCREMENT | PK | デバイスID |
+| store_id | BIGINT | NO | - | FK → stores.store_id | 設置店舗ID |
+| device_name | VARCHAR(100) | NO | - | - | 店舗管理者が設定するデバイス名 |
+| device_uuid | VARCHAR(36) | NO | - | UK | デバイス登録時に発行するUUID |
+| activation_code_hash | VARCHAR(64) | YES | NULL | UK | 初回有効化コードのSHA-256ハッシュ値 |
+| activation_expires_at | DATETIME | YES | NULL | - | 有効化コードの有効期限 |
+| device_credential_hash | VARCHAR(255) | YES | NULL | - | 有効化後の長期端末認証情報のハッシュ値 |
+| activated_at | DATETIME | YES | NULL | - | 初回有効化日時 |
+| last_authenticated_at | DATETIME | YES | NULL | - | 最終認証日時 |
+| is_active | BOOLEAN | NO | FALSE | - | 利用可能フラグ。初回有効化後にTRUE |
+| created_at | DATETIME | NO | CURRENT_TIMESTAMP | - | 作成日時 |
+| updated_at | DATETIME | NO | CURRENT_TIMESTAMP | - | 更新日時 |
+| deleted_at | DATETIME | YES | NULL | - | 論理削除日時 |
+
+有効化成功後は `activation_code_hash` と `activation_expires_at` をNULLに更新する。有効化コードと端末認証情報の平文はDBに保存しない。
+
 ## 4. ER図
 
 ~~~mermaid
 erDiagram
     STORES ||--o{ STORE_MANAGERS : employs
+    STORES ||--o{ DEVICES : has
     STORES ||--o{ MENU_CATEGORIES : has
     STORES ||--o{ MENU_ITEMS : offers
     MENU_CATEGORIES o|--o{ MENU_ITEMS : classifies
@@ -197,6 +220,20 @@ erDiagram
         varchar email UK
         varchar password_hash
         bigint roll_id
+        boolean is_active
+        datetime deleted_at
+    }
+
+    DEVICES {
+        bigint device_id PK
+        bigint store_id FK
+        varchar device_name
+        varchar device_uuid UK
+        varchar activation_code_hash UK
+        datetime activation_expires_at
+        varchar device_credential_hash
+        datetime activated_at
+        datetime last_authenticated_at
         boolean is_active
         datetime deleted_at
     }
