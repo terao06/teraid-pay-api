@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Teraid Pay Store API
-  version: 1.2.0
+  version: 1.3.0
   description: 店舗管理者のログイン、店舗ウォレットおよびメニュー管理APIのOpenAPI定義。
 servers:
   - url: http://localhost:8005
@@ -10,12 +10,220 @@ servers:
 tags:
   - name: StoreManager
     description: 店舗管理者認証
+  - name: StoreDevice
+    description: 店舗デバイス管理
   - name: StoreWallet
     description: 店舗ウォレット管理
   - name: StoreMenu
     description: 店舗メニュー管理
 
 paths:
+  /store/devices:
+    get:
+      tags: [StoreDevice]
+      summary: デバイス一覧取得
+      description: 認証済み店舗管理者の店舗に紐づく未削除デバイスを検索条件とページ指定に従って取得する。
+      operationId: getDevices
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: device_name
+          in: query
+          required: false
+          description: デバイス名の部分一致条件。ワイルドカード文字は通常文字として扱う。
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - name: is_active
+          in: query
+          required: false
+          description: 利用可能状態の完全一致条件。
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          required: false
+          description: 取得するページ番号。
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          required: false
+          description: 1ページあたりの取得件数。
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: デバイス一覧取得成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceListWrappedResponse'
+              example:
+                status: success
+                data:
+                  devices:
+                    - device_id: 1
+                      device_name: レジ端末1
+                      is_active: false
+                      created_at: '2026-11-16T10:00:00+09:00'
+                  pagination:
+                    page: 1
+                    page_size: 20
+                    total: 1
+                    total_pages: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    post:
+      tags: [StoreDevice]
+      summary: デバイス登録
+      description: 認証済み店舗管理者の店舗へ未有効化デバイスを登録し、UUIDとワンタイム有効化コードを発行する。
+      operationId: createDevice
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceCreateRequest'
+            example:
+              device_name: レジ端末1
+      responses:
+        '201':
+          description: デバイス登録成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceCreateWrappedResponse'
+              example:
+                status: success
+                data:
+                  device_id: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /store/devices/{device_id}:
+    get:
+      tags: [StoreDevice]
+      summary: デバイス詳細情報取得
+      description: 認証済み店舗管理者の店舗に属する未削除デバイスの管理画面向け詳細情報を取得する。認証情報やUUIDは返さない。
+      operationId: getDeviceDetail
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          description: 取得対象のデバイスID
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: デバイス詳細情報取得成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceDetailWrappedResponse'
+              example:
+                status: success
+                data:
+                  device_id: 1
+                  device_name: レジ端末1
+                  is_active: false
+                  activated_at: null
+                  last_authenticated_at: null
+                  created_at: '2026-11-16T10:00:00+09:00'
+                  updated_at: '2026-11-16T10:00:00+09:00'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: デバイスが存在しない、論理削除済み、または別店舗に所属
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail:
+                  status: error
+                  message: デバイスが存在しません。
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    put:
+      tags: [StoreDevice]
+      summary: デバイス更新
+      description: 認証済み店舗管理者の店舗に属する未削除デバイスの名称または利用状態を更新する。未有効化デバイスを直接有効にはできない。
+      operationId: updateDevice
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          description: 更新対象のデバイスID
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceUpdateRequest'
+            example:
+              device_name: 1階レジ端末
+              is_active: false
+      responses:
+        '200':
+          description: デバイス更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceUpdateWrappedResponse'
+              example:
+                status: success
+                data:
+                  device_id: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: デバイスが存在しない、論理削除済み、または別店舗に所属
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail:
+                  status: error
+                  message: デバイスが存在しません。
+        '422':
+          description: リクエスト形式またはデバイスの有効化状態が不正
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ValidationErrorResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
   /store/manager/login:
     post:
       tags: [StoreManager]
@@ -825,6 +1033,169 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
 
   schemas:
+    DeviceUpdateRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        device_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: 更新後のデバイス名
+        is_active:
+          type: boolean
+          description: 更新後の利用可能状態
+
+    DeviceUpdate:
+      type: object
+      additionalProperties: false
+      required: [device_id]
+      properties:
+        device_id:
+          type: integer
+          minimum: 1
+
+    DeviceUpdateWrappedResponse:
+      type: object
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/DeviceUpdate'
+
+    DeviceDetail:
+      type: object
+      additionalProperties: false
+      required:
+        - device_id
+        - device_name
+        - is_active
+        - activated_at
+        - last_authenticated_at
+        - created_at
+        - updated_at
+      properties:
+        device_id:
+          type: integer
+          minimum: 1
+        device_name:
+          type: string
+        is_active:
+          type: boolean
+        activated_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_authenticated_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    DeviceDetailWrappedResponse:
+      type: object
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/DeviceDetail'
+
+    DeviceListItem:
+      type: object
+      additionalProperties: false
+      required: [device_id, device_name, is_active, created_at]
+      properties:
+        device_id:
+          type: integer
+          minimum: 1
+        device_name:
+          type: string
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    DevicePagination:
+      type: object
+      additionalProperties: false
+      required: [page, page_size, total, total_pages]
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0
+        total_pages:
+          type: integer
+          minimum: 0
+
+    DeviceList:
+      type: object
+      additionalProperties: false
+      required: [devices, pagination]
+      properties:
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceListItem'
+        pagination:
+          $ref: '#/components/schemas/DevicePagination'
+
+    DeviceListWrappedResponse:
+      type: object
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/DeviceList'
+
+    DeviceCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [device_name]
+      properties:
+        device_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: 店舗管理者が設定するデバイス名
+
+    DeviceCreate:
+      type: object
+      required: [device_id]
+      properties:
+        device_id:
+          type: integer
+          minimum: 1
+
+    DeviceCreateWrappedResponse:
+      type: object
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/DeviceCreate'
+
     StoreManagerLoginRequest:
       type: object
       required: [email, password]

@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from app.middlewares.transaction import mysql_transaction
 from app.models.requests.wallet_nonce_create_request import WalletNonceCreateRequest
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
+from app.models.requests.device_create_request import DeviceCreateRequest
+from app.models.requests.device_update_request import DeviceUpdateRequest
 from app.models.requests.store_manager_login_request import StoreManagerLoginRequest
 from app.models.requests.menu_category_create_request import MenuCategoryCreateRequest
 from app.models.requests.menu_category_update_request import MenuCategoryUpdateRequest
@@ -14,6 +16,10 @@ from app.models.requests.menu_option_groups_update_request import (
 )
 from app.models.requests.menu_update_request import MenuUpdateRequest
 from app.models.responses.store_manager_login_response import StoreManagerLoginResponse
+from app.models.responses.device_create_response import DeviceCreateResponse
+from app.models.responses.device_detail_response import DeviceDetailResponse
+from app.models.responses.device_list_response import DeviceListResponse
+from app.models.responses.device_update_response import DeviceUpdateResponse
 from app.models.responses.menu_category_response import (
     MenuCategoryCreateResponse,
     MenuCategoryListResponse,
@@ -30,6 +36,7 @@ from app.models.responses.menu_update_response import MenuUpdateResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
 from app.services.store_auth_service import StoreAuthService
+from app.services.store_device_service import StoreDeviceService
 from app.services.store_menu_category_service import StoreMenuCategoryService
 from app.services.store_menu_service import StoreMenuService
 from app.services.store_wallet_service import StoreWalletService
@@ -39,6 +46,8 @@ from app.core.exceptions.message import (
     MENU_CATEGORY_IMAGE_INVALID_ERROR,
     MENU_CATEGORY_NOT_FOUND_ERROR,
     MENU_ITEM_NOT_FOUND_ERROR,
+    DEVICE_NOT_FOUND_ERROR,
+    DEVICE_ACTIVATION_STATE_INVALID_ERROR,
     MENU_IMAGE_INVALID_ERROR,
     MENU_OPTION_CONFIGURATION_INVALID_ERROR,
     LOGIN_FAILED_ERROR,
@@ -51,6 +60,8 @@ from app.core.exceptions.message import (
 )
 from app.core.exceptions.custom_exception import (
     CustomHttpException,
+    DeviceActivationStateInvalidException,
+    DeviceNotFoundException,
     MenuCategoryImageInvalidException,
     MenuCategoryNotFoundException,
     MenuImageInvalidException,
@@ -66,6 +77,162 @@ from app.core.exceptions.custom_exception import (
 
 class StoreController:
     """店舗管理者向けAPIのユースケース呼び出しと例外変換を行う。"""
+
+    @mysql_transaction
+    def create_device(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        request: DeviceCreateRequest,
+    ) -> DeviceCreateResponse:
+        """認証済み管理者の店舗へデバイスを登録する。
+
+        Args:
+            mysql_session: SQLAlchemyのMySQLセッション。
+            store_id: 登録先の店舗ID。
+            request: デバイス名を含む登録リクエスト。
+
+        Returns:
+            登録したデバイスID。
+
+        Raises:
+            HTTPException: デバイス登録処理に失敗した場合。
+        """
+        try:
+            return StoreDeviceService().create_device(
+                mysql_session=mysql_session,
+                store_id=store_id,
+                request=request,
+            )
+        except Exception:
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR,
+            )
+
+    @mysql_transaction
+    def get_devices(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        device_name: str | None = None,
+        is_active: bool | None = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> DeviceListResponse:
+        """認証済み管理者の店舗に紐づくデバイス一覧を取得する。
+
+        Args:
+            mysql_session: SQLAlchemyのMySQLセッション。
+            store_id: 取得対象の店舗ID。
+            device_name: デバイス名の部分一致条件。
+            is_active: 利用可能状態の完全一致条件。
+            page: 取得するページ番号。
+            page_size: 1ページあたりの取得件数。
+
+        Returns:
+            デバイス一覧とページネーション情報。
+
+        Raises:
+            HTTPException: デバイス一覧の取得に失敗した場合。
+        """
+        try:
+            return StoreDeviceService().get_devices(
+                mysql_session=mysql_session,
+                store_id=store_id,
+                device_name=device_name,
+                is_active=is_active,
+                page=page,
+                page_size=page_size,
+            )
+        except Exception:
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR,
+            )
+
+    @mysql_transaction
+    def get_device_detail(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        device_id: int,
+    ) -> DeviceDetailResponse:
+        """認証済み管理者の店舗に属するデバイス詳細を取得する。
+
+        Args:
+            mysql_session: SQLAlchemyのMySQLセッション。
+            store_id: 取得対象の店舗ID。
+            device_id: 取得対象のデバイスID。
+
+        Returns:
+            管理画面へ表示可能なデバイス詳細情報。
+
+        Raises:
+            HTTPException: デバイスが存在しない、または取得に失敗した場合。
+        """
+        try:
+            return StoreDeviceService().get_device_detail(
+                mysql_session=mysql_session,
+                store_id=store_id,
+                device_id=device_id,
+            )
+        except DeviceNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=404,
+                message=DEVICE_NOT_FOUND_ERROR,
+            )
+        except Exception:
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR,
+            )
+
+    @mysql_transaction
+    def update_device(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        device_id: int,
+        request: DeviceUpdateRequest,
+    ) -> DeviceUpdateResponse:
+        """認証済み管理者の店舗に属するデバイスを更新する。
+
+        Args:
+            mysql_session: SQLAlchemyのMySQLセッション。
+            store_id: 更新対象の店舗ID。
+            device_id: 更新対象のデバイスID。
+            request: デバイス名または利用状態を含む更新リクエスト。
+
+        Returns:
+            更新したデバイスID。
+
+        Raises:
+            HTTPException: デバイスが存在しない、有効化状態が不正、
+                または更新に失敗した場合。
+        """
+        try:
+            return StoreDeviceService().update_device(
+                mysql_session=mysql_session,
+                store_id=store_id,
+                device_id=device_id,
+                request=request,
+            )
+        except DeviceNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=404,
+                message=DEVICE_NOT_FOUND_ERROR,
+            )
+        except DeviceActivationStateInvalidException:
+            raise CustomHttpException.get_http_exception(
+                status_code=422,
+                message=DEVICE_ACTIVATION_STATE_INVALID_ERROR,
+            )
+        except Exception:
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR,
+            )
 
     @mysql_transaction
     def login_store_manager(
