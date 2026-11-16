@@ -68,6 +68,17 @@ class DeviceNotFoundException(Exception):
     """
 
 
+class DeviceAlreadyActivatedException(Exception):
+    """有効化済みデバイスへ有効化コードを発行しようとしたことを表す。
+
+    Args:
+        message: 例外の詳細メッセージ。省略可能。
+
+    Returns:
+        デバイスが既に有効化済みであることを表す例外。
+    """
+
+
 class MenuImageInvalidException(Exception):
     pass
 

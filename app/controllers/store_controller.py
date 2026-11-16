@@ -17,6 +17,9 @@ from app.models.requests.menu_option_groups_update_request import (
 from app.models.requests.menu_update_request import MenuUpdateRequest
 from app.models.responses.store_manager_login_response import StoreManagerLoginResponse
 from app.models.responses.device_create_response import DeviceCreateResponse
+from app.models.responses.device_activation_code_response import (
+    DeviceActivationCodeResponse,
+)
 from app.models.responses.device_detail_response import DeviceDetailResponse
 from app.models.responses.device_list_response import DeviceListResponse
 from app.models.responses.device_update_response import DeviceUpdateResponse
@@ -48,6 +51,7 @@ from app.core.exceptions.message import (
     MENU_ITEM_NOT_FOUND_ERROR,
     DEVICE_NOT_FOUND_ERROR,
     DEVICE_ACTIVATION_STATE_INVALID_ERROR,
+    DEVICE_ALREADY_ACTIVATED_ERROR,
     MENU_IMAGE_INVALID_ERROR,
     MENU_OPTION_CONFIGURATION_INVALID_ERROR,
     LOGIN_FAILED_ERROR,
@@ -61,6 +65,7 @@ from app.core.exceptions.message import (
 from app.core.exceptions.custom_exception import (
     CustomHttpException,
     DeviceActivationStateInvalidException,
+    DeviceAlreadyActivatedException,
     DeviceNotFoundException,
     MenuCategoryImageInvalidException,
     MenuCategoryNotFoundException,
@@ -227,6 +232,49 @@ class StoreController:
             raise CustomHttpException.get_http_exception(
                 status_code=422,
                 message=DEVICE_ACTIVATION_STATE_INVALID_ERROR,
+            )
+        except Exception:
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR,
+            )
+
+    @mysql_transaction
+    def issue_device_activation_code(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        device_id: int,
+    ) -> DeviceActivationCodeResponse:
+        """未有効化デバイスへ新しい有効化コードを発行する。
+
+        Args:
+            mysql_session: SQLAlchemyのMySQLセッション。
+            store_id: 対象デバイスの店舗ID。
+            device_id: 有効化コードを発行するデバイスID。
+
+        Returns:
+            平文の有効化コードと有効期限。
+
+        Raises:
+            HTTPException: デバイスが存在しない、既に有効化済み、
+                または発行処理に失敗した場合。
+        """
+        try:
+            return StoreDeviceService().issue_activation_code(
+                mysql_session=mysql_session,
+                store_id=store_id,
+                device_id=device_id,
+            )
+        except DeviceNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=404,
+                message=DEVICE_NOT_FOUND_ERROR,
+            )
+        except DeviceAlreadyActivatedException:
+            raise CustomHttpException.get_http_exception(
+                status_code=409,
+                message=DEVICE_ALREADY_ACTIVATED_ERROR,
             )
         except Exception:
             raise CustomHttpException.get_http_exception(

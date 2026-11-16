@@ -13,4 +13,5 @@ web3==7.15.0
 websockets==13.1
 scrfd==0.3.0
 pillow==12.2.0
+qrcode==8.2
 numpy==2.2.6

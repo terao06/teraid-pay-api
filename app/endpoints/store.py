@@ -1,6 +1,6 @@
 """店舗管理者向けAPIのルーティングを提供する。"""
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, Response
 from app.controllers.store_controller import StoreController
 from app.dependencies.store_manager_auth import (
     StoreManagerAuthContext,
@@ -137,6 +137,31 @@ def update_device(
         store_id=auth_context.store_id,
         device_id=device_id,
         request=request,
+    )
+
+
+@store_router.post("/devices/{device_id}/activation-code")
+@response_rapper()
+@request_rapper()
+def issue_device_activation_code(
+    response: Response,
+    device_id: int = Path(ge=1),
+    auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
+):
+    """未有効化デバイスへ新しい有効化コードを発行する。
+
+    Args:
+        response: キャッシュ禁止ヘッダーを設定するHTTPレスポンス。
+        device_id: 有効化コードを発行するデバイスID。
+        auth_context: JWT認証で取得した店舗管理者情報。
+
+    Returns:
+        平文の有効化コードと有効期限を含む共通レスポンス。
+    """
+    response.headers["Cache-Control"] = "no-store"
+    return StoreController().issue_device_activation_code(
+        store_id=auth_context.store_id,
+        device_id=device_id,
     )
 
 
