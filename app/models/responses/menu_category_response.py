@@ -25,6 +25,19 @@ class MenuCategoryUpdateResponse(BaseModel):
     menu_category_id: int = Field(..., description="Menu category ID")
 
 
+class MenuCategoryDeleteResponse(BaseModel):
+    """論理削除したメニューカテゴリーの結果を表す。
+
+    Args:
+        menu_category_id: 削除したメニューカテゴリーID。
+
+    Returns:
+        削除したメニューカテゴリーIDを含むレスポンスモデル。
+    """
+
+    menu_category_id: int = Field(..., description="削除したメニューカテゴリーID")
+
+
 class MenuCategoryPaginationResponse(BaseModel):
     """メニューカテゴリー一覧のページネーション情報。"""
 

@@ -20,3 +20,10 @@ INSERT INTO menu_items (
     (24, 101, NULL, '未分類商品', NULL, 300.000000, 'JPYC', 'png', TRUE, 3, '2026-01-04 09:00:00', '2026-01-04 09:00:00', NULL),
     (25, 101, 13, '削除済み商品', NULL, 400.000000, 'JPYC', 'png', TRUE, 0, '2026-01-05 09:00:00', '2026-01-05 09:00:00', '2026-02-01 00:00:00'),
     (26, 102, 16, '別店舗商品', NULL, 600.000000, 'JPYC', 'png', TRUE, 0, '2026-01-06 09:00:00', '2026-01-06 09:00:00', NULL);
+
+-- fixture: delete_menu_category
+INSERT INTO menu_items (
+    menu_item_id, store_id, menu_category_id, name, price, token_symbol, image_extension,
+    is_available, display_order, created_at, updated_at
+) VALUES
+    (830001, 101, 830001, '削除対象カテゴリーの商品', 300.000000, 'JPYC', 'png', TRUE, 0, '2026-01-01 09:00:00', '2026-01-01 09:00:00');
