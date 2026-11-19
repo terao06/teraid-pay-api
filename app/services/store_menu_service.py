@@ -27,6 +27,7 @@ from app.models.requests.menu_option_groups_update_request import (
 )
 from app.models.requests.menu_update_request import MenuUpdateRequest
 from app.models.responses.menu_create_response import MenuCreateResponse
+from app.models.responses.menu_delete_response import MenuDeleteResponse
 from app.models.responses.menu_detail_response import (
     MenuDetailResponse,
     MenuOptionGroupResponse,
@@ -42,7 +43,7 @@ from app.repositories.mysql.store_menu_repository import StoreMenuRepository
 
 
 class StoreMenuService:
-    """メニュー検索と、オプション・画像を含む登録・更新を調整する。"""
+    """メニューとオプションの検索・登録・更新・削除を調整する。"""
 
     def get_menus(self, mysql_session: Session, store_id: int, name: str | None = None,
                   menu_category_id: int | None = None, is_available: bool | None = None,
@@ -257,6 +258,55 @@ class StoreMenuService:
         return MenuUpdateResponse(
             menu_item_id=updated_item.menu_item_id,
         )
+
+    def delete_menu(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        menu_item_id: int,
+    ) -> MenuDeleteResponse:
+        """商品と配下のオプション構成を排他ロックして論理削除する。
+
+        Args:
+            mysql_session: 削除を同一トランザクションで実行するMySQLセッション。
+            store_id: 認証済み管理者の店舗ID。
+            menu_item_id: 削除対象のメニュー商品ID。
+
+        Returns:
+            削除したメニュー商品IDを含むレスポンス。
+
+        Raises:
+            MenuItemNotFoundException: 商品が存在しない、別店舗に属する、または削除済みの場合。
+        """
+        repository = StoreMenuRepository()
+        item = repository.get_menu_item(
+            mysql_session=mysql_session,
+            store_id=store_id,
+            menu_item_id=menu_item_id,
+            lock_for_update=True,
+        )
+        if item is None:
+            raise MenuItemNotFoundException("メニュー商品が存在しません。")
+
+        groups = repository.get_menu_option_groups(
+            mysql_session=mysql_session,
+            menu_item_id=menu_item_id,
+            lock_for_update=True,
+        )
+        options = repository.get_menu_options(
+            mysql_session=mysql_session,
+            menu_option_group_ids=[group.menu_option_group_id for group in groups],
+            lock_for_update=True,
+        )
+        for option in options:
+            repository.soft_delete_menu_option(mysql_session=mysql_session, menu_option=option)
+        for group in groups:
+            repository.soft_delete_menu_option_group(
+                mysql_session=mysql_session, menu_option_group=group
+            )
+
+        repository.soft_delete_menu_item(mysql_session=mysql_session, menu_item=item)
+        return MenuDeleteResponse(menu_item_id=item.menu_item_id)
 
     def update_menu_option_groups(
         self,

@@ -447,6 +447,37 @@ def update_menu(
     )
 
 
+@store_router.delete("/menu/{menu_item_id}")
+@response_rapper()
+@request_rapper()
+def delete_menu(
+    menu_item_id: int = Path(ge=1),
+    auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
+):
+    """認証済み管理者の店舗に属するメニューとオプション構成を論理削除する。
+
+    Args:
+        menu_item_id: 削除対象のメニュー商品ID。
+        auth_context: JWT認証で取得した店舗管理者情報。
+
+    Returns:
+        削除したメニュー商品IDを含む共通レスポンス。
+
+    Raises:
+        HTTPException: 対象が見つからない場合、またはDB処理に失敗した場合。
+    """
+    try:
+        return StoreController().delete_menu(
+            store_id=auth_context.store_id,
+            menu_item_id=menu_item_id,
+        )
+    except SQLAlchemyError as exc:
+        raise CustomHttpException.get_http_exception(
+            status_code=500,
+            message=SERVER_ERROR,
+        ) from exc
+
+
 @store_router.put("/menu/{menu_item_id}/option-groups")
 @response_rapper()
 @request_rapper()
