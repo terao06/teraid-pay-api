@@ -224,6 +224,49 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
+    delete:
+      tags: [StoreDevice]
+      summary: デバイス削除
+      description: 認証済み店舗管理者の店舗に属する未削除デバイスを論理削除する。削除済みまたは別店舗のデバイスは対象にしない。
+      operationId: deleteDevice
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          description: 削除対象のデバイスID
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: デバイス削除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceDeleteWrappedResponse'
+              example:
+                status: success
+                data:
+                  device_id: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: デバイスが存在しない、論理削除済み、または別店舗に所属
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail:
+                  status: error
+                  message: デバイスが存在しません。
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
   /store/devices/{device_id}/activation-code:
     post:
       tags: [StoreDevice]
@@ -1150,6 +1193,25 @@ components:
           enum: [success]
         data:
           $ref: '#/components/schemas/DeviceUpdate'
+
+    DeviceDelete:
+      type: object
+      additionalProperties: false
+      required: [device_id]
+      properties:
+        device_id:
+          type: integer
+          minimum: 1
+
+    DeviceDeleteWrappedResponse:
+      type: object
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/DeviceDelete'
 
     DeviceDetail:
       type: object
