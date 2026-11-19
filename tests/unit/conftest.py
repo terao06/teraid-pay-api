@@ -18,6 +18,7 @@ from tests.unit.test_data.mysql.build_local_db import (
     import_mysql_models,
     insert_devices as load_devices,
     insert_menu_category_deletion_data as load_menu_category_deletion_data,
+    insert_menu_deletion_data as load_menu_deletion_data,
     insert_menu_option_groups as load_menu_option_groups,
     insert_menu_options as load_menu_options,
     insert_sample_data as load_mysql_sample_data,
@@ -203,6 +204,35 @@ def insert_menu_category_deletion_data(
             connection.exec_driver_sql("DELETE FROM menu_items WHERE menu_item_id = 830001")
             connection.exec_driver_sql(
                 "DELETE FROM menu_categories WHERE menu_category_id IN (830001, 830002, 830003, 830004)"
+            )
+
+
+@pytest.fixture()
+def insert_menu_deletion_data(
+    mysql_engine,
+    insert_menu_items,
+) -> Generator[tuple[str, str, str], None, None]:
+    """メニュー削除専用の行を投入し、テスト後に専用行を取り除く。
+
+    Args:
+        mysql_engine: テスト用MySQL Engine。
+        insert_menu_items: 店舗と商品を含む共有データの準備用fixture。
+
+    Returns:
+        実行したSQLファイル名をテストに渡すジェネレーター。
+    """
+    try:
+        yield load_menu_deletion_data(mysql_engine)
+    finally:
+        with mysql_engine.begin() as connection:
+            connection.exec_driver_sql(
+                "DELETE FROM menu_options WHERE menu_option_id IN (840001, 840002, 840003)"
+            )
+            connection.exec_driver_sql(
+                "DELETE FROM menu_option_groups WHERE menu_option_group_id IN (840001, 840002, 840003)"
+            )
+            connection.exec_driver_sql(
+                "DELETE FROM menu_items WHERE menu_item_id IN (840001, 840002, 840003, 840004)"
             )
 
 

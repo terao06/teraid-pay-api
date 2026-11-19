@@ -196,6 +196,27 @@ class StoreMenuRepository(StoreMenuCategoryRepository):
         mysql_session.flush()
         return menu_item
 
+    def soft_delete_menu_item(
+        self,
+        mysql_session: Session,
+        menu_item: MenuItem,
+    ) -> None:
+        """取得済みのメニュー商品を論理削除し、削除日時をDBへ反映する。
+
+        Args:
+            mysql_session: 削除トランザクションで使用するSQLAlchemyセッション。
+            menu_item: 排他ロックで取得した論理削除対象の商品。
+
+        Returns:
+            なし。
+
+        Raises:
+            SQLAlchemyError: DBへの反映に失敗した場合。
+        """
+        menu_item.deleted_at = datetime.now()
+        mysql_session.add(menu_item)
+        mysql_session.flush()
+
     def get_menu_option_groups(
         self,
         mysql_session: Session,
