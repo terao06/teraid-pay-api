@@ -34,6 +34,7 @@ from app.models.responses.menu_category_response import (
     MenuCategoryUpdateResponse,
 )
 from app.models.responses.menu_create_response import MenuCreateResponse
+from app.models.responses.menu_delete_response import MenuDeleteResponse
 from app.models.responses.menu_detail_response import MenuDetailResponse
 from app.models.responses.menu_list_response import MenuListResponse
 from app.models.responses.menu_option_groups_update_response import (
@@ -721,6 +722,39 @@ class StoreController:
                 status_code=500,
                 message=SERVER_ERROR,
             )
+
+    @mysql_transaction
+    def delete_menu(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        menu_item_id: int,
+    ) -> MenuDeleteResponse:
+        """認証店舗の商品とオプション構成を同じトランザクションで論理削除する。
+
+        Args:
+            mysql_session: SQLAlchemyのMySQLセッション。
+            store_id: 認証済み管理者の店舗ID。
+            menu_item_id: 削除対象のメニュー商品ID。
+
+        Returns:
+            削除したメニュー商品IDを含むレスポンス。
+
+        Raises:
+            HTTPException: 商品が存在しない、別店舗に属する、または削除済みの場合。
+            SQLAlchemyError: DB処理に失敗した場合。
+        """
+        try:
+            return StoreMenuService().delete_menu(
+                mysql_session=mysql_session,
+                store_id=store_id,
+                menu_item_id=menu_item_id,
+            )
+        except MenuItemNotFoundException as exc:
+            raise CustomHttpException.get_http_exception(
+                status_code=404,
+                message=MENU_ITEM_NOT_FOUND_ERROR,
+            ) from exc
 
     @mysql_transaction
     def update_menu_option_groups(

@@ -859,6 +859,41 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
+    delete:
+      tags: [StoreMenu]
+      summary: メニュー削除
+      description: 認証済み店舗管理者の店舗に属する商品と配下のオプション構成を論理削除する。販売停止中の商品も対象とし、商品画像は保持する。
+      operationId: deleteMenu
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: menu_item_id
+          in: path
+          required: true
+          description: 削除対象のメニュー商品ID
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: メニュー削除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuDeleteWrappedResponse'
+              example:
+                status: success
+                data:
+                  menu_item_id: 10
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/MenuItemNotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
   /store/menu/{menu_item_id}/option-groups:
     put:
       tags: [StoreMenu]
@@ -2282,6 +2317,22 @@ components:
           enum: [success]
         data:
           $ref: '#/components/schemas/MenuUpdateResult'
+
+    MenuDeleteWrappedResponse:
+      type: object
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          type: object
+          required: [menu_item_id]
+          properties:
+            menu_item_id:
+              type: integer
+              minimum: 1
+              description: 削除したメニュー商品ID
 
     MenuOptionGroupsUpdateWrappedResponse:
       type: object

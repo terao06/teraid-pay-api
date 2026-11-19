@@ -143,6 +143,23 @@ def insert_menu_category_deletion_data(engine) -> tuple[str, str]:
     return categories_file, items_file
 
 
+def insert_menu_deletion_data(engine) -> tuple[str, str, str]:
+    """メニュー削除専用の商品とオプション構成をMySQLに投入する。
+
+    Args:
+        engine: SQLを実行するテスト用SQLAlchemy Engine。
+
+    Returns:
+        実行した商品、グループ、オプションのSQLファイル名。
+    """
+    fixture_name = "delete_menu"
+    return (
+        _execute_sql_file(engine, "menu_items.sql", fixture_name),
+        _execute_sql_file(engine, "menu_option_groups.sql", fixture_name),
+        _execute_sql_file(engine, "menu_options.sql", fixture_name),
+    )
+
+
 def insert_menu_option_groups(engine) -> str:
     """メニューオプショングループのテストデータを投入する。
 
