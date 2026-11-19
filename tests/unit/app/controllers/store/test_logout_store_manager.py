@@ -29,7 +29,7 @@ class TestLogoutStoreManager:
         ],
     )
     def test_commit_failure(self, error: Exception, expected_status: int) -> None:
-        """並行登録時の重複は401、その他のコミット失敗は500に変換する。
+        """ログアウト専用処理でロールバックし、重複は401、他のコミット失敗は500に変換する。
 
         Args:
             error: コミット時に発生する例外。
@@ -38,18 +38,24 @@ class TestLogoutStoreManager:
         Returns:
             なし。
         """
+        expires_at = datetime(2030, 1, 1)
         with (
-            patch("app.controllers.store_controller.get_mysql_db") as get_mysql_db,
+            patch("app.middlewares.transaction.get_mysql_db") as get_mysql_db,
             patch("app.controllers.store_controller.StoreAuthService") as service,
         ):
             session = get_mysql_db.return_value.get_session.return_value.__enter__.return_value
-            session.begin.return_value.__exit__.side_effect = error
+            session.info = {}
+            session.commit.side_effect = error
             with pytest.raises(HTTPException) as exception:
                 StoreController().logout_store_manager(
-                    jti="test-jti", store_manager_id=201, expires_at=datetime(2030, 1, 1)
+                    jti="test-jti", store_manager_id=201, expires_at=expires_at
                 )
 
-        service.return_value.logout_store_manager.assert_called_once()
+        service.return_value.logout_store_manager.assert_called_once_with(
+            mysql_session=session, jti="test-jti", store_manager_id=201, expires_at=expires_at
+        )
+        session.commit.assert_called_once_with()
+        session.rollback.assert_called_once_with()
         assert exception.value.status_code == expected_status
         if expected_status == 401:
             assert exception.value.headers == {"WWW-Authenticate": "Bearer"}

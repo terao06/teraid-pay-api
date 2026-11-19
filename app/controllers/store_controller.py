@@ -2,10 +2,9 @@
 
 from datetime import datetime
 
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.middlewares.transaction import get_mysql_db, mysql_transaction
+from app.middlewares.transaction import mysql_logout_transaction, mysql_transaction
 from app.models.requests.wallet_nonce_create_request import WalletNonceCreateRequest
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
 from app.models.requests.device_create_request import DeviceCreateRequest
@@ -360,10 +359,14 @@ class StoreController:
                 message=SERVER_ERROR,
             )
 
-    def logout_store_manager(self, jti: str, store_manager_id: int, expires_at: datetime) -> None:
-        """認証に使われたJWTの失効レコードをコミットする。
+    @mysql_logout_transaction
+    def logout_store_manager(
+        self, mysql_session: Session, jti: str, store_manager_id: int, expires_at: datetime
+    ) -> None:
+        """認証に使われたJWTの失効レコードを登録する。
 
         Args:
+            mysql_session: ログアウト専用デコレーターから受け取るSQLAlchemyセッション。
             jti: 認証済みJWTの識別子。
             store_manager_id: 認証済みの店舗管理者ID。
             expires_at: JWTの有効期限（タイムゾーン情報を付けないUTC）。
@@ -374,23 +377,12 @@ class StoreController:
         Raises:
             HTTPException: 同じJWTが並行して失効された場合、またはDBへの保存に失敗した場合。
         """
-        try:
-            with get_mysql_db().get_session() as mysql_session, mysql_session.begin():
-                StoreAuthService().logout_store_manager(
-                    mysql_session=mysql_session,
-                    jti=jti,
-                    store_manager_id=store_manager_id,
-                    expires_at=expires_at,
-                )
-        except SQLAlchemyError as error:
-            # JWT識別子はこのテーブルの唯一の一意キー。
-            if isinstance(error, IntegrityError) and error.orig.args[:1] == (1062,):
-                raise CustomHttpException.get_http_exception(
-                    status_code=401, message=VERIFY_ERROR, headers={"WWW-Authenticate": "Bearer"}
-                ) from None
-            raise CustomHttpException.get_http_exception(
-                status_code=500, message=SERVER_ERROR
-            ) from None
+        StoreAuthService().logout_store_manager(
+            mysql_session=mysql_session,
+            jti=jti,
+            store_manager_id=store_manager_id,
+            expires_at=expires_at,
+        )
 
     @mysql_transaction
     def get_store_wallet(self, mysql_session: Session, store_id: int) -> WalletResponse | None:
