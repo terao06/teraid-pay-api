@@ -1,11 +1,15 @@
 """店舗メニューカテゴリーを操作するRepository。"""
 
+from datetime import datetime
+
 from sqlalchemy.orm import Session
+
+from app.core.utils.datetime import JST
 from app.models.mysql.menu_category import MenuCategory
 
 
 class StoreMenuCategoryRepository:
-    """店舗単位のメニューカテゴリー検索・登録処理を提供する。"""
+    """店舗単位のメニューカテゴリーの検索、登録、更新、論理削除を提供する。"""
 
     def _build_menu_categories_query(self, mysql_session: Session, store_id: int, name: str | None = None, is_active: bool = True):
         """カテゴリー検索と件数取得で共有する絞り込みクエリを構築する。
@@ -85,6 +89,8 @@ class StoreMenuCategoryRepository:
         mysql_session: Session,
         store_id: int,
         menu_category_id: int,
+        *,
+        lock_for_update: bool = False,
     ) -> MenuCategory | None:
         """店舗に属する未削除のメニューカテゴリーをIDで取得する。
 
@@ -92,15 +98,19 @@ class StoreMenuCategoryRepository:
             mysql_session: SQLAlchemyのセッション。
             store_id: 取得対象の店舗ID。
             menu_category_id: 取得対象のメニューカテゴリーID。
+            lock_for_update: 取得行を排他ロックする場合はTrue。
 
         Returns:
             条件に一致するカテゴリー。該当レコードがない場合はNone。
         """
-        return mysql_session.query(MenuCategory).filter(
+        query = mysql_session.query(MenuCategory).filter(
             MenuCategory.menu_category_id == menu_category_id,
             MenuCategory.store_id == store_id,
             MenuCategory.deleted_at.is_(None),
-        ).one_or_none()
+        )
+        if lock_for_update:
+            query = query.with_for_update()
+        return query.one_or_none()
 
     def update_menu_category(
         self,
@@ -119,6 +129,27 @@ class StoreMenuCategoryRepository:
         mysql_session.add(menu_category)
         mysql_session.flush()
         return menu_category
+
+    def soft_delete_menu_category(
+        self,
+        mysql_session: Session,
+        menu_category: MenuCategory,
+    ) -> None:
+        """排他ロック済みのカテゴリーに削除日時を設定してDBへ反映する。
+
+        Args:
+            mysql_session: SQLAlchemyのMySQLセッション。
+            menu_category: 排他ロックして取得した削除対象のカテゴリー。
+
+        Returns:
+            なし。
+
+        Raises:
+            SQLAlchemyError: DBへの反映に失敗した場合。
+        """
+        menu_category.deleted_at = datetime.now(JST)
+        mysql_session.add(menu_category)
+        mysql_session.flush()
 
     def create_menu_category(self, mysql_session: Session, menu_category: MenuCategory) -> MenuCategory:
         """メニューカテゴリーをセッションへ追加してIDを確定する。

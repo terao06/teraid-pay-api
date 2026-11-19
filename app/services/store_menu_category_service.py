@@ -1,6 +1,7 @@
 """店舗メニューカテゴリーのユースケースを提供するService。"""
 
 from io import BytesIO
+
 from sqlalchemy.orm import Session
 
 from app.core.aws.s3_client import S3Client
@@ -20,15 +21,18 @@ from app.models.mysql.menu_category import MenuCategory
 from app.models.requests.menu_category_create_request import MenuCategoryCreateRequest
 from app.models.requests.menu_category_update_request import MenuCategoryUpdateRequest
 from app.models.responses.menu_category_response import (
-    MenuCategoryCreateResponse, MenuCategoryListResponse,
-    MenuCategoryPaginationResponse, MenuCategoryResponse,
+    MenuCategoryCreateResponse,
+    MenuCategoryDeleteResponse,
+    MenuCategoryListResponse,
+    MenuCategoryPaginationResponse,
+    MenuCategoryResponse,
     MenuCategoryUpdateResponse,
 )
 from app.repositories.mysql.store_menu_category_repository import StoreMenuCategoryRepository
 
 
 class StoreMenuCategoryService:
-    """カテゴリーの検索、登録、画像保存を調整する。"""
+    """カテゴリーの検索、登録、更新、削除と画像保存を調整する。"""
 
     def get_menu_categories(self, mysql_session: Session, store_id: int, name: str | None = None,
                             is_active: bool = True, page: int = 1,
@@ -125,7 +129,7 @@ class StoreMenuCategoryService:
         menu_category_id: int,
         request: MenuCategoryUpdateRequest,
     ) -> MenuCategoryUpdateResponse:
-        """店舗に属するメニューカテゴリーと任意の画像を更新する。
+        """認証店舗の未削除カテゴリーを排他ロックして更新する。
 
         Args:
             mysql_session: SQLAlchemyのセッション。
@@ -145,6 +149,7 @@ class StoreMenuCategoryService:
             mysql_session=mysql_session,
             store_id=store_id,
             menu_category_id=menu_category_id,
+            lock_for_update=True,
         )
         if category is None:
             raise MenuCategoryNotFoundException(
@@ -184,6 +189,41 @@ class StoreMenuCategoryService:
         return MenuCategoryUpdateResponse(
             menu_category_id=updated_category.menu_category_id,
         )
+
+    def delete_menu_category(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        menu_category_id: int,
+    ) -> MenuCategoryDeleteResponse:
+        """認証店舗の未削除カテゴリーを排他ロックして論理削除する。
+
+        Args:
+            mysql_session: SQLAlchemyのMySQLセッション。
+            store_id: 認証済み管理者の店舗ID。
+            menu_category_id: 削除対象のメニューカテゴリーID。
+
+        Returns:
+            削除したメニューカテゴリーIDを含むレスポンス。
+
+        Raises:
+            MenuCategoryNotFoundException: 対象が存在しない、削除済み、または別店舗に属する場合。
+        """
+        repository = StoreMenuCategoryRepository()
+        category = repository.get_menu_category_detail(
+            mysql_session=mysql_session,
+            store_id=store_id,
+            menu_category_id=menu_category_id,
+            lock_for_update=True,
+        )
+        if category is None:
+            raise MenuCategoryNotFoundException()
+
+        repository.soft_delete_menu_category(
+            mysql_session=mysql_session,
+            menu_category=category,
+        )
+        return MenuCategoryDeleteResponse(menu_category_id=category.menu_category_id)
 
     def create_menu_category(self, mysql_session: Session, store_id: int,
                              request: MenuCategoryCreateRequest) -> MenuCategoryCreateResponse:
