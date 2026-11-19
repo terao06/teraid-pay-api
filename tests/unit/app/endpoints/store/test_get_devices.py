@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from unittest.mock import patch
-from uuid import uuid4
 
 import pytest
 
@@ -97,27 +96,16 @@ class TestGetDevices:
 
         assert response.status_code == 401
 
+    @pytest.mark.usefixtures("insert_devices")
     def test_with_db_filters_and_orders_devices(
         self,
         store_client_with_db,
     ) -> None:
         """認証店舗のデバイスを絞り込み、登録日時とIDの降順で返す。"""
-        unique_prefix = f"一覧DBテスト-{uuid4()}"
-        first_response = store_client_with_db.post(
-            "/store/devices",
-            json={"device_name": f"{unique_prefix}-1"},
-        )
-        second_response = store_client_with_db.post(
-            "/store/devices",
-            json={"device_name": f"{unique_prefix}-2"},
-        )
-        assert first_response.status_code == 201
-        assert second_response.status_code == 201
-
         response = store_client_with_db.get(
             "/store/devices",
             params={
-                "device_name": unique_prefix,
+                "device_name": "一覧DBテスト",
                 "is_active": "false",
                 "page": 1,
                 "page_size": 1,
@@ -128,8 +116,8 @@ class TestGetDevices:
         data = response.json()["data"]
         assert data["devices"] == [
             {
-                "device_id": second_response.json()["data"]["device_id"],
-                "device_name": f"{unique_prefix}-2",
+                "device_id": 810012,
+                "device_name": "一覧DBテスト-2",
                 "is_active": False,
                 "created_at": data["devices"][0]["created_at"],
             }
@@ -140,3 +128,10 @@ class TestGetDevices:
             "total": 2,
             "total_pages": 2,
         }
+
+        second_page = store_client_with_db.get(
+            "/store/devices",
+            params={"device_name": "一覧DBテスト", "is_active": "false", "page": 2, "page_size": 1},
+        )
+        assert second_page.status_code == 200
+        assert second_page.json()["data"]["devices"][0]["device_id"] == 810011

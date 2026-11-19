@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from unittest.mock import patch
-from uuid import uuid4
 
 import pytest
 
@@ -60,15 +59,11 @@ class TestGetDeviceDetail:
 
         assert response.status_code == 401
 
+    @pytest.mark.usefixtures("insert_devices")
     def test_with_db_returns_registered_device(self, store_client_with_db) -> None:
-        """実DBから認証店舗に登録されたデバイス詳細を取得する。"""
-        device_name = f"詳細DBテスト-{uuid4()}"
-        create_response = store_client_with_db.post(
-            "/store/devices",
-            json={"device_name": device_name},
-        )
-        assert create_response.status_code == 201
-        device_id = create_response.json()["data"]["device_id"]
+        """SQLで投入した認証店舗のデバイス詳細を実DBから取得する。"""
+        device_id = 810031
+        device_name = "詳細DBテスト"
 
         response = store_client_with_db.get(f"/store/devices/{device_id}")
 

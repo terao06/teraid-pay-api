@@ -1,7 +1,6 @@
 """デバイス更新Endpointのテスト。"""
 
 from unittest.mock import patch
-from uuid import uuid4
 
 import pytest
 
@@ -82,16 +81,11 @@ class TestUpdateDevice:
 
         assert response.status_code == 401
 
+    @pytest.mark.usefixtures("insert_devices")
     def test_with_db_updates_registered_device(self, store_client_with_db) -> None:
-        """実DBに登録したデバイス名と利用状態を更新する。"""
-        original_name = f"更新DBテスト-{uuid4()}"
-        updated_name = f"更新後-{uuid4()}"
-        create_response = store_client_with_db.post(
-            "/store/devices",
-            json={"device_name": original_name},
-        )
-        assert create_response.status_code == 201
-        device_id = create_response.json()["data"]["device_id"]
+        """SQLで投入したデバイス名と利用状態を実DBで更新する。"""
+        device_id = 810021
+        updated_name = "更新後DBテスト"
 
         response = store_client_with_db.put(
             f"/store/devices/{device_id}",
@@ -105,17 +99,13 @@ class TestUpdateDevice:
         assert detail_response.json()["data"]["device_name"] == updated_name
         assert detail_response.json()["data"]["is_active"] is False
 
+    @pytest.mark.usefixtures("insert_devices")
     def test_with_db_rejects_activating_unactivated_device(
         self,
         store_client_with_db,
     ) -> None:
         """実DBでも未有効化デバイスを直接有効化できない。"""
-        create_response = store_client_with_db.post(
-            "/store/devices",
-            json={"device_name": f"未有効化-{uuid4()}"},
-        )
-        assert create_response.status_code == 201
-        device_id = create_response.json()["data"]["device_id"]
+        device_id = 810022
 
         response = store_client_with_db.put(
             f"/store/devices/{device_id}",

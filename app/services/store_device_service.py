@@ -25,6 +25,7 @@ from app.models.responses.device_activation_code_response import (
     DeviceActivationCodeResponse,
 )
 from app.models.responses.device_detail_response import DeviceDetailResponse
+from app.models.responses.device_delete_response import DeviceDeleteResponse
 from app.models.responses.device_list_response import (
     DeviceListItemResponse,
     DeviceListResponse,
@@ -41,7 +42,7 @@ ACTIVATION_CODE_GROUP_SIZE = 4
 
 
 class StoreDeviceService:
-    """店舗に紐付くデバイスの登録・参照・更新を調停する。
+    """店舗に紐付くデバイスの登録・参照・更新・削除を調停する。
 
     Returns:
         店舗管理者向けデバイス管理ユースケースを提供するサービス。
@@ -227,6 +228,37 @@ class StoreDeviceService:
             device=device,
         )
         return DeviceUpdateResponse(device_id=saved_device.device_id)
+
+    def delete_device(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        device_id: int,
+    ) -> DeviceDeleteResponse:
+        """認証店舗に属する未削除デバイスを論理削除する。
+
+        Args:
+            mysql_session: SQLAlchemyのMySQLセッション。
+            store_id: 認証済み管理者の店舗ID。
+            device_id: 削除対象のデバイスID。
+
+        Returns:
+            削除したデバイスID。
+
+        Raises:
+            DeviceNotFoundException: 対象が存在しない、削除済み、または別店舗の場合。
+        """
+        repository = DeviceRepository()
+        device = repository.get_device(
+            mysql_session=mysql_session,
+            store_id=store_id,
+            device_id=device_id,
+            lock_for_update=True,
+        )
+        if device is None:
+            raise DeviceNotFoundException()
+        repository.soft_delete_device(mysql_session=mysql_session, device=device)
+        return DeviceDeleteResponse(device_id=device.device_id)
 
     def issue_activation_code(
         self,

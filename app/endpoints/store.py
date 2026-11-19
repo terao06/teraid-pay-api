@@ -165,6 +165,28 @@ def issue_device_activation_code(
     )
 
 
+@store_router.delete("/devices/{device_id}")
+@response_rapper()
+@request_rapper()
+def delete_device(
+    device_id: int = Path(ge=1),
+    auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
+):
+    """認証済み管理者の店舗に属するデバイスを論理削除する。
+
+    Args:
+        device_id: 削除対象のデバイスID。
+        auth_context: JWT認証で取得した店舗管理者情報。
+
+    Returns:
+        削除したデバイスIDを含む共通レスポンス。
+    """
+    return StoreController().delete_device(
+        store_id=auth_context.store_id,
+        device_id=device_id,
+    )
+
+
 @store_router.get("/wallet")
 @response_rapper()
 @request_rapper()

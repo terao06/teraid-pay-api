@@ -140,6 +140,18 @@ def insert_menu_options(engine) -> str:
     return _execute_sql_file(engine, "menu_options.sql")
 
 
+def insert_devices(engine) -> str:
+    """devicesテーブルのテストデータを投入する。
+
+    Args:
+        engine: SQLを実行するSQLAlchemy Engine。
+
+    Returns:
+        実行したSQLファイル名。
+    """
+    return _execute_sql_file(engine, "devices.sql")
+
+
 def insert_users(engine) -> str:
     return _execute_sql_file(engine, "users.sql")
 
