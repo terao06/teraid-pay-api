@@ -1,7 +1,11 @@
 """店舗管理者向けAPIのルーティングを提供する。"""
 
 from fastapi import APIRouter, Depends, Path, Query, Response
+from sqlalchemy.exc import SQLAlchemyError
+
 from app.controllers.store_controller import StoreController
+from app.core.exceptions.custom_exception import CustomHttpException
+from app.core.exceptions.message import SERVER_ERROR
 from app.dependencies.store_manager_auth import (
     StoreManagerAuthContext,
     StoreManagerTokenClaims,
@@ -307,6 +311,37 @@ def update_menu_category(
         menu_category_id=menu_category_id,
         request=request,
     )
+
+
+@store_router.delete("/menu/categories/{menu_category_id}")
+@response_rapper()
+@request_rapper()
+def delete_menu_category(
+    menu_category_id: int = Path(ge=1),
+    auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
+):
+    """認証済み管理者の店舗に属するメニューカテゴリーを論理削除する。
+
+    Args:
+        menu_category_id: 削除対象のメニューカテゴリーID。
+        auth_context: JWT認証で取得した店舗管理者情報。
+
+    Returns:
+        削除したメニューカテゴリーIDを含む共通レスポンス。
+
+    Raises:
+        HTTPException: 対象が存在しない、またはDB処理に失敗した場合。
+    """
+    try:
+        return StoreController().delete_menu_category(
+            store_id=auth_context.store_id,
+            menu_category_id=menu_category_id,
+        )
+    except SQLAlchemyError as exc:
+        raise CustomHttpException.get_http_exception(
+            status_code=500,
+            message=SERVER_ERROR,
+        ) from exc
 
 
 @store_router.post("/menu/categories", status_code=201)

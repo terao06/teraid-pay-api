@@ -61,10 +61,20 @@ def build_database_url() -> str:
     return f"mysql+{driver}://{user}:{password}@{host}:{port}/{database}?charset=utf8mb4"
 
 
-def _parse_sql_statements(sql_file_name: str) -> list[str]:
+def _parse_sql_statements(
+    sql_file_name: str,
+    fixture_name: str | None = None,
+) -> list[str]:
+    """共有データまたは指定したfixtureのSQLを文単位に分割する。"""
     current_dir = Path(__file__).resolve().parent
     sql_file = current_dir / sql_file_name
     sql_text = sql_file.read_text(encoding="utf-8")
+    shared_sql, *fixture_sections = sql_text.split("\n-- fixture: ")
+    if fixture_name is None:
+        sql_text = shared_sql
+    else:
+        fixtures = dict(section.split("\n", 1) for section in fixture_sections)
+        sql_text = fixtures[fixture_name]
     statements = []
     current_statement = []
 
@@ -90,8 +100,11 @@ def _parse_sql_statements(sql_file_name: str) -> list[str]:
     return statements
 
 
-def _execute_sql_file(engine, sql_file_name: str) -> str:
-    statements = _parse_sql_statements(sql_file_name)
+def _execute_sql_file(
+    engine, sql_file_name: str, fixture_name: str | None = None
+) -> str:
+    """対象のSQL文を実行し、読み込んだファイル名を返す。"""
+    statements = _parse_sql_statements(sql_file_name, fixture_name)
 
     with engine.begin() as connection:
         for statement in statements:
@@ -114,6 +127,20 @@ def insert_menu_categories(engine) -> str:
 
 def insert_menu_items(engine) -> str:
     return _execute_sql_file(engine, "menu_items.sql")
+
+
+def insert_menu_category_deletion_data(engine) -> tuple[str, str]:
+    """カテゴリー削除専用のカテゴリーと関連商品をMySQLへ投入する。
+
+    Args:
+        engine: SQLを実行するSQLAlchemy Engine。
+
+    Returns:
+        実行したカテゴリーと商品それぞれのSQLファイル名。
+    """
+    categories_file = _execute_sql_file(engine, "menu_categories.sql", "delete_menu_category")
+    items_file = _execute_sql_file(engine, "menu_items.sql", "delete_menu_category")
+    return categories_file, items_file
 
 
 def insert_menu_option_groups(engine) -> str:

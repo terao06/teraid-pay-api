@@ -17,6 +17,7 @@ from tests.unit.test_data.mysql.build_local_db import (
     build_database_url,
     import_mysql_models,
     insert_devices as load_devices,
+    insert_menu_category_deletion_data as load_menu_category_deletion_data,
     insert_menu_option_groups as load_menu_option_groups,
     insert_menu_options as load_menu_options,
     insert_sample_data as load_mysql_sample_data,
@@ -179,6 +180,30 @@ def insert_menu_categories(mysql_engine, insert_stores) -> str:
 @pytest.fixture()
 def insert_menu_items(mysql_engine, insert_menu_categories) -> str:
     return "menu_items.sql"
+
+
+@pytest.fixture()
+def insert_menu_category_deletion_data(
+    mysql_engine,
+    insert_menu_items,
+) -> Generator[tuple[str, str], None, None]:
+    """カテゴリー削除専用の行を投入し、テスト後に取り除く。
+
+    Args:
+        mysql_engine: テスト用MySQL Engine。
+        insert_menu_items: 共有の店舗、カテゴリー、商品を準備するfixture。
+
+    Returns:
+        実行したSQLファイル名の組を生成するfixture。
+    """
+    try:
+        yield load_menu_category_deletion_data(mysql_engine)
+    finally:
+        with mysql_engine.begin() as connection:
+            connection.exec_driver_sql("DELETE FROM menu_items WHERE menu_item_id = 830001")
+            connection.exec_driver_sql(
+                "DELETE FROM menu_categories WHERE menu_category_id IN (830001, 830002, 830003, 830004)"
+            )
 
 
 @pytest.fixture()

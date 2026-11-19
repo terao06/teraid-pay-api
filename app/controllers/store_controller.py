@@ -28,6 +28,7 @@ from app.models.responses.device_list_response import DeviceListResponse
 from app.models.responses.device_update_response import DeviceUpdateResponse
 from app.models.responses.menu_category_response import (
     MenuCategoryCreateResponse,
+    MenuCategoryDeleteResponse,
     MenuCategoryListResponse,
     MenuCategoryResponse,
     MenuCategoryUpdateResponse,
@@ -525,6 +526,39 @@ class StoreController:
                 status_code=500,
                 message=SERVER_ERROR,
             )
+
+    @mysql_transaction
+    def delete_menu_category(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        menu_category_id: int,
+    ) -> MenuCategoryDeleteResponse:
+        """認証店舗のカテゴリーを論理削除し、削除したIDを返す。
+
+        Args:
+            mysql_session: SQLAlchemyのMySQLセッション。
+            store_id: 認証済み管理者の店舗ID。
+            menu_category_id: 削除対象のメニューカテゴリーID。
+
+        Returns:
+            削除したメニューカテゴリーIDを含むレスポンス。
+
+        Raises:
+            HTTPException: 対象が存在しない、削除済み、または別店舗に属する場合。
+            SQLAlchemyError: DB処理に失敗した場合。
+        """
+        try:
+            return StoreMenuCategoryService().delete_menu_category(
+                mysql_session=mysql_session,
+                store_id=store_id,
+                menu_category_id=menu_category_id,
+            )
+        except MenuCategoryNotFoundException as exc:
+            raise CustomHttpException.get_http_exception(
+                status_code=404,
+                message=MENU_CATEGORY_NOT_FOUND_ERROR,
+            ) from exc
 
     @mysql_transaction
     def create_menu_category(

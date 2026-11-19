@@ -579,6 +579,41 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
+    delete:
+      tags: [StoreMenu]
+      summary: メニューカテゴリー削除
+      description: 認証済み店舗管理者の店舗に属する未削除カテゴリーを論理削除する。無効カテゴリーも対象とし、商品との紐づけとカテゴリー画像を保持する。
+      operationId: deleteMenuCategory
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: menu_category_id
+          in: path
+          required: true
+          description: 削除対象のメニューカテゴリーID。
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: カテゴリー削除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuCategoryDeleteWrappedResponse'
+              example:
+                status: success
+                data:
+                  menu_category_id: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/MenuCategoryDetailNotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
   /store/menu:
     get:
       tags: [StoreMenu]
@@ -2201,6 +2236,22 @@ components:
           enum: [success]
         data:
           $ref: '#/components/schemas/MenuCategoryUpdateResult'
+
+    MenuCategoryDeleteWrappedResponse:
+      type: object
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          type: object
+          required: [menu_category_id]
+          properties:
+            menu_category_id:
+              type: integer
+              minimum: 1
+              description: 削除したメニューカテゴリーID
 
     MenuListWrappedResponse:
       type: object

@@ -7,6 +7,8 @@ description: teraid-pay-apiのAPI・DBテストを追加または変更すると
 
 このリポジトリでAPIのテストを実装するときの確認事項。着手前に対象APIと隣接するEndpoint・Controller・Service・Repositoryテスト、`tests/unit/conftest.py`、`tests/unit/app/endpoints/conftest.py`、`tests/unit/test_data/mysql/build_local_db.py` を確認する。
 
+各層のテスト方針には、ユーザー共通スキル `repository-test-conventions` を適用する。
+
 ## DBテスト
 
 - DBの読み書きを伴うAPI変更では、Endpointの `Test...` に実DBを使う `test_with_db...` があるか確認する。新規APIや変更したDB動作を既存テストが検証しない場合は追加する。正常系に加え、対象未存在、店舗境界、論理削除、状態制約など変更に関係する分岐を選ぶ。

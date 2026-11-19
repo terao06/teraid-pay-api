@@ -30,7 +30,7 @@ class TestUpdateMenuCategory:
         mock_ssm_client_class,
         mock_s3_client_class,
     ) -> None:
-        """画像指定がない場合はカテゴリー情報だけを更新する。"""
+        """画像指定がない場合は排他ロックしたカテゴリー情報を更新する。"""
         mysql_session = Mock()
         category = SimpleNamespace(
             menu_category_id=14,
@@ -59,6 +59,12 @@ class TestUpdateMenuCategory:
 
         assert result == MenuCategoryUpdateResponse(
             menu_category_id=14,
+        )
+        repository.get_menu_category_detail.assert_called_once_with(
+            mysql_session=mysql_session,
+            store_id=101,
+            menu_category_id=14,
+            lock_for_update=True,
         )
         repository.update_menu_category.assert_called_once_with(
             mysql_session=mysql_session,
