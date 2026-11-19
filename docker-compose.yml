@@ -133,7 +133,7 @@ services:
     ports:
       - "4566:4566"
     environment:
-      - SERVICES=ssm,secretsmanager
+      - SERVICES=ssm,secretsmanager,events
       - DEFAULT_REGION=ap-northeast-1
       - LOG_LEVEL=WARNING
       - LS_LOG=warning

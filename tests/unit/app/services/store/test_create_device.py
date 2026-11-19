@@ -1,37 +1,23 @@
 """デバイス登録Serviceのテスト。"""
 
-import hashlib
-from datetime import datetime, timedelta
-from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from app.core.utils.datetime import JST
 from app.models.requests.device_create_request import DeviceCreateRequest
-from app.services.store_device_service import (
-    ACTIVATION_CODE_VALID_HOURS,
-    StoreDeviceService,
-)
+from app.services.store_device_service import StoreDeviceService
 
 
 class TestCreateDevice:
     """StoreDeviceServiceのデバイス登録を検証する。"""
 
-    @patch("app.services.store_device_service.datetime")
-    @patch("app.services.store_device_service.secrets.token_urlsafe")
     @patch("app.services.store_device_service.uuid4")
     @patch("app.services.store_device_service.DeviceRepository")
     def test_create_device(
         self,
         mock_repository_class,
         mock_uuid4,
-        mock_token_urlsafe,
-        mock_datetime,
     ) -> None:
-        """UUIDと有効化コードを生成し、ハッシュのみ保存する。"""
-        fixed_now = datetime(2026, 11, 16, 10, 0, tzinfo=JST)
-        mock_datetime.now.return_value = fixed_now
+        """UUIDを生成し、有効化コード未発行の状態で登録する。"""
         mock_uuid4.return_value = "550e8400-e29b-41d4-a716-446655440000"
-        mock_token_urlsafe.return_value = "activation-code"
         mysql_session = Mock()
 
         def save_device(mysql_session, device):
@@ -53,13 +39,8 @@ class TestCreateDevice:
         assert saved_device.store_id == 101
         assert saved_device.device_name == "レジ端末1"
         assert saved_device.device_uuid == "550e8400-e29b-41d4-a716-446655440000"
-        assert saved_device.activation_code_hash == hashlib.sha256(
-            b"activation-code"
-        ).hexdigest()
-        assert saved_device.activation_code_hash != "activation-code"
-        assert saved_device.activation_expires_at == fixed_now + timedelta(
-            hours=ACTIVATION_CODE_VALID_HOURS
-        )
+        assert saved_device.activation_code_hash is None
+        assert saved_device.activation_expires_at is None
         assert saved_device.is_active is False
         assert result.device_id == 1
 

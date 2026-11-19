@@ -13,6 +13,7 @@ MENU_CATEGORY_NOT_FOUND_ERROR = "メニューカテゴリーが存在しませ�
 MENU_ITEM_NOT_FOUND_ERROR = "メニュー商品が存在しません。"
 DEVICE_NOT_FOUND_ERROR = "デバイスが存在しません。"
 DEVICE_ACTIVATION_STATE_INVALID_ERROR = "未有効化のデバイスは有効にできません。"
+DEVICE_ALREADY_ACTIVATED_ERROR = "デバイスは既に有効化されています。"
 MENU_IMAGE_INVALID_ERROR = "メニュー画像が正しくありません。"
 MENU_OPTION_CONFIGURATION_INVALID_ERROR = "メニューオプション構成が正しくありません。"
 MENU_CATEGORY_IMAGE_INVALID_ERROR = "カテゴリー画像が正しくありません。"

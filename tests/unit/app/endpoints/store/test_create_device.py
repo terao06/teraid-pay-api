@@ -94,6 +94,7 @@ class TestCreateDevice:
         assert device.store_id == 101
         assert device.device_name == "DBテスト端末"
         assert str(UUID(device.device_uuid)) == device.device_uuid
-        assert len(device.activation_code_hash) == 64
+        assert device.activation_code_hash is None
+        assert device.activation_expires_at is None
         assert device.is_active is False
 

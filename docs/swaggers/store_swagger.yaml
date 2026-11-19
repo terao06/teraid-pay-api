@@ -87,7 +87,7 @@ paths:
     post:
       tags: [StoreDevice]
       summary: デバイス登録
-      description: 認証済み店舗管理者の店舗へ未有効化デバイスを登録し、UUIDとワンタイム有効化コードを発行する。
+      description: 認証済み店舗管理者の店舗へ未有効化デバイスを登録する。有効化コードは端末設定時に専用APIで発行する。
       operationId: createDevice
       security:
         - BearerAuth: []
@@ -221,6 +221,61 @@ paths:
                 oneOf:
                   - $ref: '#/components/schemas/ValidationErrorResponse'
                   - $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /store/devices/{device_id}/activation-code:
+    post:
+      tags: [StoreDevice]
+      summary: デバイス有効化コード発行
+      description: 未有効化デバイスへ新しい有効化コードを発行する。再発行時は旧コードを即時無効化し、平文コードはこのレスポンスでのみ返す。
+      operationId: issueDeviceActivationCode
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          description: 有効化コードを発行するデバイスID
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: 有効化コード発行または再発行成功
+          headers:
+            Cache-Control:
+              description: 平文コードを含むレスポンスのキャッシュ禁止
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceActivationCodeWrappedResponse'
+              example:
+                status: success
+                data:
+                  device_id: 1
+                  activation_code: ABCD-EFGH-JKLM
+                  qr_code_image: data:image/png;base64,iVBORw0KGgoAAA...
+                  activation_expires_at: '2026-11-18T10:00:00+09:00'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: デバイスが存在しない、論理削除済み、または別店舗に所属
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: デバイスが既に有効化済み
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '500':
           $ref: '#/components/responses/ServerError'
 
@@ -1033,6 +1088,36 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
 
   schemas:
+    DeviceActivationCode:
+      type: object
+      additionalProperties: false
+      required: [device_id, activation_code, qr_code_image, activation_expires_at]
+      properties:
+        device_id:
+          type: integer
+          minimum: 1
+        activation_code:
+          type: string
+          description: 発行時に一度だけ返す平文の有効化コード
+          example: ABCD-EFGH-JKLM
+        qr_code_image:
+          type: string
+          description: 有効化情報を格納したBase64形式のPNG data URL。API URLは含まない
+          example: data:image/png;base64,iVBORw0KGgoAAA...
+        activation_expires_at:
+          type: string
+          format: date-time
+
+    DeviceActivationCodeWrappedResponse:
+      type: object
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          $ref: '#/components/schemas/DeviceActivationCode'
+
     DeviceUpdateRequest:
       type: object
       additionalProperties: false

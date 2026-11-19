@@ -16,6 +16,7 @@ from app.models.postgres.face_embedding import FaceEmbedding
 from tests.unit.test_data.mysql.build_local_db import (
     build_database_url,
     import_mysql_models,
+    insert_devices as load_devices,
     insert_menu_option_groups as load_menu_option_groups,
     insert_menu_options as load_menu_options,
     insert_sample_data as load_mysql_sample_data,
@@ -217,6 +218,27 @@ def insert_menu_option_groups_update(
 @pytest.fixture()
 def insert_store_wallets(mysql_engine) -> str:
     return "store_wallets.sql"
+
+
+@pytest.fixture()
+def insert_devices(mysql_engine) -> Generator[str, None, None]:
+    """devicesテーブルのテスト行を投入し、テスト後に除去する。
+
+    Args:
+        mysql_engine: テスト用MySQL Engine。
+
+    Yields:
+        実行したSQLファイル名。
+    """
+    file_name = load_devices(mysql_engine)
+    try:
+        yield file_name
+    finally:
+        with mysql_engine.begin() as connection:
+            connection.exec_driver_sql(
+                "DELETE FROM devices WHERE device_id IN "
+                "(810001, 810002, 810003, 810011, 810012, 810021, 810022, 810031)"
+            )
 
 
 @pytest.fixture()
