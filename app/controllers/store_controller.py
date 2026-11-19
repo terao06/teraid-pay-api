@@ -21,6 +21,7 @@ from app.models.responses.device_activation_code_response import (
     DeviceActivationCodeResponse,
 )
 from app.models.responses.device_detail_response import DeviceDetailResponse
+from app.models.responses.device_delete_response import DeviceDeleteResponse
 from app.models.responses.device_list_response import DeviceListResponse
 from app.models.responses.device_update_response import DeviceUpdateResponse
 from app.models.responses.menu_category_response import (
@@ -275,6 +276,43 @@ class StoreController:
             raise CustomHttpException.get_http_exception(
                 status_code=409,
                 message=DEVICE_ALREADY_ACTIVATED_ERROR,
+            )
+        except Exception:
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR,
+            )
+
+    @mysql_transaction
+    def delete_device(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        device_id: int,
+    ) -> DeviceDeleteResponse:
+        """認証店舗のデバイスを論理削除し、例外をHTTPエラーへ変換する。
+
+        Args:
+            mysql_session: SQLAlchemyのMySQLセッション。
+            store_id: 認証済み管理者の店舗ID。
+            device_id: 削除対象のデバイスID。
+
+        Returns:
+            削除したデバイスID。
+
+        Raises:
+            HTTPException: デバイスが存在しない、または削除に失敗した場合。
+        """
+        try:
+            return StoreDeviceService().delete_device(
+                mysql_session=mysql_session,
+                store_id=store_id,
+                device_id=device_id,
+            )
+        except DeviceNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=404,
+                message=DEVICE_NOT_FOUND_ERROR,
             )
         except Exception:
             raise CustomHttpException.get_http_exception(

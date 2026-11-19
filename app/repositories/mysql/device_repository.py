@@ -1,12 +1,16 @@
 """デバイスのMySQL永続化処理を提供する。"""
 
+from datetime import datetime
+
 from sqlalchemy.orm import Session
+
+from app.core.utils.datetime import JST
 
 from app.models.mysql.device import Device
 
 
 class DeviceRepository:
-    """デバイスの登録・検索・更新処理を提供するRepository。
+    """デバイスの登録・検索・更新・論理削除を提供するRepository。
 
     Returns:
         デバイス永続化処理を提供するRepository。
@@ -172,4 +176,18 @@ class DeviceRepository:
         mysql_session.add(device)
         mysql_session.flush()
         return device
+
+    def soft_delete_device(self, mysql_session: Session, device: Device) -> None:
+        """デバイスへ削除日時を設定してセッションへ保存する。
+
+        Args:
+            mysql_session: SQLAlchemyのMySQLセッション。
+            device: 排他ロックして取得した削除対象デバイス。
+
+        Returns:
+            なし。
+        """
+        device.deleted_at = datetime.now(JST)
+        mysql_session.add(device)
+        mysql_session.flush()
 

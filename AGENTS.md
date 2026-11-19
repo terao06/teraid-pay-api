@@ -1,5 +1,10 @@
 # AGENTS.md
 
+## テスト実装前の必須スキル
+
+- このリポジトリでテストコードを追加・変更するときは、作業前に `.codex/skills/teraid-pay-api-tests/SKILL.md` を全文読み、記載されたDBテストとファイル構成の確認を行う。会話メモリに手順が残っていても、毎回このファイルを確認する。
+- APIを実装・変更するときも、テスト方針を決める前に同スキルを読む。テストを追加しない判断をした場合は、その理由を完了報告に記す。
+
 **Rule:** In each command, **define → use**. Do **not** escape `$`. Use generic `'path/to/file.ext'`.
 
 ## Docstring quality gate
