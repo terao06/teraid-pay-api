@@ -1,3 +1,5 @@
+"""店舗ウォレットの取得APIを検証する。"""
+
 from unittest.mock import patch
 
 from fastapi import HTTPException
@@ -96,12 +98,15 @@ class TestGetStoreWallet:
         }
 
     @pytest.mark.usefixtures("insert_stores", "insert_wallets", "insert_store_wallets")
+    @pytest.mark.parametrize(
+        "store_client_with_db", ["no-wallet-manager@example.com"], indirect=True
+    )
     def test_with_db_returns_null_when_not_found(
         self,
-        store_client_with_db_without_wallet_manager,
+        store_client_with_db,
     ) -> None:
         """DB 連携時にウォレットが存在しない場合 data が null を返すことを確認する。"""
-        response = store_client_with_db_without_wallet_manager.get("/store/wallet")
+        response = store_client_with_db.get("/store/wallet")
 
         assert response.status_code == 200
         assert response.json() == {

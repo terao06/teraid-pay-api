@@ -1,3 +1,5 @@
+"""管理者APIで共通のBearer JWT認証を検証する。"""
+
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -8,7 +10,10 @@ import pytest
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.core.aws.secret_manager import SecretManager
-from app.dependencies.store_manager_auth import authenticate_store_manager
+from app.dependencies.store_manager_auth import (
+    authenticate_store_manager,
+    get_store_manager_token_claims,
+)
 
 
 JWT_SECRET = "test-store-manager-jwt-secret-at-least-32-characters"
@@ -61,6 +66,7 @@ class TestStoreManagerJwtAuthentication:
                 },
             ),
             ("DELETE", "/store/wallet/301", None),
+            ("POST", "/store/manager/logout", None),
         ],
     )
     def test_store_endpoints_require_bearer_token(
@@ -114,6 +120,7 @@ class TestStoreManagerJwtAuthentication:
             )
         )
         mock_get_store_wallet.return_value = None
+        mock_repository_class.return_value.is_access_token_revoked.return_value = False
 
         response = client_without_store_manager_auth_override.get(
             "/store/wallet",
@@ -156,12 +163,14 @@ class TestStoreManagerJwtAuthentication:
             )
         )
 
-        result = authenticate_store_manager(
-            credentials=HTTPAuthorizationCredentials(
+        mock_repository_class.return_value.is_access_token_revoked.return_value = False
+        claims = get_store_manager_token_claims(
+            HTTPAuthorizationCredentials(
                 scheme="Bearer",
                 credentials=create_access_token(),
             ),
         )
+        result = authenticate_store_manager(claims)
 
         assert result.store_manager_id == 201
         assert result.store_id == 101

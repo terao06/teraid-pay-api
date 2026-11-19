@@ -109,14 +109,17 @@ class TestCreateMenuCategory:
         "initialize_ssm",
         "use_local_s3_endpoint",
     )
+    @pytest.mark.parametrize(
+        "store_client_with_db", ["menu-create-manager@example.com"], indirect=True
+    )
     def test_with_db_and_s3(
         self,
-        store_client_with_db_for_menu_create,
+        store_client_with_db,
         mysql_session: Session,
     ) -> None:
         """登録APIがカテゴリーと画像を永続化し、登録IDだけを返す。"""
 
-        response = store_client_with_db_for_menu_create.post(
+        response = store_client_with_db.post(
             "/store/menu/categories",
             json={**CATEGORY_REQUEST, "name": "カテゴリー登録APIテスト"},
         )

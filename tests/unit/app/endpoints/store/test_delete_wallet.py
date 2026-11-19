@@ -1,3 +1,5 @@
+"""店舗ウォレットの削除APIを検証する。"""
+
 from unittest.mock import patch
 
 from fastapi import HTTPException
@@ -101,15 +103,18 @@ class TestDeleteWallet:
         assert after_store_wallet.updated_at > before_store_wallet_updated_at
 
     @pytest.mark.usefixtures("insert_stores", "insert_wallets", "insert_store_wallets")
+    @pytest.mark.parametrize(
+        "store_client_with_db", ["no-wallet-manager@example.com"], indirect=True
+    )
     def test_with_db_rejects_wallet_belonging_to_another_store(
         self,
-        store_client_with_db_without_wallet_manager,
+        store_client_with_db,
         mysql_session: Session,
     ) -> None:
         """認証管理者と異なる店舗のウォレットを削除できないことを検証する。"""
         wallet_id = 301
 
-        response = store_client_with_db_without_wallet_manager.delete(
+        response = store_client_with_db.delete(
             f"/store/wallet/{wallet_id}"
         )
 

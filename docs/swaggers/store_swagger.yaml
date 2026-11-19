@@ -365,6 +365,22 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
+  /store/manager/logout:
+    post:
+      tags: [StoreManager]
+      summary: 店舗管理者ログアウト
+      description: Bearer認証に使用したJWTを失効させる。
+      operationId: logoutStoreManager
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: 失効登録が完了した。レスポンス本文はない。
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
   /store/menu/categories:
     get:
       tags: [StoreMenu]
@@ -1060,7 +1076,7 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
     Unauthorized:
-      description: JWTが未指定、不正、または期限切れ
+      description: JWTが未指定、不正、期限切れ、失効済み、または店舗管理者を認証できない
       content:
         application/json:
           schema:

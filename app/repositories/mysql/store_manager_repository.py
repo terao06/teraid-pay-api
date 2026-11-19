@@ -1,13 +1,57 @@
-"""店舗管理者データを操作するRepository。"""
+"""店舗管理者と失効済みトークンのデータを操作する。"""
 
+from datetime import datetime, timezone
+
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.mysql.store import Store
 from app.models.mysql.store_manager import StoreManager
+from app.models.mysql.store_manager_revoked_token import StoreManagerRevokedToken
 
 
 class StoreManagerRepository:
-    """店舗管理者の検索処理を提供する。"""
+    """店舗管理者の検索とアクセストークンの失効管理を行う。"""
+
+    def is_access_token_revoked(self, mysql_session: Session, jti: str) -> bool:
+        """有効期限内の失効レコードが存在するかを確認する。
+
+        Args:
+            mysql_session: SQLAlchemyのセッション。
+            jti: 検証済みJWTの識別子。
+
+        Returns:
+            失効レコードが存在し、JWTの有効期限内であればTrue。
+        """
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        statement = select(StoreManagerRevokedToken.jti).where(
+            StoreManagerRevokedToken.jti == jti,
+            StoreManagerRevokedToken.expires_at > now,
+        )
+        return mysql_session.scalar(statement) is not None
+
+    def revoke_access_token(
+        self, mysql_session: Session, jti: str, store_manager_id: int, expires_at: datetime
+    ) -> None:
+        """指定されたJWTの失効レコードをトランザクションに追加する。
+
+        Args:
+            mysql_session: 書き込み先のSQLAlchemyセッション。
+            jti: 失効するJWTの識別子。
+            store_manager_id: 認証済みの店舗管理者ID。
+            expires_at: JWTの有効期限（タイムゾーン情報を付けないUTC）。
+
+        Returns:
+            なし。
+        """
+        mysql_session.add(
+            StoreManagerRevokedToken(
+                jti=jti,
+                store_manager_id=store_manager_id,
+                expires_at=expires_at,
+                created_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            )
+        )
 
     def get_store_by_id(
         self, mysql_session: Session, store_id: int
