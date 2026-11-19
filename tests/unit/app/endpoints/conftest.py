@@ -1,9 +1,12 @@
+"""APIテスト用のFastAPIクライアントと認証フィクスチャを提供する。"""
+
 from collections.abc import Generator
 from unittest.mock import patch
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy.engine import make_url
 
 from app.core.aws.secret_manager import SecretManager
 from app.dependencies.store_manager_auth import (
@@ -15,6 +18,7 @@ from app.endpoints.payment import payment_router
 from app.endpoints.store import store_router
 from app.endpoints.user import user_router
 from app.middlewares.transaction import get_mysql_db, get_postgres_db
+from tests.unit.test_data.mysql.build_local_db import build_database_url
 from tests.unit.test_data.secret.insert_secret import insert_secret
 
 
@@ -56,7 +60,11 @@ def client_without_store_manager_auth_override() -> Generator[TestClient, None, 
 @pytest.fixture()
 def client_with_db(
 ) -> Generator[TestClient, None, None]:
-    """DB接続設定を使用する共通テストクライアントを返す。"""
+    """MySQLフィクスチャと同じ接続先を使うテストクライアントを提供する。
+
+    Returns:
+        DB接続先を設定したテストクライアントのジェネレーター。
+    """
 
     app = FastAPI()
     app.include_router(payment_router, prefix="/payment")
@@ -64,15 +72,16 @@ def client_with_db(
     app.include_router(user_router, prefix="/user")
     app.include_router(face_router, prefix="/face")
 
+    mysql_url = make_url(build_database_url())
     with patch.object(
         SecretManager,
         "get_secret",
         return_value={
-            "mysql_user": "teraid_pay_admin_user",
-            "mysql_password": "password",
-            "mysql_host": "127.0.0.1",
-            "mysql_port": "3307",
-            "mysql_database": "db_local",
+            "mysql_user": mysql_url.username,
+            "mysql_password": mysql_url.password,
+            "mysql_host": mysql_url.host,
+            "mysql_port": mysql_url.port,
+            "mysql_database": mysql_url.database,
             "postgres_database": "vector_db",
             "postgres_user": "vector_user",
             "postgres_password": "vector_password",
@@ -101,74 +110,23 @@ def client_with_db(
 def store_client_with_db(
     client_with_db: TestClient,
     insert_store_managers,
+    request: pytest.FixtureRequest,
 ) -> TestClient:
-    """店舗101の管理者JWTを設定したstore API用DBテストクライアントを返す。"""
+    """店舗管理者のJWTを設定したDBテストクライアントを返す。
+
+    Args:
+        client_with_db: 実際のMySQLに接続するAPIクライアント。
+        insert_store_managers: 店舗管理者のテストデータを準備するフィクスチャ。
+        request: 間接パラメータで管理者のメールアドレスを受け取る。省略時は店舗101の管理者を使う。
+
+    Returns:
+        指定された管理者のJWTをAuthorizationヘッダーに設定したクライアント。
+    """
+    email = getattr(request, "param", "manager1@example.com")
     login_response = client_with_db.post(
         "/store/manager/login",
         json={
-            "email": "manager1@example.com",
-            "password": "password123",
-        },
-    )
-    assert login_response.status_code == 200
-    access_token = login_response.json()["data"]["access_token"]
-    client_with_db.headers.update(
-        {"Authorization": f"Bearer {access_token}"}
-    )
-    return client_with_db
-
-
-@pytest.fixture()
-def store_client_with_db_for_menu_create(
-    client_with_db: TestClient,
-    insert_store_managers,
-) -> TestClient:
-    """店舗106の管理者JWTを設定したメニュー登録テスト用クライアントを返す。"""
-    login_response = client_with_db.post(
-        "/store/manager/login",
-        json={
-            "email": "menu-create-manager@example.com",
-            "password": "password123",
-        },
-    )
-    assert login_response.status_code == 200
-    access_token = login_response.json()["data"]["access_token"]
-    client_with_db.headers.update(
-        {"Authorization": f"Bearer {access_token}"}
-    )
-    return client_with_db
-
-
-@pytest.fixture()
-def store_client_with_db_without_wallet_manager(
-    store_client_with_db: TestClient,
-) -> TestClient:
-    """ウォレット未登録店舗104の管理者JWTへ切り替えたクライアントを返す。"""
-    login_response = store_client_with_db.post(
-        "/store/manager/login",
-        json={
-            "email": "no-wallet-manager@example.com",
-            "password": "password123",
-        },
-    )
-    assert login_response.status_code == 200
-    access_token = login_response.json()["data"]["access_token"]
-    store_client_with_db.headers.update(
-        {"Authorization": f"Bearer {access_token}"}
-    )
-    return store_client_with_db
-
-
-@pytest.fixture()
-def store_client_with_db_for_wallet_create(
-    client_with_db: TestClient,
-    insert_store_managers,
-) -> TestClient:
-    """ウォレット登録テスト専用店舗105の管理者JWTを設定したクライアントを返す。"""
-    login_response = client_with_db.post(
-        "/store/manager/login",
-        json={
-            "email": "wallet-create-manager@example.com",
+            "email": email,
             "password": "password123",
         },
     )
