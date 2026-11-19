@@ -36,47 +36,19 @@ class MenuCategoryNotFoundException(Exception):
 
 
 class MenuItemNotFoundException(Exception):
-    """認証店舗に対象メニュー商品が存在しないことを表す。
-
-    Args:
-        message: 例外の詳細メッセージ。省略可能。
-
-    Returns:
-        メニュー商品未存在を表す例外。
-    """
+    pass
 
 
 class DeviceActivationStateInvalidException(Exception):
-    """未有効化デバイスを利用可能に変更しようとしたことを表す。
-
-    Args:
-        message: 例外の詳細メッセージ。省略可能。
-
-    Returns:
-        デバイスの有効化状態が不正であることを表す例外。
-    """
+    pass
 
 
 class DeviceNotFoundException(Exception):
-    """認証店舗に対象デバイスが存在しないことを表す。
-
-    Args:
-        message: 例外の詳細メッセージ。省略可能。
-
-    Returns:
-        デバイスが存在しないことを表す例外。
-    """
+    pass
 
 
 class DeviceAlreadyActivatedException(Exception):
-    """有効化済みデバイスへ有効化コードを発行しようとしたことを表す。
-
-    Args:
-        message: 例外の詳細メッセージ。省略可能。
-
-    Returns:
-        デバイスが既に有効化済みであることを表す例外。
-    """
+    pass
 
 
 class MenuImageInvalidException(Exception):
@@ -84,14 +56,7 @@ class MenuImageInvalidException(Exception):
 
 
 class MenuOptionConfigurationInvalidException(Exception):
-    """指定されたオプションIDの所属関係が不正であることを表す。
-
-    Args:
-        message: 例外の詳細メッセージ。省略可能。
-
-    Returns:
-        不正なメニューオプション構成を表す例外。
-    """
+    pass
 
 
 class MenuCategoryImageInvalidException(Exception):
@@ -99,14 +64,7 @@ class MenuCategoryImageInvalidException(Exception):
 
 
 class InvalidImageError(Exception):
-    """共通画像差し替え処理で画像を読み込めなかったことを表す。
-
-    Args:
-        message: 例外の詳細メッセージ。省略可能。
-
-    Returns:
-        不正な画像を表す例外。
-    """
+    pass
 
 
 class WalletNotFoundException(Exception):

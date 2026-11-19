@@ -1,3 +1,5 @@
+"""店舗のメニュー商品を登録するAPIを検証する。"""
+
 import base64
 from decimal import Decimal
 from io import BytesIO
@@ -176,13 +178,16 @@ class TestCreateMenu:
         "initialize_ssm",
         "use_local_s3_endpoint",
     )
+    @pytest.mark.parametrize(
+        "store_client_with_db", ["menu-create-manager@example.com"], indirect=True
+    )
     def test_with_db(
         self,
-        store_client_with_db_for_menu_create,
+        store_client_with_db,
         mysql_session: Session,
     ) -> None:
         """DB 連携で商品、オプショングループ、オプションを登録することを確認する。"""
-        response = store_client_with_db_for_menu_create.post(
+        response = store_client_with_db.post(
             "/store/menu",
             json=DB_MENU_REQUEST,
         )

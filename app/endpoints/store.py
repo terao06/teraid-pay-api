@@ -4,7 +4,9 @@ from fastapi import APIRouter, Depends, Path, Query, Response
 from app.controllers.store_controller import StoreController
 from app.dependencies.store_manager_auth import (
     StoreManagerAuthContext,
+    StoreManagerTokenClaims,
     authenticate_store_manager,
+    get_store_manager_token_claims,
 )
 from app.middlewares.request_wrapper import request_rapper
 from app.middlewares.response_wrapper import response_rapper
@@ -38,6 +40,31 @@ def login_store_manager(request: StoreManagerLoginRequest):
         JWTアクセストークンと店舗管理者情報を含む共通レスポンス。
     """
     return StoreController().login_store_manager(request=request)
+
+
+@store_router.post("/manager/logout", status_code=204, response_class=Response)
+def logout_store_manager(
+    auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
+    claims: StoreManagerTokenClaims = Depends(get_store_manager_token_claims),
+) -> Response:
+    """リクエストの認証に使用したアクセストークンを失効する。
+
+    Args:
+        auth_context: DB上の状態を確認済みの店舗管理者情報。
+        claims: 検証済みのJWTクレーム。
+
+    Returns:
+        失効の確定を示す、本文なしの204レスポンス。
+
+    Raises:
+        HTTPException: JWTを認証できないか、DBへの失効登録に失敗した場合。
+    """
+    StoreController().logout_store_manager(
+        jti=claims.jti,
+        store_manager_id=auth_context.store_manager_id,
+        expires_at=claims.expires_at,
+    )
+    return Response(status_code=204)
 
 
 @store_router.post("/devices", status_code=201)

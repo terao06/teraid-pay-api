@@ -1,3 +1,5 @@
+"""店舗ウォレットの署名検証と登録APIを検証する。"""
+
 from datetime import datetime
 from unittest.mock import patch
 
@@ -115,10 +117,13 @@ class TestVerifyAndCreateWallet:
 
     @pytest.mark.usefixtures("insert_stores", "insert_wallets", "insert_store_wallets", "insert_nonces", "insert_store_nonces")
     @patch("app.services.store_wallet_service.datetime")
+    @pytest.mark.parametrize(
+        "store_client_with_db", ["wallet-create-manager@example.com"], indirect=True
+    )
     def test_with_db(
         self,
         mock_datetime,
-        store_client_with_db_for_wallet_create,
+        store_client_with_db,
         mysql_session: Session,
     ) -> None:
         """DB 連携で nonce 検証から wallet 作成、nonce 使用済み化まで行うことを検証する。"""
@@ -126,7 +131,7 @@ class TestVerifyAndCreateWallet:
         wallet_address = "0x7d5e89df8eaf8872895865aef6de2d9373a159de"
         mock_datetime.now.return_value = fixed_now
 
-        response = store_client_with_db_for_wallet_create.post(
+        response = store_client_with_db.post(
             "/store/wallet",
             json={
                 "wallet_address": "0x7d5E89df8eaF8872895865AEf6De2d9373a159dE",

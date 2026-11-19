@@ -1,3 +1,5 @@
+"""店舗メニューのカテゴリー一覧取得APIを検証する。"""
+
 from unittest.mock import patch
 
 from fastapi import HTTPException
@@ -195,12 +197,15 @@ class TestGetMenuCategories:
         assert response.status_code == 422
 
     @pytest.mark.usefixtures("insert_menu_categories")
+    @pytest.mark.parametrize(
+        "store_client_with_db", ["no-wallet-manager@example.com"], indirect=True
+    )
     def test_with_db_returns_empty_list_when_not_found(
         self,
-        store_client_with_db_without_wallet_manager,
+        store_client_with_db,
     ) -> None:
         """DB 連携時にカテゴリーが存在しない場合は空配列を返すことを確認する。"""
-        response = store_client_with_db_without_wallet_manager.get(
+        response = store_client_with_db.get(
             "/store/menu/categories"
         )
 

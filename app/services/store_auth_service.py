@@ -1,5 +1,7 @@
 """店舗管理者認証のユースケースを提供するService。"""
 
+from datetime import datetime
+
 from sqlalchemy.orm import Session
 
 from app.core.config.store_manager_auth import get_store_manager_auth_config
@@ -16,7 +18,7 @@ from app.repositories.mysql.store_manager_repository import StoreManagerReposito
 
 
 class StoreAuthService:
-    """店舗管理者の認証とアクセストークン発行を担当する。"""
+    """店舗管理者の認証とアクセストークンの発行・失効を担当する。"""
 
     def login_store_manager(
         self, mysql_session: Session, email: str, password: str
@@ -60,4 +62,25 @@ class StoreAuthService:
                 name=store_manager.name,
                 roll_id=store_manager.roll_id,
             ),
+        )
+
+    def logout_store_manager(
+        self, mysql_session: Session, jti: str, store_manager_id: int, expires_at: datetime
+    ) -> None:
+        """認証されたアクセストークンを失効対象として登録する。
+
+        Args:
+            mysql_session: 呼び出し元が管理するSQLAlchemyのセッション。
+            jti: 失効するJWTの識別子。
+            store_manager_id: 認証済みの店舗管理者ID。
+            expires_at: JWTの有効期限（タイムゾーン情報を付けないUTC）。
+
+        Returns:
+            なし。
+        """
+        StoreManagerRepository().revoke_access_token(
+            mysql_session=mysql_session,
+            jti=jti,
+            store_manager_id=store_manager_id,
+            expires_at=expires_at,
         )

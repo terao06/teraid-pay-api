@@ -1,3 +1,5 @@
+"""店舗メニューの商品一覧取得APIを検証する。"""
+
 from unittest.mock import patch
 
 from fastapi import HTTPException
@@ -216,14 +218,17 @@ class TestGetMenus:
     @patch("app.services.store_menu_service.S3Client")
     @patch("app.services.store_menu_service.SsmClient")
     @pytest.mark.usefixtures("insert_menu_items")
+    @pytest.mark.parametrize(
+        "store_client_with_db", ["no-wallet-manager@example.com"], indirect=True
+    )
     def test_with_db_returns_empty_list_when_not_found(
         self,
         mock_ssm_client_class,
         mock_s3_client_class,
-        store_client_with_db_without_wallet_manager,
+        store_client_with_db,
     ) -> None:
         """DB 連携時に商品が存在しない場合は空配列を返すことを確認する。"""
-        response = store_client_with_db_without_wallet_manager.get("/store/menu")
+        response = store_client_with_db.get("/store/menu")
 
         assert response.status_code == 200
         assert response.json() == {
