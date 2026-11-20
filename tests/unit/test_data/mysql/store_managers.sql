@@ -44,3 +44,11 @@ INSERT INTO store_managers (
     CURRENT_TIMESTAMP,
     NULL
 );
+
+-- fixture: menu_mutations
+INSERT INTO store_managers (
+    store_manager_id, store_id, name, email, password_hash, roll_id,
+    is_active, created_at, updated_at, deleted_at
+) VALUES
+    (208, 107, 'Menu Mutation Test Manager', 'menu-mutations-manager@example.com',
+        '$2b$12$51KjPVrKnptDeCdXPD88IOw/BL16zN7lXEgCJjl6f0BK29NXAj6s2', 1, TRUE, NOW(), NOW(), NULL);

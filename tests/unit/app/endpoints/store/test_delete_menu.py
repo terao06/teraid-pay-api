@@ -99,6 +99,9 @@ class TestDeleteMenu:
 
     @pytest.mark.usefixtures("insert_menu_deletion_data")
     @pytest.mark.parametrize(("menu_item_id", "is_available"), [(840001, False), (840002, True)])
+    @pytest.mark.parametrize(
+        "store_client_with_db", ["menu-mutations-manager@example.com"], indirect=True
+    )
     def test_with_db_soft_deletes_menu(
         self, store_client_with_db, mysql_session, menu_item_id, is_available
     ) -> None:
@@ -142,6 +145,9 @@ class TestDeleteMenu:
 
     @pytest.mark.usefixtures("insert_menu_deletion_data")
     @pytest.mark.parametrize("menu_item_id", [840003, 840004, 840099])
+    @pytest.mark.parametrize(
+        "store_client_with_db", ["menu-mutations-manager@example.com"], indirect=True
+    )
     def test_with_db_rejects_other_store_deleted_or_missing_menu(
         self, store_client_with_db, mysql_session, menu_item_id
     ) -> None:
@@ -171,6 +177,9 @@ class TestDeleteMenu:
             assert mysql_session.get(MenuOption, 840003).deleted_at is None
 
     @pytest.mark.usefixtures("insert_menu_deletion_data")
+    @pytest.mark.parametrize(
+        "store_client_with_db", ["menu-mutations-manager@example.com"], indirect=True
+    )
     @patch(
         "app.services.store_menu_service.StoreMenuRepository.soft_delete_menu_item",
         side_effect=SQLAlchemyError("flush failed"),
@@ -188,12 +197,13 @@ class TestDeleteMenu:
         Returns:
             なし。
         """
-        response = store_client_with_db.delete("/store/menu/840001")
+        menu_item_id = 840005
+        response = store_client_with_db.delete(f"/store/menu/{menu_item_id}")
 
         soft_delete_menu_item.assert_called_once()
         assert response.status_code == 500
         assert response.json() == {"detail": {"status": "error", "message": SERVER_ERROR}}
         with mysql_session.begin():
-            assert mysql_session.get(MenuItem, 840001).deleted_at is None
-            assert mysql_session.get(MenuOptionGroup, 840001).deleted_at is None
-            assert mysql_session.get(MenuOption, 840001).deleted_at is None
+            assert mysql_session.get(MenuItem, menu_item_id).deleted_at is None
+            assert mysql_session.get(MenuOptionGroup, 840005).deleted_at is None
+            assert mysql_session.get(MenuOption, 840005).deleted_at is None

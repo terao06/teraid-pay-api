@@ -19,4 +19,24 @@ INSERT INTO devices (
     (810042, 101, '有効化コード期限切れ端末', '81004200-0000-4000-8000-000000000042', SHA2('NPQR-STUV-WXYZ', 256),
         UTC_TIMESTAMP(), FALSE, UTC_TIMESTAMP(), UTC_TIMESTAMP(), NULL),
     (810043, 101, '有効化前に削除済みの端末', '81004300-0000-4000-8000-000000000043', SHA2('2345-6789-ABCD', 256),
-        DATE_ADD(UTC_TIMESTAMP(), INTERVAL 33 HOUR), FALSE, UTC_TIMESTAMP(), UTC_TIMESTAMP(), UTC_TIMESTAMP());
+        DATE_ADD(UTC_TIMESTAMP(), INTERVAL 33 HOUR), FALSE, UTC_TIMESTAMP(), UTC_TIMESTAMP(), UTC_TIMESTAMP()),
+    (810044, 101, '並行有効化対象端末', '81004400-0000-4000-8000-000000000044', SHA2('JKLM-NPQR-STUV', 256),
+        DATE_ADD(UTC_TIMESTAMP(), INTERVAL 33 HOUR), FALSE, UTC_TIMESTAMP(), UTC_TIMESTAMP(), NULL);
+
+-- fixture: issue_device_access_token
+INSERT INTO devices (
+    device_id, store_id, device_name, device_uuid, device_credential_hash,
+    activated_at, is_active, created_at, updated_at, deleted_at
+) VALUES
+    (810051, 101, '認証対象端末', '81005100-0000-4000-8000-000000000051', SHA2('test-device-access-credential', 256),
+        NOW(), TRUE, NOW(), NOW(), NULL),
+    (810052, 101, '停止済みの端末', '81005200-0000-4000-8000-000000000052', SHA2('test-device-access-credential', 256),
+        NOW(), FALSE, NOW(), NOW(), NULL),
+    (810053, 101, '削除済みの端末', '81005300-0000-4000-8000-000000000053', SHA2('test-device-access-credential', 256),
+        NOW(), TRUE, NOW(), NOW(), NOW()),
+    (810054, 101, '有効化されていない端末', '81005400-0000-4000-8000-000000000054', SHA2('test-device-access-credential', 256),
+        NULL, TRUE, NOW(), NOW(), NULL),
+    (810055, 101, '端末認証情報がない端末', '81005500-0000-4000-8000-000000000055', NULL,
+        NOW(), TRUE, NOW(), NOW(), NULL),
+    (810056, 101, '資格情報不一致のテスト用端末', '81005600-0000-4000-8000-000000000056', SHA2('test-device-access-credential', 256),
+        NOW(), TRUE, NOW(), NOW(), NULL);

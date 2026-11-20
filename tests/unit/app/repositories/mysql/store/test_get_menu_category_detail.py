@@ -49,7 +49,7 @@ class TestGetMenuCategoryDetail:
 
 
 @pytest.mark.usefixtures("insert_menu_category_deletion_data")
-def test_with_db_locks_category_until_transaction_ends(mysql_engine: Engine) -> None:
+def test_locks_category_until_transaction_ends(mysql_engine: Engine) -> None:
     """排他ロックが別セッションのロック取得をトランザクション終了まで防ぐ。
 
     Args:
@@ -58,7 +58,7 @@ def test_with_db_locks_category_until_transaction_ends(mysql_engine: Engine) -> 
     Returns:
         なし。
     """
-    menu_category_id = 830001
+    menu_category_id = 830006
     competing_query = (
         select(MenuCategory.menu_category_id)
         .where(MenuCategory.menu_category_id == menu_category_id)
@@ -67,7 +67,7 @@ def test_with_db_locks_category_until_transaction_ends(mysql_engine: Engine) -> 
     with Session(mysql_engine) as locking_session, Session(mysql_engine) as competing_session:
         category = StoreMenuCategoryRepository().get_menu_category_detail(
             mysql_session=locking_session,
-            store_id=101,
+            store_id=107,
             menu_category_id=menu_category_id,
             lock_for_update=True,
         )

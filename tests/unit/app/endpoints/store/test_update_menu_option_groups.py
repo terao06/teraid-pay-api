@@ -146,20 +146,24 @@ class TestUpdateMenuOptionGroups:
         assert response.status_code == 422
 
     @pytest.mark.usefixtures("insert_menu_option_groups_update")
+    @pytest.mark.parametrize(
+        "store_client_with_db", ["menu-mutations-manager@example.com"], indirect=True
+    )
     def test_with_db_synchronizes_option_groups(
         self,
         store_client_with_db,
         mysql_session: Session,
     ) -> None:
         """実DBで更新・追加・論理削除を含むオプション構成を同期する。"""
+        menu_item_id = 850001
         response = store_client_with_db.put(
-            "/store/menu/24/option-groups",
+            f"/store/menu/{menu_item_id}/option-groups",
             json=MENU_OPTION_GROUPS_UPDATE_DB_REQUEST,
         )
 
         assert response.status_code == 200
         response_data = response.json()["data"]
-        assert response_data["menu_item_id"] == 24
+        assert response_data["menu_item_id"] == menu_item_id
         assert len(response_data["menu_option_groups"]) == 2
         assert response_data["menu_option_groups"][0][
             "menu_option_group_id"
@@ -172,7 +176,7 @@ class TestUpdateMenuOptionGroups:
         mysql_session.expire_all()
         groups = (
             mysql_session.query(MenuOptionGroup)
-            .filter(MenuOptionGroup.menu_item_id == 24)
+            .filter(MenuOptionGroup.menu_item_id == menu_item_id)
             .all()
         )
         group_by_id = {group.menu_option_group_id: group for group in groups}
