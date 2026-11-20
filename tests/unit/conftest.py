@@ -8,6 +8,7 @@ import boto3
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy import text
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.models.mysql.base_model import Base as MySQLBase
@@ -16,12 +17,13 @@ from app.models.postgres.face_embedding import FaceEmbedding
 from tests.unit.test_data.mysql.build_local_db import (
     build_database_url,
     import_mysql_models,
+    insert_device_access_token_data as load_device_access_token_data,
     insert_device_activation_data as load_device_activation_data,
     insert_devices as load_devices,
     insert_menu_category_deletion_data as load_menu_category_deletion_data,
     insert_menu_deletion_data as load_menu_deletion_data,
-    insert_menu_option_groups as load_menu_option_groups,
-    insert_menu_options as load_menu_options,
+    insert_menu_mutation_stores as load_menu_mutation_stores,
+    insert_menu_option_groups_update as load_menu_option_groups_update,
     insert_sample_data as load_mysql_sample_data,
 )
 from tests.unit.test_data.postgres.build_local_db import (
@@ -120,14 +122,21 @@ def initialize_secret(initialize_aws_env: bool) -> None:
 
 
 @pytest.fixture(scope="session")
-def mysql_engine():
+def mysql_engine() -> Generator[Engine, None, None]:
+    """テストセッションの開始時にMySQLのテーブルとサンプルデータを初期化する。
+
+    Yields:
+        初期化済みのテスト用MySQL Engine。
+    """
     import_mysql_models()
     engine = create_engine(build_database_url(), echo=False, future=True)
-    MySQLBase.metadata.drop_all(bind=engine)
-    MySQLBase.metadata.create_all(bind=engine)
-    load_mysql_sample_data(engine)
-    yield engine
-    engine.dispose()
+    try:
+        MySQLBase.metadata.drop_all(bind=engine)
+        MySQLBase.metadata.create_all(bind=engine)
+        load_mysql_sample_data(engine)
+        yield engine
+    finally:
+        engine.dispose()
 
 
 @pytest.fixture()
@@ -184,91 +193,33 @@ def insert_menu_items(mysql_engine, insert_menu_categories) -> str:
     return "menu_items.sql"
 
 
-@pytest.fixture()
+@pytest.fixture(scope="session")
+def insert_menu_mutation_stores(mysql_engine: Engine) -> tuple[str, str]:
+    return load_menu_mutation_stores(mysql_engine)
+
+
+@pytest.fixture(scope="session")
 def insert_menu_category_deletion_data(
-    mysql_engine,
-    insert_menu_items,
-) -> Generator[tuple[str, str], None, None]:
-    """カテゴリー削除専用の行を投入し、テスト後に取り除く。
-
-    Args:
-        mysql_engine: テスト用MySQL Engine。
-        insert_menu_items: 共有の店舗、カテゴリー、商品を準備するfixture。
-
-    Returns:
-        実行したSQLファイル名の組を生成するfixture。
-    """
-    try:
-        yield load_menu_category_deletion_data(mysql_engine)
-    finally:
-        with mysql_engine.begin() as connection:
-            connection.exec_driver_sql("DELETE FROM menu_items WHERE menu_item_id = 830001")
-            connection.exec_driver_sql(
-                "DELETE FROM menu_categories WHERE menu_category_id IN (830001, 830002, 830003, 830004)"
-            )
+    mysql_engine: Engine,
+    insert_menu_mutation_stores: tuple[str, str],
+) -> tuple[str, str]:
+    return load_menu_category_deletion_data(mysql_engine)
 
 
-@pytest.fixture()
+@pytest.fixture(scope="session")
 def insert_menu_deletion_data(
-    mysql_engine,
-    insert_menu_items,
-) -> Generator[tuple[str, str, str], None, None]:
-    """メニュー削除専用の行を投入し、テスト後に専用行を取り除く。
-
-    Args:
-        mysql_engine: テスト用MySQL Engine。
-        insert_menu_items: 店舗と商品を含む共有データの準備用fixture。
-
-    Returns:
-        実行したSQLファイル名をテストに渡すジェネレーター。
-    """
-    try:
-        yield load_menu_deletion_data(mysql_engine)
-    finally:
-        with mysql_engine.begin() as connection:
-            connection.exec_driver_sql(
-                "DELETE FROM menu_options WHERE menu_option_id IN (840001, 840002, 840003)"
-            )
-            connection.exec_driver_sql(
-                "DELETE FROM menu_option_groups WHERE menu_option_group_id IN (840001, 840002, 840003)"
-            )
-            connection.exec_driver_sql(
-                "DELETE FROM menu_items WHERE menu_item_id IN (840001, 840002, 840003, 840004)"
-            )
+    mysql_engine: Engine,
+    insert_menu_mutation_stores: tuple[str, str],
+) -> tuple[str, str, str]:
+    return load_menu_deletion_data(mysql_engine)
 
 
-@pytest.fixture()
+@pytest.fixture(scope="session")
 def insert_menu_option_groups_update(
-    mysql_engine,
-    mysql_session: Session,
-    insert_menu_items,
-) -> Generator[str, None, None]:
-    """オプション構成更新専用データを投入し、テスト後に削除する。
-
-    Args:
-        mysql_engine: テスト用MySQL Engine。
-        mysql_session: テストから参照されるSQLAlchemyセッション。
-        insert_menu_items: メニュー商品データ投入済みを示すfixture。
-
-    Yields:
-        実行したSQLファイル名。
-    """
-    group_file_name = load_menu_option_groups(mysql_engine)
-    option_file_name = load_menu_options(mysql_engine)
-    yield f"{group_file_name}, {option_file_name}"
-    mysql_session.rollback()
-    mysql_session.expire_all()
-    with mysql_engine.begin() as connection:
-        connection.exec_driver_sql(
-            "DELETE menu_options FROM menu_options "
-            "INNER JOIN menu_option_groups "
-            "ON menu_options.menu_option_group_id = "
-            "menu_option_groups.menu_option_group_id "
-            "WHERE menu_option_groups.menu_item_id = 24"
-        )
-        connection.exec_driver_sql(
-            "DELETE FROM menu_option_groups WHERE menu_item_id = 24"
-        )
+    mysql_engine: Engine,
+    insert_menu_mutation_stores: tuple[str, str],
+) -> str:
+    return ", ".join(load_menu_option_groups_update(mysql_engine))
 
 
 @pytest.fixture()
@@ -276,45 +227,19 @@ def insert_store_wallets(mysql_engine) -> str:
     return "store_wallets.sql"
 
 
-@pytest.fixture()
-def insert_devices(mysql_engine) -> Generator[str, None, None]:
-    """devicesテーブルのテスト行を投入し、テスト後に除去する。
-
-    Args:
-        mysql_engine: テスト用MySQL Engine。
-
-    Yields:
-        実行したSQLファイル名。
-    """
-    file_name = load_devices(mysql_engine)
-    try:
-        yield file_name
-    finally:
-        with mysql_engine.begin() as connection:
-            connection.exec_driver_sql(
-                "DELETE FROM devices WHERE device_id IN "
-                "(810001, 810002, 810003, 810011, 810012, 810021, 810022, 810031)"
-            )
+@pytest.fixture(scope="session")
+def insert_devices(mysql_engine: Engine) -> str:
+    return load_devices(mysql_engine)
 
 
-@pytest.fixture()
-def insert_device_activation_data(mysql_engine) -> Generator[str, None, None]:
-    """初回有効化の専用データを投入し、テスト後に削除する。
+@pytest.fixture(scope="session")
+def insert_device_activation_data(mysql_engine: Engine) -> str:
+    return load_device_activation_data(mysql_engine)
 
-    Args:
-        mysql_engine: テスト用MySQL Engine。
 
-    Yields:
-        実行したSQLファイル名。
-    """
-    file_name = load_device_activation_data(mysql_engine)
-    try:
-        yield file_name
-    finally:
-        with mysql_engine.begin() as connection:
-            connection.exec_driver_sql(
-                "DELETE FROM devices WHERE device_id IN (810041, 810042, 810043)"
-            )
+@pytest.fixture(scope="session")
+def insert_device_access_token_data(mysql_engine: Engine) -> str:
+    return load_device_access_token_data(mysql_engine)
 
 
 @pytest.fixture()

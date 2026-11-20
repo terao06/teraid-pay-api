@@ -22,3 +22,8 @@ INSERT INTO stores (
     CURRENT_TIMESTAMP,
     NULL
 );
+
+-- fixture: menu_mutations
+INSERT INTO stores (store_id, name, email, created_at, updated_at, deleted_at) VALUES
+    (107, 'Menu Mutation Test Store', 'menu-mutations-store@example.com', NOW(), NOW(), NULL),
+    (108, 'Other Menu Mutation Test Store', 'other-menu-mutations-store@example.com', NOW(), NOW(), NULL);

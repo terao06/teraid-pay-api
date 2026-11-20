@@ -124,6 +124,8 @@ Secret の主な項目は以下です。
 | `mysql_password` | MySQL のパスワード。ローカル Docker Compose では `password` | API 起動時 |
 | `mysql_host` | MySQL のホスト名。API コンテナから接続するため、ローカル Docker Compose では `teraid-pay-api-db` | API 起動時 |
 | `mysql_port` | MySQL のポート。API コンテナからは `3306` | API 起動時 |
+| `device_jwt_secret` | 端末用 JWT の署名鍵。管理者用とは別に生成した32文字以上の値を設定 | 端末アクセストークン発行 |
+| `device_jwt_expire_seconds` | 端末アクセストークンの有効期間（秒）。省略時は `300` | 端末アクセストークン発行 |
 | `chain_11155111_rpc_url` | 対象チェーンの RPC URL。Sepolia で Infura を使う場合は API key を含めた `https://sepolia.infura.io/v3/{api_key}` | permit 署名情報取得、決済実行、トランザクション検証 |
 | `chain_11155111_jpyc_token_address` | 対象チェーン上の JPYC トークンコントラクトアドレス。`contract_deploy/.env` の `JPYC_TOKEN_ADDRESS` と同じ値、またはデプロイ結果 `deployment.json` の `token` | permit 署名情報取得、決済実行 |
 | `chain_11155111_payment_processor_address` | デプロイ済み `PaymentProcessor` のコントラクトアドレス。`contract_deploy/build/deployment.json` の `payment_processor` | permit 署名情報取得、決済実行 |
