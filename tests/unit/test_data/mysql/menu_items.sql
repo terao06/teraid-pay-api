@@ -26,14 +26,24 @@ INSERT INTO menu_items (
     menu_item_id, store_id, menu_category_id, name, price, token_symbol, image_extension,
     is_available, display_order, created_at, updated_at
 ) VALUES
-    (830001, 101, 830001, '削除対象カテゴリーの商品', 300.000000, 'JPYC', 'png', TRUE, 0, '2026-01-01 09:00:00', '2026-01-01 09:00:00');
+    (830001, 107, 830001, '削除対象の有効カテゴリーの商品', 300.000000, 'JPYC', 'png', TRUE, 0, '2026-01-01 09:00:00', '2026-01-01 09:00:00'),
+    (830002, 107, 830002, '削除対象の無効カテゴリーの商品', 300.000000, 'JPYC', 'png', TRUE, 0, '2026-01-01 09:00:00', '2026-01-01 09:00:00');
 
 -- fixture: delete_menu
 INSERT INTO menu_items (
     menu_item_id, store_id, menu_category_id, name, price, token_symbol, image_extension,
     is_available, display_order, created_at, updated_at, deleted_at
 ) VALUES
-    (840001, 101, NULL, '削除対象の販売停止商品', 300.000000, 'JPYC', 'png', FALSE, 0, '2026-01-01 09:00:00', '2026-01-01 09:00:00', NULL),
-    (840002, 101, NULL, '削除対象の販売中商品', 400.000000, 'JPYC', 'png', TRUE, 0, '2026-01-01 09:00:00', '2026-01-01 09:00:00', NULL),
-    (840003, 102, NULL, '別店舗の削除対象外商品', 500.000000, 'JPYC', 'png', TRUE, 0, '2026-01-01 09:00:00', '2026-01-01 09:00:00', NULL),
-    (840004, 101, NULL, '削除済みの削除対象外商品', 600.000000, 'JPYC', 'png', TRUE, 0, '2026-01-01 09:00:00', '2026-01-01 09:00:00', '2026-02-01 00:00:00');
+    (840001, 107, NULL, '削除対象の販売停止商品', 300.000000, 'JPYC', 'png', FALSE, 0, '2026-01-01 09:00:00', '2026-01-01 09:00:00', NULL),
+    (840002, 107, NULL, '削除対象の販売中商品', 400.000000, 'JPYC', 'png', TRUE, 0, '2026-01-01 09:00:00', '2026-01-01 09:00:00', NULL),
+    (840003, 108, NULL, '別店舗の削除対象外商品', 500.000000, 'JPYC', 'png', TRUE, 0, '2026-01-01 09:00:00', '2026-01-01 09:00:00', NULL),
+    (840004, 107, NULL, '削除済みの削除対象外商品', 600.000000, 'JPYC', 'png', TRUE, 0, '2026-01-01 09:00:00', '2026-01-01 09:00:00', '2026-02-01 00:00:00'),
+    (840005, 107, NULL, 'ロールバックテスト用商品', 300.000000, 'JPYC', 'png', FALSE, 0, '2026-01-01 09:00:00', '2026-01-01 09:00:00', NULL),
+    (840006, 107, NULL, 'Repository削除テスト用商品', 300.000000, 'JPYC', 'png', FALSE, 0, '2026-01-01 09:00:00', '2026-01-01 09:00:00', NULL);
+
+-- fixture: update_menu_option_groups
+INSERT INTO menu_items (
+    menu_item_id, store_id, menu_category_id, name, price, token_symbol, image_extension,
+    is_available, display_order, created_at, updated_at
+) VALUES
+    (850001, 107, NULL, 'オプション構成更新テスト用商品', 300.000000, 'JPYC', 'png', TRUE, 0, '2026-01-01 09:00:00', '2026-01-01 09:00:00');

@@ -95,6 +95,9 @@ class TestDeleteMenuCategory:
 
     @pytest.mark.usefixtures("insert_menu_category_deletion_data")
     @pytest.mark.parametrize(("menu_category_id", "is_active"), [(830001, True), (830002, False)])
+    @pytest.mark.parametrize(
+        "store_client_with_db", ["menu-mutations-manager@example.com"], indirect=True
+    )
     def test_with_db_soft_deletes_category(
         self, store_client_with_db, mysql_engine, menu_category_id, is_active
     ) -> None:
@@ -127,18 +130,22 @@ class TestDeleteMenuCategory:
             ).one()
             item = connection.execute(
                 text(
-                    "SELECT menu_category_id, deleted_at FROM menu_items WHERE menu_item_id = 830001"
-                )
+                    "SELECT menu_category_id, deleted_at FROM menu_items WHERE menu_item_id = :menu_item_id"
+                ),
+                {"menu_item_id": menu_category_id},
             ).one()
         assert bool(category.is_active) is is_active
         assert category.deleted_at is not None
-        assert item.menu_category_id == 830001
+        assert item.menu_category_id == menu_category_id
         assert item.deleted_at is None
         assert store_client_with_db.get(path).status_code == 404
         assert store_client_with_db.delete(path).status_code == 404
 
     @pytest.mark.usefixtures("insert_menu_category_deletion_data")
     @pytest.mark.parametrize("menu_category_id", [830003, 830004, 830099])
+    @pytest.mark.parametrize(
+        "store_client_with_db", ["menu-mutations-manager@example.com"], indirect=True
+    )
     def test_with_db_rejects_other_store_deleted_or_missing_category(
         self, store_client_with_db, mysql_engine, menu_category_id
     ) -> None:

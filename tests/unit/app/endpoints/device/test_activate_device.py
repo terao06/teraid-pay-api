@@ -109,7 +109,7 @@ class TestActivateDevice:
         def send_activation() -> int:
             """2リクエストを同時に開始し、HTTPステータスを返す。"""
             barrier.wait(timeout=5)
-            response = client_with_db.post(ACTIVATION_PATH, json={"activation_code": ACTIVATION_CODE})
+            response = client_with_db.post(ACTIVATION_PATH, json={"activation_code": "JKLM-NPQR-STUV"})
             return response.status_code
 
         with ThreadPoolExecutor(max_workers=2) as executor:

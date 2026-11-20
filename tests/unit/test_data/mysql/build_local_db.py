@@ -129,29 +129,28 @@ def insert_menu_items(engine) -> str:
     return _execute_sql_file(engine, "menu_items.sql")
 
 
-def insert_menu_category_deletion_data(engine) -> tuple[str, str]:
-    """カテゴリー削除専用のカテゴリーと関連商品をMySQLへ投入する。
+def insert_menu_mutation_stores(engine) -> tuple[str, str]:
+    """メニュー更新・削除テスト専用の店舗と店舗管理者を投入する。
 
     Args:
-        engine: SQLを実行するSQLAlchemy Engine。
+        engine: SQLを実行するテスト用SQLAlchemy Engine。
 
     Returns:
-        実行したカテゴリーと商品それぞれのSQLファイル名。
+        実行したSQLファイル名の組。
     """
+    return (
+        _execute_sql_file(engine, "stores.sql", "menu_mutations"),
+        _execute_sql_file(engine, "store_managers.sql", "menu_mutations"),
+    )
+
+
+def insert_menu_category_deletion_data(engine) -> tuple[str, str]:
     categories_file = _execute_sql_file(engine, "menu_categories.sql", "delete_menu_category")
     items_file = _execute_sql_file(engine, "menu_items.sql", "delete_menu_category")
     return categories_file, items_file
 
 
 def insert_menu_deletion_data(engine) -> tuple[str, str, str]:
-    """メニュー削除専用の商品とオプション構成をMySQLに投入する。
-
-    Args:
-        engine: SQLを実行するテスト用SQLAlchemy Engine。
-
-    Returns:
-        実行した商品、グループ、オプションのSQLファイル名。
-    """
     fixture_name = "delete_menu"
     return (
         _execute_sql_file(engine, "menu_items.sql", fixture_name),
@@ -160,52 +159,32 @@ def insert_menu_deletion_data(engine) -> tuple[str, str, str]:
     )
 
 
-def insert_menu_option_groups(engine) -> str:
-    """メニューオプショングループのテストデータを投入する。
-
-    Args:
-        engine: SQLを実行するSQLAlchemy Engine。
-
-    Returns:
-        実行したSQLファイル名。
-    """
-    return _execute_sql_file(engine, "menu_option_groups.sql")
-
-
-def insert_menu_options(engine) -> str:
-    """メニューオプションのテストデータを投入する。
-
-    Args:
-        engine: SQLを実行するSQLAlchemy Engine。
-
-    Returns:
-        実行したSQLファイル名。
-    """
-    return _execute_sql_file(engine, "menu_options.sql")
-
-
-def insert_devices(engine) -> str:
-    """devicesテーブルのテストデータを投入する。
-
-    Args:
-        engine: SQLを実行するSQLAlchemy Engine。
-
-    Returns:
-        実行したSQLファイル名。
-    """
-    return _execute_sql_file(engine, "devices.sql")
-
-
-def insert_device_activation_data(engine) -> str:
-    """初回有効化テスト専用の端末を投入する。
+def insert_menu_option_groups_update(engine) -> tuple[str, str, str]:
+    """メニューオプション更新テスト専用の商品とオプション構成を投入する。
 
     Args:
         engine: SQLを実行するテスト用SQLAlchemy Engine。
 
     Returns:
-        実行したSQLファイル名。
+        実行したSQLファイル名の組。
     """
+    return (
+        _execute_sql_file(engine, "menu_items.sql", "update_menu_option_groups"),
+        _execute_sql_file(engine, "menu_option_groups.sql"),
+        _execute_sql_file(engine, "menu_options.sql"),
+    )
+
+
+def insert_devices(engine) -> str:
+    return _execute_sql_file(engine, "devices.sql")
+
+
+def insert_device_activation_data(engine) -> str:
     return _execute_sql_file(engine, "devices.sql", "activate_device")
+
+
+def insert_device_access_token_data(engine) -> str:
+    return _execute_sql_file(engine, "devices.sql", "issue_device_access_token")
 
 
 def insert_users(engine) -> str:

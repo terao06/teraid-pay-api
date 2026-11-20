@@ -18,13 +18,13 @@ def test_flushes_deletion_timestamp_before_commit(mysql_session: Session) -> Non
     Returns:
         なし。
     """
-    menu_category_id = 830001
+    menu_category_id = 830005
     repository = StoreMenuCategoryRepository()
 
     with mysql_session.begin():
         category = repository.get_menu_category_detail(
             mysql_session=mysql_session,
-            store_id=101,
+            store_id=107,
             menu_category_id=menu_category_id,
             lock_for_update=True,
         )

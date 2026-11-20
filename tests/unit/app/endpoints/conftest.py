@@ -101,6 +101,7 @@ def client_with_db(
             "postgres_port": 5432,
             "store_manager_jwt_secret": "test-store-manager-jwt-secret-at-least-32-characters",
             "store_manager_jwt_expire_seconds": 3600,
+            "device_jwt_secret": "test-device-jwt-secret-at-least-32-characters",
             "chain_11155111_rpc_url": "https://sepolia.infura.io/v3/hogehoge",
             "chain_1_jpyc_token_address": "0x2222222222222222222222222222222222222222",
             "chain_1_payment_processor_address": "0x3333333333333333333333333333333333333333",

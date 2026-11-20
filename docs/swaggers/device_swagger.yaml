@@ -9,7 +9,7 @@ servers:
 
 tags:
   - name: Device
-    description: 端末の有効化
+    description: 端末の有効化と認証
 
 paths:
   /device/activate:
@@ -65,6 +65,59 @@ paths:
                   status: error
                   message: 予期せぬエラーが発生しました。
 
+  /device/auth/token:
+    post:
+      tags: [Device]
+      summary: 端末アクセストークン発行
+      description: 初回有効化時に発行された端末認証情報を照合し、端末用のアクセストークンを返す。
+      operationId: issueDeviceAccessToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceAccessTokenRequest'
+      responses:
+        '200':
+          description: 端末の認証とアクセストークン発行に成功
+          headers:
+            Cache-Control:
+              description: アクセストークンを含むレスポンスのキャッシュ禁止
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceAccessTokenResponse'
+        '401':
+          description: 認証情報が一致しない、または対象端末が利用できない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail:
+                  status: error
+                  message: 端末認証に失敗しました。
+        '422':
+          description: リクエストの形式または必須項目の値が不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '500':
+          description: 端末アクセストークン発行処理に失敗
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail:
+                  status: error
+                  message: 予期せぬエラーが発生しました。
+
 components:
   schemas:
     DeviceActivateRequest:
@@ -87,6 +140,35 @@ components:
           type: string
           description: 初回有効化時に一度だけ返す端末認証情報。
           example: EXAMPLE_DEVICE_CREDENTIAL
+    DeviceAccessTokenRequest:
+      type: object
+      required: [device_uuid, device_credential]
+      properties:
+        device_uuid:
+          type: string
+          format: uuid
+          example: 3ef42a83-9fc8-4418-ac59-148328719672
+        device_credential:
+          type: string
+          minLength: 1
+          description: 初回有効化時に返される端末認証情報。
+          example: EXAMPLE_DEVICE_CREDENTIAL
+    DeviceAccessTokenResponse:
+      type: object
+      required: [access_token, token_type, expires_in]
+      properties:
+        access_token:
+          type: string
+          description: 端末に紐づくJWTアクセストークン。
+          example: EXAMPLE_ACCESS_TOKEN
+        token_type:
+          type: string
+          enum: [Bearer]
+        expires_in:
+          type: integer
+          minimum: 1
+          description: アクセストークンの有効期間（秒）。
+          example: 300
     ErrorResponse:
       type: object
       required: [detail]
