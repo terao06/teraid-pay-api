@@ -1,10 +1,15 @@
+"""FastAPIアプリケーションと各APIのルーターを構成する。"""
+
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
+from app.endpoints.device import device_router
 from app.endpoints.store import store_router
 from app.endpoints.user import user_router
 from app.endpoints.payment import payment_router
 from app.endpoints.face import face_router
 from app.core.utils.logging import TeraidPayApiLog
 from fastapi.middleware.cors import CORSMiddleware
+from app.middlewares.request_wrapper import handle_request_validation_error
 
 # ロギング初期設定
 TeraidPayApiLog.setup(
@@ -13,6 +18,7 @@ TeraidPayApiLog.setup(
 )
 
 app = FastAPI()
+app.add_exception_handler(RequestValidationError, handle_request_validation_error)
 
 origins = [
     "http://localhost:3002",
@@ -32,3 +38,4 @@ app.include_router(store_router, prefix="/store")
 app.include_router(user_router, prefix="/user")
 app.include_router(payment_router, prefix="/payment")
 app.include_router(face_router, prefix="/face")
+app.include_router(device_router, prefix="/device")
