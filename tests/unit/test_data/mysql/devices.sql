@@ -8,3 +8,15 @@ INSERT INTO devices (device_id, store_id, device_name, device_uuid, is_active, c
     (810021, 101, '更新DBテスト', '81002100-0000-4000-8000-000000000021', FALSE, NOW(), NOW(), NULL),
     (810022, 101, '未有効化DBテスト', '81002200-0000-4000-8000-000000000022', FALSE, NOW(), NOW(), NULL),
     (810031, 101, '詳細DBテスト', '81003100-0000-4000-8000-000000000031', FALSE, NOW(), NOW(), NULL);
+
+-- fixture: activate_device
+INSERT INTO devices (
+    device_id, store_id, device_name, device_uuid, activation_code_hash,
+    activation_expires_at, is_active, created_at, updated_at, deleted_at
+) VALUES
+    (810041, 101, '有効化対象端末', '81004100-0000-4000-8000-000000000041', SHA2('ABCD-EFGH-JKLM', 256),
+        DATE_ADD(UTC_TIMESTAMP(), INTERVAL 33 HOUR), FALSE, UTC_TIMESTAMP(), UTC_TIMESTAMP(), NULL),
+    (810042, 101, '有効化コード期限切れ端末', '81004200-0000-4000-8000-000000000042', SHA2('NPQR-STUV-WXYZ', 256),
+        UTC_TIMESTAMP(), FALSE, UTC_TIMESTAMP(), UTC_TIMESTAMP(), NULL),
+    (810043, 101, '有効化前に削除済みの端末', '81004300-0000-4000-8000-000000000043', SHA2('2345-6789-ABCD', 256),
+        DATE_ADD(UTC_TIMESTAMP(), INTERVAL 33 HOUR), FALSE, UTC_TIMESTAMP(), UTC_TIMESTAMP(), UTC_TIMESTAMP());

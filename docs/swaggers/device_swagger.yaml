@@ -1,0 +1,122 @@
+openapi: 3.0.3
+info:
+  title: Teraid Pay Device API
+  version: 1.0.0
+  description: 店舗に設置する端末用APIのOpenAPI定義。
+servers:
+  - url: http://localhost:8005
+    description: ローカル開発環境
+
+tags:
+  - name: Device
+    description: 端末の有効化
+
+paths:
+  /device/activate:
+    post:
+      tags: [Device]
+      summary: 端末初回有効化
+      description: 一回限りの有効化コードを照合して端末を有効化し、端末UUIDと端末認証情報を返す。
+      operationId: activateDevice
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceActivateRequest'
+      responses:
+        '200':
+          description: 端末の有効化に成功
+          headers:
+            Cache-Control:
+              description: 端末認証情報を含むレスポンスのキャッシュ禁止
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceActivateResponse'
+        '400':
+          description: コードが一致しない、期限切れ、使用済み、または対象端末が削除済み
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail:
+                  status: error
+                  message: 有効化コードを利用できません。
+        '422':
+          description: リクエストの形式または有効化コードの形式が不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '500':
+          description: 端末初回有効化処理に失敗
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail:
+                  status: error
+                  message: 予期せぬエラーが発生しました。
+
+components:
+  schemas:
+    DeviceActivateRequest:
+      type: object
+      required: [activation_code]
+      properties:
+        activation_code:
+          type: string
+          pattern: '^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{4}-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{4}-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{4}$'
+          example: ABCD-EFGH-JKLM
+    DeviceActivateResponse:
+      type: object
+      required: [device_uuid, device_credential]
+      properties:
+        device_uuid:
+          type: string
+          format: uuid
+          example: 3ef42a83-9fc8-4418-ac59-148328719672
+        device_credential:
+          type: string
+          description: 初回有効化時に一度だけ返す端末認証情報。
+          example: EXAMPLE_DEVICE_CREDENTIAL
+    ErrorResponse:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: object
+          required: [status, message]
+          properties:
+            status:
+              type: string
+              enum: [error]
+            message:
+              type: string
+    ValidationErrorResponse:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            required: [loc, type, msg]
+            properties:
+              loc:
+                type: array
+                items:
+                  oneOf:
+                    - type: string
+                    - type: integer
+              type:
+                type: string
+              msg:
+                type: string

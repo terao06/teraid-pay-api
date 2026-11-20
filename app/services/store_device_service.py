@@ -1,7 +1,6 @@
 """店舗管理者によるデバイス管理ユースケースを提供する。"""
 
 import base64
-import hashlib
 import json
 import secrets
 from datetime import datetime, timedelta
@@ -12,6 +11,12 @@ import qrcode
 from sqlalchemy.orm import Session
 
 from app.core.utils.datetime import JST
+from app.core.utils.device_activation import (
+    ACTIVATION_CODE_ALPHABET,
+    ACTIVATION_CODE_GROUP_SIZE,
+    ACTIVATION_CODE_LENGTH,
+    hash_device_secret,
+)
 from app.core.exceptions.custom_exception import (
     DeviceActivationStateInvalidException,
     DeviceAlreadyActivatedException,
@@ -36,9 +41,6 @@ from app.repositories.mysql.device_repository import DeviceRepository
 
 
 ACTIVATION_CODE_VALID_HOURS = 24
-ACTIVATION_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-ACTIVATION_CODE_LENGTH = 12
-ACTIVATION_CODE_GROUP_SIZE = 4
 
 
 class StoreDeviceService:
@@ -298,7 +300,7 @@ class StoreDeviceService:
         activation_expires_at = datetime.now(JST) + timedelta(
             hours=ACTIVATION_CODE_VALID_HOURS
         )
-        device.activation_code_hash = self._hash_activation_code(activation_code)
+        device.activation_code_hash = hash_device_secret(activation_code)
         device.activation_expires_at = activation_expires_at
         saved_device = repository.save_device(
             mysql_session=mysql_session,
@@ -310,18 +312,6 @@ class StoreDeviceService:
             qr_code_image=self._generate_qr_code_image(activation_code),
             activation_expires_at=activation_expires_at,
         )
-
-    @staticmethod
-    def _hash_activation_code(activation_code: str) -> str:
-        """有効化コードをDB保存用のSHA-256ハッシュへ変換する。
-
-        Args:
-            activation_code: 平文の有効化コード。
-
-        Returns:
-            16進64文字のSHA-256ハッシュ。
-        """
-        return hashlib.sha256(activation_code.encode("utf-8")).hexdigest()
 
     @staticmethod
     def _generate_activation_code() -> str:

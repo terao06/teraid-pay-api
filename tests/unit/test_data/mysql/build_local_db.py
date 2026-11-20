@@ -196,6 +196,18 @@ def insert_devices(engine) -> str:
     return _execute_sql_file(engine, "devices.sql")
 
 
+def insert_device_activation_data(engine) -> str:
+    """初回有効化テスト専用の端末を投入する。
+
+    Args:
+        engine: SQLを実行するテスト用SQLAlchemy Engine。
+
+    Returns:
+        実行したSQLファイル名。
+    """
+    return _execute_sql_file(engine, "devices.sql", "activate_device")
+
+
 def insert_users(engine) -> str:
     return _execute_sql_file(engine, "users.sql")
 
