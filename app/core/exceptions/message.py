@@ -12,6 +12,7 @@ STORE_MANAGER_INACTIVE_ERROR = "この管理者アカウントは利用できま
 MENU_CATEGORY_NOT_FOUND_ERROR = "メニューカテゴリーが存在しません。"
 MENU_ITEM_NOT_FOUND_ERROR = "メニュー商品が存在しません。"
 DEVICE_NOT_FOUND_ERROR = "デバイスが存在しません。"
+DEVICE_ACTIVATION_CODE_INVALID_ERROR = "有効化コードを利用できません。"
 DEVICE_ACTIVATION_STATE_INVALID_ERROR = "未有効化のデバイスは有効にできません。"
 DEVICE_ALREADY_ACTIVATED_ERROR = "デバイスは既に有効化されています。"
 MENU_IMAGE_INVALID_ERROR = "メニュー画像が正しくありません。"

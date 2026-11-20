@@ -159,6 +159,30 @@ class DeviceRepository:
             query = query.with_for_update()
         return query.one_or_none()
 
+    def get_device_by_activation_code_hash_for_update(
+        self,
+        mysql_session: Session,
+        activation_code_hash: str,
+    ) -> Device | None:
+        """有効化コードのハッシュに一致する未削除端末を排他ロックして取得する。
+
+        Args:
+            mysql_session: トランザクション中のMySQLセッション。
+            activation_code_hash: 入力コードのSHA-256ハッシュ。
+
+        Returns:
+            一致する端末。存在しない場合はNone。
+        """
+        return (
+            mysql_session.query(Device)
+            .filter(
+                Device.activation_code_hash == activation_code_hash,
+                Device.deleted_at.is_(None),
+            )
+            .with_for_update()
+            .one_or_none()
+        )
+
     def save_device(
         self,
         mysql_session: Session,

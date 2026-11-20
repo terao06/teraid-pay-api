@@ -39,6 +39,10 @@ class MenuItemNotFoundException(Exception):
     pass
 
 
+class DeviceActivationCodeInvalidException(Exception):
+    pass
+
+
 class DeviceActivationStateInvalidException(Exception):
     pass
 

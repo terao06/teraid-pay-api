@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 from sqlalchemy.engine import make_url
 
@@ -13,10 +14,12 @@ from app.dependencies.store_manager_auth import (
     StoreManagerAuthContext,
     authenticate_store_manager,
 )
+from app.endpoints.device import device_router
 from app.endpoints.face import face_router
 from app.endpoints.payment import payment_router
 from app.endpoints.store import store_router
 from app.endpoints.user import user_router
+from app.middlewares.request_wrapper import handle_request_validation_error
 from app.middlewares.transaction import get_mysql_db, get_postgres_db
 from tests.unit.test_data.mysql.build_local_db import build_database_url
 from tests.unit.test_data.secret.insert_secret import insert_secret
@@ -36,11 +39,18 @@ def override_store_manager_auth() -> StoreManagerAuthContext:
 
 @pytest.fixture()
 def client() -> Generator[TestClient, None, None]:
+    """DBを使わずルーターをテストするクライアントを提供する。
+
+    Returns:
+        店舗管理者認証のテスト用上書きを設定したクライアント。
+    """
     app = FastAPI()
     app.include_router(payment_router, prefix="/payment")
     app.include_router(store_router, prefix="/store")
     app.include_router(user_router, prefix="/user")
     app.include_router(face_router, prefix="/face")
+    app.include_router(device_router, prefix="/device")
+    app.add_exception_handler(RequestValidationError, handle_request_validation_error)
     app.dependency_overrides[authenticate_store_manager] = override_store_manager_auth
 
     with TestClient(app) as test_client:
@@ -71,6 +81,8 @@ def client_with_db(
     app.include_router(store_router, prefix="/store")
     app.include_router(user_router, prefix="/user")
     app.include_router(face_router, prefix="/face")
+    app.include_router(device_router, prefix="/device")
+    app.add_exception_handler(RequestValidationError, handle_request_validation_error)
 
     mysql_url = make_url(build_database_url())
     with patch.object(

@@ -16,6 +16,7 @@ from app.models.postgres.face_embedding import FaceEmbedding
 from tests.unit.test_data.mysql.build_local_db import (
     build_database_url,
     import_mysql_models,
+    insert_device_activation_data as load_device_activation_data,
     insert_devices as load_devices,
     insert_menu_category_deletion_data as load_menu_category_deletion_data,
     insert_menu_deletion_data as load_menu_deletion_data,
@@ -293,6 +294,26 @@ def insert_devices(mysql_engine) -> Generator[str, None, None]:
             connection.exec_driver_sql(
                 "DELETE FROM devices WHERE device_id IN "
                 "(810001, 810002, 810003, 810011, 810012, 810021, 810022, 810031)"
+            )
+
+
+@pytest.fixture()
+def insert_device_activation_data(mysql_engine) -> Generator[str, None, None]:
+    """初回有効化の専用データを投入し、テスト後に削除する。
+
+    Args:
+        mysql_engine: テスト用MySQL Engine。
+
+    Yields:
+        実行したSQLファイル名。
+    """
+    file_name = load_device_activation_data(mysql_engine)
+    try:
+        yield file_name
+    finally:
+        with mysql_engine.begin() as connection:
+            connection.exec_driver_sql(
+                "DELETE FROM devices WHERE device_id IN (810041, 810042, 810043)"
             )
 
 

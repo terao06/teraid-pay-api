@@ -1,9 +1,10 @@
 """データベースへの接続とトランザクションの制御を提供する。"""
 
-from functools import wraps, lru_cache
 import logging
 from collections.abc import Callable
+from functools import lru_cache, partial, wraps
 
+from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.core.database.mysql import MySQLDatabase
@@ -65,14 +66,28 @@ def get_postgres_db():
     return PostgresSQLDatabase()
 
 
-def mysql_transaction(func):
-    """トランザクション付きで関数を実行するデコレータを生成します。
+def mysql_transaction(
+    func: Callable | None = None,
+    *,
+    log_error_details: bool = True,
+    http_500_on_error: bool = False,
+) -> Callable:
+    """関数をMySQLトランザクション内で実行するデコレーターを提供する。
+
     Args:
-        func: トランザクション管理の対象となる関数です。
+        func: トランザクション管理の対象となる関数。
+        log_error_details: ロールバック時に例外のメッセージをログに記録するか。
+        http_500_on_error: HTTP例外以外を共通形式のHTTP 500に変換するか。
 
     Returns:
-        wrapper: トランザクション管理を付与した関数です。
+        トランザクション管理を付与した関数、または設定済みのデコレーター。
     """
+    if func is None:
+        return partial(
+            mysql_transaction,
+            log_error_details=log_error_details,
+            http_500_on_error=http_500_on_error,
+        )
 
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -84,18 +99,29 @@ def mysql_transaction(func):
         Returns:
             result: 対象関数の実行結果です。
         """
-        with get_mysql_db().get_session() as session:
-            try:
-                kwargs['mysql_session'] = session
-                result = func(*args, **kwargs)
-                session.commit()
-                session.info.pop(MYSQL_ROLLBACK_CALLBACKS_KEY, None)
-                return result
-            except Exception as e:
-                session.rollback()
-                _run_mysql_rollback_callbacks(session)
-                logger.error(f"Error during transaction: {e}")
+        try:
+            with get_mysql_db().get_session() as session:
+                try:
+                    kwargs["mysql_session"] = session
+                    result = func(*args, **kwargs)
+                    session.commit()
+                    session.info.pop(MYSQL_ROLLBACK_CALLBACKS_KEY, None)
+                    return result
+                except Exception as error:
+                    session.rollback()
+                    _run_mysql_rollback_callbacks(session)
+                    if log_error_details:
+                        logger.error("Error during transaction: %s", error)
+                    raise
+        except Exception as error:
+            if not http_500_on_error or isinstance(error, HTTPException):
                 raise
+            if not log_error_details:
+                logger.error("Error during MySQL transaction (%s)", type(error).__name__)
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR,
+            ) from None
 
     return wrapper
 
