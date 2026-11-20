@@ -6,6 +6,7 @@
 | --- | --- |
 | 追加 | store_managers |
 | 追加 | devices |
+| 追加 | visit_sessions |
 | 追加 | menu_categories |
 | 追加 | menu_items |
 | 追加 | menu_option_groups |
@@ -21,6 +22,7 @@
 | --- | --- |
 | store_managers | 店舗管理画面を利用する管理者の所属店舗、メールアドレス、利用可否を管理する。 |
 | devices | 店舗に常設するAndroid端末の登録、有効化、認証情報、利用可否を管理する。 |
+| visit_sessions | 端末で注文を始めてから会計を終えるまでの来店単位を管理し、注文と追加注文をまとめる。 |
 | menu_categories | 店舗ごとのメニューカテゴリ、カテゴリー画像の拡張子、表示可否を管理する。 |
 | menu_items | 商品名、基本価格、画像、販売可否を管理する。 |
 | menu_option_groups | サイズやトッピングなど、商品ごとの選択グループを管理する。 |
@@ -120,6 +122,7 @@
 | --- | --- | --- | --- | --- | --- |
 | menu_order_id | BIGINT | NO | AUTO_INCREMENT | PK | 注文ID |
 | idempotency_key | VARCHAR(64) | NO | - | UK | 二重注文防止キー |
+| visit_session_id | BIGINT | YES | NULL | FK → visit_sessions.visit_session_id | 店内端末での来店セッションID。端末注文の場合は設定する |
 | store_id | BIGINT | NO | - | FK → stores.store_id | 店舗ID |
 | user_id | BIGINT | NO | - | FK → users.user_id | 購入者ID |
 | total_amount | DECIMAL(20, 6) | NO | - | - | 注文合計金額 |
@@ -184,12 +187,27 @@
 
 有効化成功後は `activation_code_hash` と `activation_expires_at` をNULLに更新する。有効化コードと端末認証情報の平文はDBに保存しない。
 
+### 3.11 visit_sessions
+
+| カラム | 型 | NULL | デフォルト | キー | 説明 |
+| --- | --- | --- | --- | --- | --- |
+| visit_session_id | BIGINT | NO | AUTO_INCREMENT | PK | 来店セッションID |
+| device_id | BIGINT | NO | - | FK → devices.device_id | 注文を受け付ける端末ID |
+| start_request_id | VARCHAR(64) | NO | - | - | 注文開始要求の再送を識別するID |
+| status | ENUM | NO | active | - | active（注文受付中）、checkout_processing（決済処理中）、closed（終了済み） |
+| started_at | DATETIME | NO | CURRENT_TIMESTAMP | - | セッション開始日時 |
+| ended_at | DATETIME | YES | NULL | - | セッション終了日時 |
+
+- 同じ端末からの開始要求を識別するため、`(device_id, start_request_id)` を一意とする。
+- 端末1台につき、`active` または `checkout_processing` のセッションは合計1件までとする。終了済みのセッションは履歴として保持する。
+
 ## 4. ER図
 
 ~~~mermaid
 erDiagram
     STORES ||--o{ STORE_MANAGERS : employs
     STORES ||--o{ DEVICES : has
+    DEVICES ||--o{ VISIT_SESSIONS : hosts
     STORES ||--o{ MENU_CATEGORIES : has
     STORES ||--o{ MENU_ITEMS : offers
     MENU_CATEGORIES o|--o{ MENU_ITEMS : classifies
@@ -199,6 +217,7 @@ erDiagram
 
     STORES ||--o{ MENU_ORDERS : receives
     USERS ||--o{ MENU_ORDERS : places
+    VISIT_SESSIONS o|--o{ MENU_ORDERS : groups
     MENU_ORDERS ||--|{ MENU_ORDER_ITEMS : contains
     MENU_ITEMS ||--o{ MENU_ORDER_ITEMS : snapshot_of
 
@@ -236,6 +255,15 @@ erDiagram
         datetime last_authenticated_at
         boolean is_active
         datetime deleted_at
+    }
+
+    VISIT_SESSIONS {
+        bigint visit_session_id PK
+        bigint device_id FK
+        varchar start_request_id
+        enum status
+        datetime started_at
+        datetime ended_at
     }
 
     USERS {
@@ -282,6 +310,7 @@ erDiagram
     MENU_ORDERS {
         bigint menu_order_id PK
         varchar idempotency_key UK
+        bigint visit_session_id FK
         bigint store_id FK
         bigint user_id FK
         decimal total_amount
