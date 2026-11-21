@@ -16,6 +16,8 @@ tags:
     description: 店舗ウォレット管理
   - name: StoreMenu
     description: 店舗メニュー管理
+  - name: StoreOrder
+    description: 店舗の注文管理
 
 paths:
   /store/devices:
@@ -609,6 +611,49 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/MenuCategoryDetailNotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /store/orders:
+    get:
+      tags: [StoreOrder]
+      summary: オーダー一覧取得
+      description: 認証済み管理者の所属店舗の注文を、未提供または提供済みに絞って明細付きで返す。未提供は受付日時・注文IDの昇順、提供済みは提供完了日時・注文IDの降順。
+      operationId: getOrders
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: fulfillment_status
+          in: query
+          required: true
+          description: unserved は未提供かつ未取消の注文、served は提供済みの注文。
+          schema:
+            type: string
+            enum: [unserved, served]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: オーダー一覧取得成功。注文がない場合は orders に空配列を返す。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderListWrappedResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '422':
           $ref: '#/components/responses/ValidationError'
         '500':
@@ -1342,6 +1387,79 @@ components:
           enum: [success]
         data:
           $ref: '#/components/schemas/DeviceDetail'
+
+    OrderListWrappedResponse:
+      type: object
+      required: [status, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          type: object
+          required: [orders, pagination]
+          properties:
+            orders:
+              type: array
+              items:
+                $ref: '#/components/schemas/OrderListEntry'
+            pagination:
+              $ref: '#/components/schemas/DevicePagination'
+
+    OrderListEntry:
+      type: object
+      required: [menu_order_id, visit_session_id, device_name, status, created_at, served_at, items]
+      properties:
+        menu_order_id:
+          type: integer
+          format: int64
+        visit_session_id:
+          type: integer
+          format: int64
+          nullable: true
+        device_name:
+          type: string
+          nullable: true
+          description: 注文元端末の名称。端末を特定できない場合は null。
+        status:
+          type: integer
+          enum: [1, 2, 3, 4, 5]
+          description: 1 は支払い待ち、2 は決済処理中、3 は支払済み、4 は決済失敗、5 はキャンセル。
+        served_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: 提供完了日時。未提供の場合は null。
+        created_at:
+          type: string
+          format: date-time
+          description: 注文受付日時（日本時間）。
+        items:
+          type: array
+          items:
+            type: object
+            required: [menu_item_name, quantity, options]
+            properties:
+              menu_item_name:
+                type: string
+                description: 注文時の商品名。
+              quantity:
+                type: integer
+                minimum: 1
+              options:
+                type: array
+                items:
+                  type: object
+                  required: [option_group_name, option_name, option_quantity]
+                  properties:
+                    option_group_name:
+                      type: string
+                    option_name:
+                      type: string
+                    option_quantity:
+                      type: integer
+                      minimum: 1
+                      description: 商品1個当たりのオプション数量。
 
     DeviceListItem:
       type: object

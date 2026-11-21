@@ -13,6 +13,7 @@ from app.dependencies.store_manager_auth import (
     get_store_manager_token_claims,
 )
 from app.middlewares.request_wrapper import request_rapper
+from app.models.mysql.menu_order import OrderFulfillmentStatus
 from app.middlewares.response_wrapper import response_rapper
 from app.models.requests.wallet_nonce_create_request import WalletNonceCreateRequest
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
@@ -26,6 +27,7 @@ from app.models.requests.menu_option_groups_update_request import (
     MenuOptionGroupsUpdateRequest,
 )
 from app.models.requests.menu_update_request import MenuUpdateRequest
+from app.models.responses.order_list_response import OrderListApiResponse
 from app.core.utils.logging import TeraidPayApiLog
 
 store_router = APIRouter()
@@ -363,6 +365,39 @@ def create_menu_category(
     return StoreController().create_menu_category(
         store_id=auth_context.store_id,
         request=request,
+    )
+
+
+@store_router.get(
+    "/orders",
+    response_model=OrderListApiResponse,
+    summary="オーダー一覧取得",
+    operation_id="getOrders",
+)
+@response_rapper()
+@request_rapper()
+def get_orders(
+    fulfillment_status: OrderFulfillmentStatus = Query(...),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    auth_context: StoreManagerAuthContext = Depends(authenticate_store_manager),
+):
+    """認証済み管理者の店舗の未提供一覧または提供済み履歴を取得する。
+
+    Args:
+        fulfillment_status: 一覧の提供状態。
+        page: 取得するページ番号。
+        page_size: 1ページ当たりの最大注文件数。
+        auth_context: JWT 認証で取得した店舗管理者情報。
+
+    Returns:
+        商品・オプション明細付きの注文一覧とページ情報を含む共通レスポンス。
+    """
+    return StoreController().get_orders(
+        store_id=auth_context.store_id,
+        fulfillment_status=fulfillment_status,
+        page=page,
+        page_size=page_size,
     )
 
 
