@@ -1,11 +1,13 @@
-"""端末アクセストークンの設定とJWT発行を検証する。"""
+"""端末アクセストークンの設定、JWTの発行と検証を確認する。"""
 
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 import jwt
 import pytest
 
 from app.core.config.device_auth import DeviceAuthConfig, get_device_auth_config
+from app.core.exceptions.custom_exception import UnauthorizedException
 from app.core.utils.device_auth import DeviceAuthUtil
 
 
@@ -49,7 +51,7 @@ class TestDeviceAuthConfig:
 
 
 class TestDeviceAuthUtil:
-    """署名付きJWTに含まれる端末情報と有効期限を確認する。"""
+    """署名付きJWTの発行と端末UUIDを取得する条件を確認する。"""
 
     def test_create_access_token(self) -> None:
         """端末UUID、有効期限、一意なIDを持つJWTを作成する。"""
@@ -61,3 +63,51 @@ class TestDeviceAuthUtil:
         assert payload["sub"] == payload["device_uuid"] == DEVICE_UUID
         assert payload["exp"] - payload["iat"] == 300
         assert payload["jti"]
+
+
+    def test_verifies_issued_access_token(self) -> None:
+        """既存の発行処理で署名したJWTから端末UUIDを取得する。
+
+        Args:
+            なし。
+
+        Returns:
+            なし。
+        """
+        config = DeviceAuthConfig(jwt_secret=JWT_SECRET, access_token_expire_seconds=300)
+        token = DeviceAuthUtil.create_access_token(DEVICE_UUID, config)
+
+        assert DeviceAuthUtil.verify_access_token(token, config) == DEVICE_UUID
+
+    @pytest.mark.parametrize(
+        ("overrides", "signing_key"),
+        [
+            ({"exp": None}, JWT_SECRET),
+            ({"exp": 1}, JWT_SECRET),
+            ({"device_uuid": None}, JWT_SECRET),
+            ({"device_uuid": "invalid", "sub": "invalid"}, JWT_SECRET),
+            ({"sub": "different"}, JWT_SECRET),
+            ({}, "wrong-signing-secret-at-least-32-characters"),
+        ],
+    )
+    def test_rejects_invalid_access_token(self, overrides, signing_key) -> None:
+        """必須クレーム、期限、署名のいずれかが不正な端末JWTを拒否する。
+
+        Args:
+            overrides: 通常のJWTクレームに適用する不正値。
+            signing_key: JWTの署名に使う鍵。
+
+        Returns:
+            なし。
+        """
+        config = DeviceAuthConfig(jwt_secret=JWT_SECRET, access_token_expire_seconds=300)
+        payload = {
+            "sub": DEVICE_UUID,
+            "device_uuid": DEVICE_UUID,
+            "exp": int(datetime.now(timezone.utc).timestamp()) + 300,
+            **overrides,
+        }
+        token = jwt.encode(payload, signing_key, algorithm="HS256")
+
+        with pytest.raises(UnauthorizedException):
+            DeviceAuthUtil.verify_access_token(token, config)

@@ -1,4 +1,4 @@
-"""端末の初回有効化とアクセストークン発行の業務処理を提供する。"""
+"""端末の初回有効化、アクセストークン発行、来店セッション開始の業務処理を提供する。"""
 
 import secrets
 from datetime import datetime
@@ -9,13 +9,16 @@ from app.core.config.device_auth import get_device_auth_config
 from app.core.exceptions.custom_exception import (
     DeviceActivationCodeInvalidException,
     UnauthorizedException,
+    VisitSessionConflictException,
 )
 from app.core.utils.datetime import JST
 from app.core.utils.device_activation import hash_device_secret
 from app.core.utils.device_auth import DeviceAuthUtil
+from app.models.mysql.visit_session import VisitSession, VisitSessionStatus
 from app.models.responses.device_access_token_response import DeviceAccessTokenResponse
 from app.models.responses.device_activate_response import DeviceActivateResponse
 from app.repositories.mysql.device_repository import DeviceRepository
+from app.repositories.mysql.visit_session_repository import VisitSessionRepository
 
 
 class DeviceService:
@@ -124,3 +127,55 @@ class DeviceService:
             access_token=access_token,
             expires_in=auth_config.access_token_expire_seconds,
         )
+
+    def start_visit_session(
+        self,
+        mysql_session: Session,
+        device_uuid: str,
+        start_request_id: str,
+    ) -> tuple[int, bool]:
+        """端末をロックして来店セッションを開始するか、再送に対応するIDを取得する。
+
+        Args:
+            mysql_session: トランザクション中のMySQLセッション。
+            device_uuid: 検証済みの端末アクセストークンに含まれるUUID。
+            start_request_id: 端末から受け取った開始要求ID。
+
+        Returns:
+            来店セッションIDと、新規作成した場合にTrueとなるフラグ。
+
+        Raises:
+            UnauthorizedException: 端末が未登録、未有効化、停止、または削除済みの場合。
+            VisitSessionConflictException: 開始要求が終了済み、または別セッションが進行中の場合。
+        """
+        device = DeviceRepository().get_device_by_uuid_for_update(
+            mysql_session=mysql_session,
+            device_uuid=device_uuid,
+        )
+        if device is None or device.activated_at is None or not device.is_active:
+            raise UnauthorizedException()
+
+        repository = VisitSessionRepository()
+        existing_session = repository.get_by_start_request_id(
+            mysql_session=mysql_session,
+            device_id=device.device_id,
+            start_request_id=start_request_id,
+        )
+        if existing_session is not None:
+            if existing_session.status == VisitSessionStatus.CLOSED:
+                raise VisitSessionConflictException()
+            return existing_session.visit_session_id, False
+
+        if repository.has_in_progress_session(mysql_session=mysql_session, device_id=device.device_id):
+            raise VisitSessionConflictException()
+
+        visit_session = VisitSession(
+            device_id=device.device_id,
+            start_request_id=start_request_id,
+            status=VisitSessionStatus.ACTIVE,
+        )
+        saved_visit_session = repository.create_visit_session(
+            mysql_session=mysql_session,
+            visit_session=visit_session,
+        )
+        return saved_visit_session.visit_session_id, True
