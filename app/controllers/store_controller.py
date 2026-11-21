@@ -5,6 +5,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.middlewares.transaction import mysql_logout_transaction, mysql_transaction
+from app.models.mysql.menu_order import OrderFulfillmentStatus
 from app.models.requests.wallet_nonce_create_request import WalletNonceCreateRequest
 from app.models.requests.wallet_nonce_verify_request import WalletVerifyRequest
 from app.models.requests.device_create_request import DeviceCreateRequest
@@ -41,12 +42,14 @@ from app.models.responses.menu_option_groups_update_response import (
     MenuOptionGroupsUpdateResponse,
 )
 from app.models.responses.menu_update_response import MenuUpdateResponse
+from app.models.responses.order_list_response import OrderListResponse
 from app.models.responses.wallet_nonce_create_response import WalletNonceCreateResponse
 from app.models.responses.wallet_nonce_verify_response import WalletVerifyResponse
 from app.services.store_auth_service import StoreAuthService
 from app.services.store_device_service import StoreDeviceService
 from app.services.store_menu_category_service import StoreMenuCategoryService
 from app.services.store_menu_service import StoreMenuService
+from app.services.store_order_service import StoreOrderService
 from app.services.store_wallet_service import StoreWalletService
 from app.models.responses.wallet_response import WalletResponse
 from app.core.exceptions.message import (
@@ -588,6 +591,44 @@ class StoreController:
             raise CustomHttpException.get_http_exception(
                 status_code=422,
                 message=MENU_CATEGORY_IMAGE_INVALID_ERROR,
+            )
+        except Exception:
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR,
+            )
+
+    @mysql_transaction
+    def get_orders(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        fulfillment_status: OrderFulfillmentStatus,
+        page: int,
+        page_size: int,
+    ) -> OrderListResponse:
+        """認証済み管理者の店舗のオーダー一覧を取得する。
+
+        Args:
+            mysql_session: SQLAlchemy の MySQL セッション。
+            store_id: 認証済み管理者の所属店舗 ID。
+            fulfillment_status: 一覧の提供状態。
+            page: 取得するページ番号。
+            page_size: 1ページ当たりの最大注文数。
+
+        Returns:
+            指定した提供状態の注文一覧とページ情報。
+
+        Raises:
+            HTTPException: サービスによる注文一覧の取得に失敗した場合。
+        """
+        try:
+            return StoreOrderService().get_orders(
+                mysql_session=mysql_session,
+                store_id=store_id,
+                fulfillment_status=fulfillment_status,
+                page=page,
+                page_size=page_size,
             )
         except Exception:
             raise CustomHttpException.get_http_exception(

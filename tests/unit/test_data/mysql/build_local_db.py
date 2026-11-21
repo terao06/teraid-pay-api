@@ -229,6 +229,23 @@ def insert_device_menu_items(engine: Engine) -> tuple[str, ...]:
     return tuple(_execute_sql_file(engine, sql_file, "device_menu_items") for sql_file in sql_files)
 
 
+def insert_order_list_data(engine: Engine) -> tuple[str, ...]:
+    """オーダー一覧で使う管理者、注文、商品、オプションを投入する。
+
+    Args:
+        engine: 店舗・端末・メニューを投入済みのテスト用 MySQL Engine。
+
+    Returns:
+        投入に使用した SQL ファイル名。
+    """
+    return (
+        _execute_sql_file(engine, "store_managers.sql", "order_list_data"),
+        _execute_sql_file(engine, "menu_orders.sql"),
+        _execute_sql_file(engine, "menu_order_items.sql"),
+        _execute_sql_file(engine, "menu_order_item_options.sql"),
+    )
+
+
 def insert_visit_session_data(engine: Engine) -> tuple[str, str, str]:
     """来店セッションのテスト専用の店舗、端末、既存セッションを投入する。
 

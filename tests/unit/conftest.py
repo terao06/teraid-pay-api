@@ -27,6 +27,7 @@ from tests.unit.test_data.mysql.build_local_db import (
     insert_menu_mutation_stores as load_menu_mutation_stores,
     insert_menu_option_groups_update as load_menu_option_groups_update,
     insert_sample_data as load_mysql_sample_data,
+    insert_order_list_data as load_order_list_data,
     insert_visit_session_data as load_visit_session_data,
 )
 from tests.unit.test_data.postgres.build_local_db import (
@@ -297,6 +298,11 @@ def insert_device_menu_items(mysql_engine: Engine) -> tuple[str, ...]:
         専用データを投入したSQLファイル名。
     """
     return load_device_menu_items(mysql_engine)
+
+
+@pytest.fixture(scope="session")
+def insert_order_list_data(mysql_engine: Engine, insert_device_menu_items: tuple[str, ...]) -> tuple[str, ...]:
+    return load_order_list_data(mysql_engine)
 
 
 @pytest.fixture()

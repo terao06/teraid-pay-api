@@ -27,7 +27,7 @@
 | menu_items | 商品名、基本価格、画像、販売可否を管理する。 |
 | menu_option_groups | サイズやトッピングなど、商品ごとの選択グループを管理する。 |
 | menu_options | 選択可能なオプションと追加料金を管理する。 |
-| menu_orders | 1回の注文について、購入者、店舗、合計金額、注文状態を管理する。 |
+| menu_orders | 1回の注文について、購入者、店舗、合計金額、決済状態、提供完了日時を管理する。 |
 | menu_order_items | 注文した商品と購入時点の商品名・基本単価を管理する。 |
 | menu_order_item_options | 注文時に選択したオプションと購入時点の追加料金を管理する。 |
 | payment_requests | menu_order_idを追加し、注文に対する決済試行を管理する。 |
@@ -124,14 +124,27 @@
 | idempotency_key | VARCHAR(64) | NO | - | UK | 二重注文防止キー |
 | visit_session_id | BIGINT | YES | NULL | FK → visit_sessions.visit_session_id | 店内端末での来店セッションID。端末注文の場合は設定する |
 | store_id | BIGINT | NO | - | FK → stores.store_id | 店舗ID |
-| user_id | BIGINT | NO | - | FK → users.user_id | 購入者ID |
+| user_id | BIGINT | YES | NULL | FK → users.user_id | 購入者ID。購入者未特定の端末注文は `NULL` |
 | total_amount | DECIMAL(20, 6) | NO | - | - | 注文合計金額 |
 | token_symbol | VARCHAR(20) | NO | JPYC | - | トークンシンボル |
-| status | ENUM | NO | pending_payment | - | pending_payment、payment_processing、paid、payment_failed、canceled |
+| status | TINYINT UNSIGNED | NO | 1 | - | オーダー状態。`OrderStatus` の整数コードを保存 |
 | paid_at | DATETIME | YES | NULL | - | 決済完了日時 |
-| created_at | DATETIME | NO | CURRENT_TIMESTAMP | - | 作成日時 |
-| updated_at | DATETIME | NO | CURRENT_TIMESTAMP | - | 更新日時 |
+| served_at | DATETIME | YES | NULL | - | 提供完了日時（UTC）。`NULL` は未提供 |
+| created_at | DATETIME | NO | UTC_TIMESTAMP() | - | 注文受付日時（UTC） |
+| updated_at | DATETIME | NO | UTC_TIMESTAMP() | - | 更新日時（UTC） |
 | deleted_at | DATETIME | YES | NULL | - | 論理削除日時 |
+
+`OrderStatus` は Python の `IntEnum` とし、以下の固定コードを DB と API で使う。
+
+| コード | `OrderStatus` | 意味 |
+| --- | --- | --- |
+| `1` | `PENDING_PAYMENT` | 支払い待ち |
+| `2` | `PAYMENT_PROCESSING` | 決済処理中 |
+| `3` | `PAID` | 支払済み |
+| `4` | `PAYMENT_FAILED` | 決済失敗 |
+| `5` | `CANCELED` | キャンセル |
+
+`status` の有効値は `1`〜`5` とする。状態を追加するときは新しいコードを割り当てる。
 
 ### 3.7 menu_order_items
 
@@ -145,7 +158,7 @@
 | quantity | INT UNSIGNED | NO | - | - | 数量 |
 | line_amount | DECIMAL(20, 6) | NO | - | - | オプション料金を含む明細金額 |
 | display_order | INT UNSIGNED | NO | 0 | - | 表示順 |
-| created_at | DATETIME | NO | CURRENT_TIMESTAMP | - | 作成日時 |
+| created_at | DATETIME | NO | UTC_TIMESTAMP() | - | 作成日時（UTC） |
 
 ### 3.8 menu_order_item_options
 
@@ -159,7 +172,7 @@
 | additional_price | DECIMAL(20, 6) | NO | 0 | - | 購入時点の追加料金 |
 | option_quantity | INT UNSIGNED | NO | 1 | - | 商品1個当たりのオプション数量 |
 | display_order | INT UNSIGNED | NO | 0 | - | 表示順 |
-| created_at | DATETIME | NO | CURRENT_TIMESTAMP | - | 作成日時 |
+| created_at | DATETIME | NO | UTC_TIMESTAMP() | - | 作成日時（UTC） |
 
 ### 3.9 payment_requestsへの追加カラム
 
@@ -315,8 +328,9 @@ erDiagram
         bigint user_id FK
         decimal total_amount
         varchar token_symbol
-        enum status
+        tinyint status
         datetime paid_at
+        datetime served_at
     }
 
     MENU_ORDER_ITEMS {
