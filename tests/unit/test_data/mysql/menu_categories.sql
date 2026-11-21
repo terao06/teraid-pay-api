@@ -29,3 +29,14 @@ INSERT INTO menu_categories (
     (830004, 107, '削除済みの削除テスト用カテゴリー', 'png', 0, TRUE, '2026-01-01 09:00:00', '2026-01-01 09:00:00', '2026-01-02 09:00:00'),
     (830005, 107, 'Repository削除テスト用カテゴリー', 'png', 0, TRUE, '2026-01-01 09:00:00', '2026-01-01 09:00:00', NULL),
     (830006, 107, '排他ロックテスト用カテゴリー', 'png', 0, TRUE, '2026-01-01 09:00:00', '2026-01-01 09:00:00', NULL);
+
+-- fixture: device_menu_categories
+INSERT INTO menu_categories (
+    menu_category_id, store_id, name, image_extension, display_order, is_active,
+    created_at, updated_at, deleted_at
+) VALUES
+    (830011, 110, 'ドリンク', 'png', 2, TRUE, NOW(), NOW(), NULL),
+    (830012, 110, 'フード', 'jpg', 1, TRUE, NOW(), NOW(), NULL),
+    (830013, 110, 'デザート', 'png', 1, TRUE, NOW(), NOW(), NULL),
+    (830014, 110, '無効カテゴリー', 'png', 0, FALSE, NOW(), NOW(), NULL),
+    (830015, 110, '削除済みカテゴリー', 'png', 0, TRUE, NOW(), NOW(), NOW());
