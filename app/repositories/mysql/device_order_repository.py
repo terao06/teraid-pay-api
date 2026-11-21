@@ -1,4 +1,4 @@
-"""端末からの注文登録に必要な結合読み取りと保存を提供する。"""
+"""端末の注文登録と履歴取得に必要なMySQL操作を提供する。"""
 
 from collections.abc import Sequence
 
@@ -19,6 +19,7 @@ _OrderRow = tuple[MenuOrder, MenuOrderItem | None, MenuOrderItemOption | None]
 _ContextRow = tuple[
     int, int, int | None, MenuOrder | None, MenuOrderItem | None, MenuOrderItemOption | None
 ]
+_HistoryRow = tuple[int | None, MenuOrder | None, MenuOrderItem | None, MenuOrderItemOption | None]
 _CatalogRow = tuple[MenuItem, MenuOptionGroup | None, MenuOption | None]
 
 
@@ -99,6 +100,61 @@ class DeviceOrderRepository:
         )
         statement = _join_order_details(statement, Device.store_id, VisitSession.visit_session_id)
         return mysql_session.execute(statement).tuples().all()
+
+    def get_order_history(
+        self, mysql_session: Session, device_uuid: str, visit_session_id: int
+    ) -> Sequence[_HistoryRow]:
+        """利用可能な端末の来店セッションと注文履歴を1回のSELECTで取得する。
+
+        Args:
+            mysql_session: MySQLセッション。
+            device_uuid: 検証済み端末アクセストークンのUUID。
+            visit_session_id: 取得対象の来店セッションID。
+
+        Returns:
+            セッションID、注文、商品明細、オプション明細の結合行。
+            利用可能な端末がなければ空。セッションや注文がなければ該当列はNone。
+
+        Raises:
+            SQLAlchemyError: DB接続や参照に失敗した場合。
+        """
+        statement = (
+            select(VisitSession.visit_session_id, MenuOrder, MenuOrderItem, MenuOrderItemOption)
+            .select_from(Device)
+            .outerjoin(
+                VisitSession,
+                and_(
+                    VisitSession.device_id == Device.device_id,
+                    VisitSession.visit_session_id == visit_session_id,
+                    VisitSession.status.in_((VisitSessionStatus.ACTIVE, VisitSessionStatus.CHECKOUT_PROCESSING)),
+                ),
+            )
+            .outerjoin(
+                MenuOrder,
+                and_(
+                    MenuOrder.store_id == Device.store_id,
+                    MenuOrder.visit_session_id == VisitSession.visit_session_id,
+                    MenuOrder.deleted_at.is_(None),
+                ),
+            )
+            .where(
+                Device.device_uuid == device_uuid,
+                Device.activated_at.is_not(None),
+                Device.is_active.is_(True),
+                Device.deleted_at.is_(None),
+            )
+            .order_by(
+                MenuOrder.created_at.desc(),
+                MenuOrder.menu_order_id.desc(),
+                MenuOrderItem.display_order,
+                MenuOrderItem.menu_order_item_id,
+                MenuOrderItemOption.display_order,
+                MenuOrderItemOption.menu_order_item_option_id,
+            )
+        )
+        statement = _join_order_details(statement, Device.store_id, VisitSession.visit_session_id)
+        return mysql_session.execute(statement).tuples().all()
+
 
     def get_catalog(
         self, mysql_session: Session, store_id: int, item_ids: set[int], option_ids: set[int]

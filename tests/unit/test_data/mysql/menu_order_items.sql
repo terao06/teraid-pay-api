@@ -10,3 +10,11 @@ INSERT INTO menu_order_items (
     (871105, 870107, 863014, '他店舗商品', 500.000000, 1, 500.000000, 0),
     (871106, 870104, 863011, 'フライドポテト', 300.000000, 1, 300.000000, 0),
     (871107, 870108, 863011, 'フライドポテト', 300.000000, 1, 300.000000, 0);
+
+-- fixture: device_order_history
+INSERT INTO menu_order_items (
+    menu_order_item_id, menu_order_id, menu_item_id, menu_item_name,
+    unit_price, quantity, line_amount, display_order
+) VALUES
+    (894001, 893001, 883002, '注文時のポテト', 300.000000, 1, 300.000000, 2),
+    (894002, 893001, 883001, '注文時のバーガー', 600.000000, 2, 1400.000000, 1);

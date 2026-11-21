@@ -81,3 +81,14 @@ INSERT INTO devices (
         SHA2('test-device-order-credential', 256), NOW(), TRUE, NOW(), NOW()),
     (881002, 113, 'Disabled Order Device', '88100200-0000-4000-8000-000000881002',
         SHA2('test-device-order-credential', 256), NOW(), FALSE, NOW(), NOW());
+
+-- fixture: device_order_history
+INSERT INTO devices (
+    device_id, store_id, device_name, device_uuid, is_active, activated_at, deleted_at
+) VALUES
+    (891001, 113, 'History Active', '89100100-0000-4000-8000-000000891001', TRUE, NOW(), NULL),
+    (891002, 113, 'History Checkout', '89100200-0000-4000-8000-000000891002', TRUE, NOW(), NULL),
+    (891003, 113, 'History Other', '89100300-0000-4000-8000-000000891003', TRUE, NOW(), NULL),
+    (891004, 113, 'History Disabled', '89100400-0000-4000-8000-000000891004', FALSE, NOW(), NULL),
+    (891005, 113, 'History Unactivated', '89100500-0000-4000-8000-000000891005', TRUE, NULL, NULL),
+    (891006, 113, 'History Deleted', '89100600-0000-4000-8000-000000891006', TRUE, NOW(), NOW());

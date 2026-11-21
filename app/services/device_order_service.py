@@ -1,7 +1,8 @@
-"""端末から受け付けた注文の検証、金額計算、再送照合を行う。"""
+"""端末注文の登録、再送照合、履歴取得を行う。"""
 
 from collections import Counter, defaultdict
 from collections.abc import Sequence
+from datetime import timezone
 from decimal import Decimal
 
 from sqlalchemy.exc import IntegrityError
@@ -18,6 +19,12 @@ from app.models.mysql.menu_order_item import MenuOrderItem
 from app.models.mysql.menu_order_item_option import MenuOrderItemOption
 from app.models.requests.device_order_create_request import DeviceOrderCreateRequest
 from app.models.responses.device_order_create_response import DeviceOrderCreateResponse
+from app.models.responses.device_order_history_response import (
+    DeviceOrderHistoryEntryResponse,
+    DeviceOrderHistoryItemResponse,
+    DeviceOrderHistoryOptionResponse,
+    DeviceOrderHistoryResponse,
+)
 from app.repositories.mysql.device_order_repository import DeviceOrderRepository
 from app.repositories.mysql.device_repository import DeviceRepository
 from app.repositories.mysql.visit_session_repository import VisitSessionRepository
@@ -29,7 +36,7 @@ _MYSQL_DUPLICATE_ENTRY = 1062
 
 
 class DeviceOrderService:
-    """端末から注文を登録し、再送には保存済みの結果を返す。
+    """端末からの注文を登録し、保存済みの結果と履歴を返す。
 
     Args:
         なし。
@@ -37,6 +44,67 @@ class DeviceOrderService:
     Returns:
         端末注文サービス。
     """
+
+    def get_order_history(
+        self, mysql_session: Session, device_uuid: str, visit_session_id: int
+    ) -> DeviceOrderHistoryResponse:
+        """端末自身の来店セッションの注文と保存済み明細を階層化して返す。
+
+        Args:
+            mysql_session: MySQLセッション。
+            device_uuid: 検証済み端末アクセストークンのUUID。
+            visit_session_id: 取得対象の来店セッションID。
+
+        Returns:
+            新しい順の注文履歴。注文がない場合は空配列を含む。
+
+        Raises:
+            UnauthorizedException: 端末が利用できない場合。
+            VisitSessionNotFoundException: 端末自身の受付中または決済処理中のセッションがない場合。
+        """
+        rows = DeviceOrderRepository().get_order_history(mysql_session, device_uuid, visit_session_id)
+        if not rows:
+            raise UnauthorizedException()
+        if rows[0][0] is None:
+            raise VisitSessionNotFoundException()
+
+        orders: dict[int, DeviceOrderHistoryEntryResponse] = {}
+        items: dict[int, DeviceOrderHistoryItemResponse] = {}
+        for _, order, item, option in rows:
+            if order is None:
+                continue
+            if order.menu_order_id not in orders:
+                orders[order.menu_order_id] = DeviceOrderHistoryEntryResponse(
+                    menu_order_id=order.menu_order_id,
+                    created_at=order.created_at.replace(tzinfo=timezone.utc),
+                    status=order.status,
+                    total_amount=f"{order.total_amount:.6f}",
+                    token_symbol=order.token_symbol,
+                    items=[],
+                )
+            if item is None:
+                continue
+            if item.menu_order_item_id not in items:
+                item_response = DeviceOrderHistoryItemResponse(
+                    menu_item_name=item.menu_item_name,
+                    unit_price=f"{item.unit_price:.6f}",
+                    quantity=item.quantity,
+                    line_amount=f"{item.line_amount:.6f}",
+                    options=[],
+                )
+                items[item.menu_order_item_id] = item_response
+                orders[order.menu_order_id].items.append(item_response)
+            if option is not None:
+                items[item.menu_order_item_id].options.append(
+                    DeviceOrderHistoryOptionResponse(
+                        option_group_name=option.option_group_name,
+                        option_name=option.option_name,
+                        additional_price=f"{option.additional_price:.6f}",
+                        option_quantity=option.option_quantity,
+                    )
+                )
+        return DeviceOrderHistoryResponse(orders=list(orders.values()))
+
 
     def create_order(
         self,

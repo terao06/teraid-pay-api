@@ -249,6 +249,25 @@ def insert_device_order_data(engine: Engine) -> tuple[str, ...]:
     return tuple(_execute_sql_file(engine, sql_file, "device_orders") for sql_file in sql_files)
 
 
+def insert_device_order_history_data(engine: Engine) -> tuple[str, ...]:
+    """注文履歴用の端末、セッション、注文と明細を依存順に投入する。
+
+    Args:
+        engine: 初期化済みのMySQL Engine。
+
+    Returns:
+        履歴取得専用データを投入したSQLファイル名。
+    """
+    sql_files = (
+        "devices.sql",
+        "visit_sessions.sql",
+        "menu_orders.sql",
+        "menu_order_items.sql",
+        "menu_order_item_options.sql",
+    )
+    return tuple(_execute_sql_file(engine, sql_file, "device_order_history") for sql_file in sql_files)
+
+
 def insert_order_list_data(engine: Engine) -> tuple[str, ...]:
     """オーダー一覧で使う管理者、注文、商品、オプションを投入する。
 
