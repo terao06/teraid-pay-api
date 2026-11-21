@@ -22,6 +22,7 @@ from tests.unit.test_data.mysql.build_local_db import (
     insert_device_menu_categories as load_device_menu_categories,
     insert_device_menu_items as load_device_menu_items,
     insert_device_order_data as load_device_order_data,
+    insert_device_order_history_data as load_device_order_history_data,
     insert_devices as load_devices,
     insert_menu_category_deletion_data as load_menu_category_deletion_data,
     insert_menu_deletion_data as load_menu_deletion_data,
@@ -312,6 +313,22 @@ def insert_device_order_data(mysql_engine: Engine) -> tuple[str, ...]:
         注文登録テストに使用するSQLファイル名。
     """
     return load_device_order_data(mysql_engine)
+
+
+@pytest.fixture(scope="session")
+def insert_device_order_history_data(
+    mysql_engine: Engine, insert_device_order_data: tuple[str, ...]
+) -> tuple[str, ...]:
+    """既存の店舗とカタログを使い、履歴取得専用のセッションと注文を投入する。
+
+    Args:
+        mysql_engine: 初期化済みのMySQL Engine。
+        insert_device_order_data: 注文に必要な店舗とカタログのデータ。
+
+    Returns:
+        履歴取得専用データを投入したSQLファイル名。
+    """
+    return load_device_order_history_data(mysql_engine)
 
 
 @pytest.fixture(scope="session")

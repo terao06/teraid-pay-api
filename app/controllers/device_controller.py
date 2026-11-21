@@ -33,6 +33,7 @@ from app.models.responses.device_access_token_response import DeviceAccessTokenR
 from app.models.responses.device_activate_response import DeviceActivateResponse
 from app.models.responses.device_menu_item_list_response import DeviceMenuItemListResponse
 from app.models.responses.device_order_create_response import DeviceOrderCreateResponse
+from app.models.responses.device_order_history_response import DeviceOrderHistoryResponse
 from app.models.responses.menu_category_response import DeviceMenuCategoryListResponse
 from app.models.responses.visit_session_start_response import VisitSessionStartResponse
 from app.services.device_order_service import DeviceOrderService
@@ -223,6 +224,38 @@ class DeviceController:
                 status_code=422,
                 message=DEVICE_ORDER_INVALID_ERROR,
             ) from None
+
+    @mysql_transaction(log_error_details=False, http_500_on_error=True)
+    def get_order_history(
+        self, mysql_session: Session, device_uuid: str, visit_session_id: int
+    ) -> DeviceOrderHistoryResponse:
+        """注文履歴を取得し、端末と来店セッションの例外をHTTP応答に変換する。
+
+        Args:
+            mysql_session: デコレーターが渡すMySQLセッション。
+            device_uuid: 検証済み端末アクセストークンのUUID。
+            visit_session_id: 取得対象の来店セッションID。
+
+        Returns:
+            来店セッション内の注文と商品・オプション明細。
+
+        Raises:
+            HTTPException: 端末認証失敗は401、対象セッションなしは404、取得失敗は500。
+        """
+        try:
+            return DeviceOrderService().get_order_history(mysql_session, device_uuid, visit_session_id)
+        except UnauthorizedException:
+            raise CustomHttpException.get_http_exception(
+                status_code=401,
+                message=DEVICE_AUTHENTICATION_FAILED_ERROR,
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from None
+        except VisitSessionNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=404,
+                message=VISIT_SESSION_NOT_FOUND_ERROR,
+            ) from None
+
 
     @mysql_transaction(log_error_details=False, http_500_on_error=True)
     def get_menu_categories(

@@ -13,7 +13,7 @@ _Quantity = Annotated[int, Field(strict=True, ge=1, le=4_294_967_295)]
 
 
 class DeviceOrderPathRequest(BaseModel):
-    """注文登録先の来店セッションIDを検証する。
+    """注文の登録・履歴取得で使う来店セッションIDを検証する。
 
     Args:
         visit_session_id: パスで指定された来店セッションID。

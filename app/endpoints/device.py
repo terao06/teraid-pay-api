@@ -19,6 +19,7 @@ from app.models.responses.device_access_token_response import DeviceAccessTokenR
 from app.models.responses.device_activate_response import DeviceActivateResponse
 from app.models.responses.device_menu_item_list_response import DeviceMenuItemListResponse
 from app.models.responses.device_order_create_response import DeviceOrderCreateResponse
+from app.models.responses.device_order_history_response import DeviceOrderHistoryResponse
 from app.models.responses.menu_category_response import DeviceMenuCategoryListResponse
 from app.models.responses.visit_session_start_response import VisitSessionStartResponse
 
@@ -133,6 +134,31 @@ def create_order(
     if not created:
         response.status_code = 200
     return result
+
+
+@device_router.get("/visit-sessions/{visit_session_id}/orders")
+@response_device_rapper()
+@request_device_rapper()
+def get_order_history(
+    response: Response,
+    path: Annotated[DeviceOrderPathRequest, Depends()],
+    credentials: HTTPAuthorizationCredentials | None = Depends(device_bearer_scheme),
+) -> DeviceOrderHistoryResponse:
+    """認証済み端末の来店セッションに属する注文履歴を返す。
+
+    Args:
+        response: 成功時のキャッシュ制御を設定するレスポンス。
+        path: 来店セッションIDを含む検証済みのパス入力。
+        credentials: AuthorizationヘッダーのBearer認証情報。
+
+    Returns:
+        来店セッション内の注文と保存済み明細。注文がない場合は空配列を含む。
+
+    Raises:
+        HTTPException: 端末認証失敗は401、対象セッションなしは404、取得失敗は500。
+    """
+    device_uuid = get_device_token_uuid(credentials)
+    return DeviceController().get_order_history(device_uuid=device_uuid, visit_session_id=path.visit_session_id)
 
 
 @device_router.get("/menu/categories")

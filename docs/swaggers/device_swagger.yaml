@@ -9,7 +9,7 @@ servers:
 
 tags:
   - name: Device
-    description: 端末の有効化、認証、来店セッション開始、メニューの参照
+    description: 端末の有効化、認証、来店セッション開始、メニュー参照、注文登録・履歴取得
 
 paths:
   /device/activate:
@@ -266,6 +266,65 @@ paths:
                 oneOf:
                   - $ref: '#/components/schemas/ValidationErrorResponse'
                   - $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 認証設定の取得、DB処理、またはトランザクションの確定に失敗
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags: [Device]
+      summary: デバイス側注文履歴取得
+      description: >-
+        認証済み端末自身の注文受付中または決済処理中の来店セッションについて、注文と保存済み明細を返す。
+        注文状態は取得時点の値を返す。
+      operationId: getDeviceOrderHistory
+      security:
+        - DeviceBearerAuth: []
+      parameters:
+        - name: visit_session_id
+          in: path
+          required: true
+          description: ASCIIの正の十進整数。
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+            maximum: 9223372036854775807
+      responses:
+        '200':
+          description: 注文履歴を取得した。注文がない場合は orders が空配列。
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/VisitSessionCacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceOrderHistoryResponse'
+        '401':
+          description: トークンまたは端末が利用できない
+          headers:
+            WWW-Authenticate:
+              schema:
+                type: string
+                example: Bearer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 端末自身の注文受付中または決済処理中の来店セッションが見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: 来店セッションIDの形式または範囲が不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
         '500':
           description: 認証設定の取得、DB処理、またはトランザクションの確定に失敗
           content:
@@ -579,6 +638,85 @@ components:
         token_symbol:
           type: string
           example: JPYC
+
+    DeviceOrderHistoryResponse:
+      type: object
+      required: [orders]
+      properties:
+        orders:
+          type: array
+          description: 受付日時、同時刻の場合は注文IDの降順。
+          items:
+            $ref: '#/components/schemas/DeviceOrderHistoryEntryResponse'
+    DeviceOrderHistoryEntryResponse:
+      type: object
+      required: [menu_order_id, created_at, status, total_amount, token_symbol, items]
+      properties:
+        menu_order_id:
+          type: integer
+          format: int64
+          example: 456
+        created_at:
+          type: string
+          format: date-time
+          description: UTCの注文受付日時。
+          example: '2026-11-21T03:00:00Z'
+        status:
+          type: integer
+          enum: [1, 2, 3, 4, 5]
+          description: 1は未払い、2は決済処理中、3は支払済み、4は決済失敗、5はキャンセル。
+          example: 1
+        total_amount:
+          type: string
+          description: 小数点以下6桁の注文合計金額。
+          example: '1400.000000'
+        token_symbol:
+          type: string
+          example: JPYC
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceOrderHistoryItemResponse'
+    DeviceOrderHistoryItemResponse:
+      type: object
+      required: [menu_item_name, unit_price, quantity, line_amount, options]
+      properties:
+        menu_item_name:
+          type: string
+          example: チーズバーガー
+        unit_price:
+          type: string
+          description: 小数点以下6桁の基本単価。
+          example: '600.000000'
+        quantity:
+          type: integer
+          example: 2
+        line_amount:
+          type: string
+          description: オプション料金と商品数量を反映した小数点以下6桁の明細金額。
+          example: '1400.000000'
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceOrderHistoryOptionResponse'
+    DeviceOrderHistoryOptionResponse:
+      type: object
+      required: [option_group_name, option_name, additional_price, option_quantity]
+      properties:
+        option_group_name:
+          type: string
+          example: トッピング
+        option_name:
+          type: string
+          example: チーズ追加
+        additional_price:
+          type: string
+          description: 小数点以下6桁のオプション追加単価。
+          example: '100.000000'
+        option_quantity:
+          type: integer
+          description: 商品1個当たりの数量。
+          example: 1
 
     DeviceMenuCategoryListResponse:
       type: object
