@@ -7,13 +7,9 @@ from sqlalchemy.engine import RowMapping
 from sqlalchemy.orm import Session
 
 from app.models.mysql.device import Device
-from app.models.mysql.menu_order import (
-    MenuOrder,
-    MenuOrderItem,
-    MenuOrderItemOption,
-    OrderFulfillmentStatus,
-    OrderStatus,
-)
+from app.models.mysql.menu_order import MenuOrder, OrderFulfillmentStatus, OrderStatus
+from app.models.mysql.menu_order_item import MenuOrderItem
+from app.models.mysql.menu_order_item_option import MenuOrderItemOption
 from app.models.mysql.visit_session import VisitSession
 
 
