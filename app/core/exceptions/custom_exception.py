@@ -51,6 +51,28 @@ class VisitSessionNotFoundException(Exception):
     pass
 
 
+class DeviceOrderConflictException(Exception):
+    """同じキーで異なる注文が登録済みであることを表す。
+
+    Args:
+        なし。
+
+    Returns:
+        冪等性キーの競合を表す例外。
+    """
+
+
+class DeviceOrderInvalidException(Exception):
+    """カートの内容が注文の登録条件を満たさないことを表す。
+
+    Args:
+        なし。
+
+    Returns:
+        注文内容の不備を表す例外。
+    """
+
+
 class DeviceActivationStateInvalidException(Exception):
     pass
 

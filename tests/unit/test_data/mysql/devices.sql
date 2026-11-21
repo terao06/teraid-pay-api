@@ -72,3 +72,12 @@ INSERT INTO devices (
         SHA2('test-device-menu-items-credential', 256), NOW(), TRUE, NOW(), NOW(), NULL),
     (861002, 112, 'カテゴリー別メニューの他店舗端末', '86100200-0000-4000-8000-000000861002',
         SHA2('test-device-menu-items-credential', 256), NOW(), TRUE, NOW(), NOW(), NULL);
+
+-- fixture: device_orders
+INSERT INTO devices (
+    device_id, store_id, device_name, device_uuid, device_credential_hash, activated_at, is_active, created_at, updated_at
+) VALUES
+    (881001, 113, 'Order Device', '88100100-0000-4000-8000-000000881001',
+        SHA2('test-device-order-credential', 256), NOW(), TRUE, NOW(), NOW()),
+    (881002, 113, 'Disabled Order Device', '88100200-0000-4000-8000-000000881002',
+        SHA2('test-device-order-credential', 256), NOW(), FALSE, NOW(), NOW());

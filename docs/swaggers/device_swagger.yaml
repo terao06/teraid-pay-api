@@ -181,6 +181,98 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /device/visit-sessions/{visit_session_id}/orders:
+    post:
+      tags: [Device]
+      summary: 注文登録
+      description: >-
+        認証済み端末の来店セッションに未払いの注文を登録する。
+        1件の注文に使うトークンは1種類とし、グループの選択数にはオプション数量の合計を使う。
+        同じ注文の再送には保存済みの金額を返す。
+      operationId: createDeviceOrder
+      security:
+        - DeviceBearerAuth: []
+      parameters:
+        - name: visit_session_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+            maximum: 9223372036854775807
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: 全注文で一意のキー。同じ注文を再送するときは同じキーを使用する。
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 64
+            pattern: '\S'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceOrderCreateRequest'
+      responses:
+        '200':
+          description: 同じ店舗・来店セッション・内容の登録済み注文を返した
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/VisitSessionCacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceOrderCreateResponse'
+        '201':
+          description: 未払いの注文を登録した
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/VisitSessionCacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceOrderCreateResponse'
+        '401':
+          description: トークンまたは端末が利用できない
+          headers:
+            WWW-Authenticate:
+              schema:
+                type: string
+                example: Bearer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 端末自身の注文受付中の来店セッションが見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: 同じキーで店舗・来店セッション・注文内容の異なる注文が登録済み
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: 入力の形式・範囲、または注文内容が不正
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ValidationErrorResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 認証設定の取得、DB処理、またはトランザクションの確定に失敗
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /device/menu/categories:
     get:
       tags: [Device]
@@ -435,6 +527,59 @@ components:
           format: int64
           description: 新規または既存の来店セッションID
           example: 123
+    DeviceOrderCreateRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [menu_item_id, quantity, options]
+            properties:
+              menu_item_id:
+                type: integer
+                format: int64
+                minimum: 1
+                maximum: 9223372036854775807
+              quantity:
+                type: integer
+                minimum: 1
+                maximum: 4294967295
+              options:
+                type: array
+                description: 商品1個当たりの選択内容。選択しない場合は空配列。
+                items:
+                  type: object
+                  required: [menu_option_id, option_quantity]
+                  properties:
+                    menu_option_id:
+                      type: integer
+                      format: int64
+                      minimum: 1
+                      maximum: 9223372036854775807
+                    option_quantity:
+                      type: integer
+                      minimum: 1
+                      maximum: 4294967295
+
+    DeviceOrderCreateResponse:
+      type: object
+      required: [menu_order_id, total_amount, token_symbol]
+      properties:
+        menu_order_id:
+          type: integer
+          format: int64
+          example: 456
+        total_amount:
+          type: string
+          description: 小数点以下6桁の合計金額。
+          example: '1400.000000'
+        token_symbol:
+          type: string
+          example: JPYC
+
     DeviceMenuCategoryListResponse:
       type: object
       required: [menu_categories]
