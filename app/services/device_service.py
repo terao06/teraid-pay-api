@@ -1,7 +1,7 @@
-"""端末の有効化、認証、来店セッション開始、メニュー参照の業務処理を提供する。"""
+"""端末の有効化、認証、来店セッションの開始・終了、メニュー参照の業務処理を提供する。"""
 
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
@@ -12,9 +12,11 @@ from app.core.exceptions.custom_exception import (
     DeviceActivationCodeInvalidException,
     MenuCategoryNotFoundException,
     UnauthorizedException,
+    VisitSessionCompletionConflictException,
     VisitSessionConflictException,
     VisitSessionNotFoundException,
 )
+from app.core.exceptions.message import DEVICE_CHECKOUT_PROCESSING_ERROR, VISIT_SESSION_UNPAID_ORDERS_ERROR
 from app.core.utils.datetime import JST
 from app.core.utils.device_activation import hash_device_secret
 from app.core.utils.device_auth import DeviceAuthUtil
@@ -33,6 +35,7 @@ from app.models.responses.menu_category_response import (
     DeviceMenuCategoryListResponse,
     MenuCategoryDisplayResponse,
 )
+from app.repositories.mysql.device_order_repository import DeviceOrderRepository
 from app.repositories.mysql.device_repository import DeviceRepository
 from app.repositories.mysql.store_menu_category_repository import StoreMenuCategoryRepository
 from app.repositories.mysql.store_menu_repository import StoreMenuRepository
@@ -197,6 +200,39 @@ class DeviceService:
             visit_session=visit_session,
         )
         return saved_visit_session.visit_session_id, True
+
+    def complete_visit_session(self, mysql_session: Session, device_uuid: str, visit_session_id: int) -> None:
+        """対象セッションをロックし、未払い注文と進行中の決済がなければ終了する。
+
+        Args:
+            mysql_session: トランザクション中のMySQLセッション。
+            device_uuid: 検証済み端末アクセストークンのUUID。
+            visit_session_id: 終了対象の来店セッションID。
+
+        Returns:
+            なし。終了済みのセッションへの再送も成功として扱う。
+
+        Raises:
+            UnauthorizedException: 端末が未登録、未有効化、停止、または削除済みの場合。
+            VisitSessionNotFoundException: 対象が存在しないか、端末にひもづいていない場合。
+            VisitSessionCompletionConflictException: 決済処理中、または未払い注文がある場合。
+        """
+        device = DeviceRepository().get_device_by_uuid_for_update(mysql_session, device_uuid)
+        if device is None or device.activated_at is None or not device.is_active:
+            raise UnauthorizedException()
+
+        visit = VisitSessionRepository().get_visit_session_for_update(mysql_session, device.device_id, visit_session_id)
+        if visit is None:
+            raise VisitSessionNotFoundException()
+        if visit.status == VisitSessionStatus.CLOSED:
+            return
+        if visit.status == VisitSessionStatus.CHECKOUT_PROCESSING:
+            raise VisitSessionCompletionConflictException(DEVICE_CHECKOUT_PROCESSING_ERROR)
+        if DeviceOrderRepository().has_unpaid_orders(mysql_session, device.store_id, visit_session_id):
+            raise VisitSessionCompletionConflictException(VISIT_SESSION_UNPAID_ORDERS_ERROR)
+
+        visit.status = VisitSessionStatus.CLOSED
+        visit.ended_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
     def get_menu_categories(
         self,

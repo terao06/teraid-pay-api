@@ -49,3 +49,8 @@ INSERT INTO stores (store_id, name, email, created_at, updated_at) VALUES
 -- fixture: face_checkout_payment
 INSERT INTO stores (store_id, name, email, created_at, updated_at) VALUES
     (9201, 'Face Checkout Store', 'face-checkout@example.com', NOW(), NOW());
+
+-- fixture: complete_visit_session
+INSERT INTO stores (store_id, name, email, created_at, updated_at) VALUES
+    (9301, 'Visit Completion Test Store', 'visit-completion@example.com', NOW(), NOW()),
+    (9302, 'Visit Completion Other Store', 'visit-completion-other@example.com', NOW(), NOW());

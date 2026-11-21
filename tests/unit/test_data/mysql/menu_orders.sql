@@ -74,3 +74,15 @@ INSERT INTO menu_orders (
     (913023, 'payment-result-3', 912023, 9201, 100.125000, 1, NULL),
     (913024, 'payment-result-4', 912024, 9201, 100.125000, 1, NULL),
     (913025, 'payment-result-1-unselected', 912021, 9201, 50.250000, 1, NULL);
+
+-- fixture: complete_visit_session
+INSERT INTO menu_orders (
+    menu_order_id, idempotency_key, visit_session_id, store_id, total_amount, status, paid_at, deleted_at
+) VALUES
+    (933001, 'complete-order-paid', 932001, 9301, 300.000000, 3, UTC_TIMESTAMP(), NULL),
+    (933002, 'complete-order-canceled', 932001, 9301, 300.000000, 5, NULL, NULL),
+    (933003, 'complete-order-deleted', 932001, 9301, 300.000000, 1, NULL, UTC_TIMESTAMP()),
+    (933004, 'complete-order-other-store', 932001, 9302, 300.000000, 1, NULL, NULL),
+    (933005, 'complete-order-paid-at', 932001, 9301, 300.000000, 1, UTC_TIMESTAMP(), NULL),
+    (933006, 'complete-order-unpaid', 932002, 9301, 300.000000, 1, NULL, NULL),
+    (933007, 'complete-order-payment-failed', 932004, 9301, 300.000000, 4, NULL, NULL);

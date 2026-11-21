@@ -340,6 +340,19 @@ def insert_visit_session_data(engine: Engine) -> tuple[str, str, str]:
     )
 
 
+def insert_visit_session_completion_data(engine: Engine) -> tuple[str, ...]:
+    """来店セッション終了の専用店舗、端末、セッション、注文を依存順で投入する。
+
+    Args:
+        engine: 初期化済みのテスト用MySQL Engine。
+
+    Returns:
+        データを投入したテーブル単位のSQLファイル名。
+    """
+    sql_files = ("stores.sql", "devices.sql", "visit_sessions.sql", "menu_orders.sql")
+    return tuple(_execute_sql_file(engine, sql_file, "complete_visit_session") for sql_file in sql_files)
+
+
 def insert_users(engine) -> str:
     return _execute_sql_file(engine, "users.sql")
 
