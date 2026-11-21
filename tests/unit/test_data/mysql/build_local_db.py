@@ -52,10 +52,18 @@ def detect_driver() -> str:
 
 
 def build_database_url() -> str:
+    """ホストからテスト用MySQLへ接続するURLを組み立てる。
+
+    Returns:
+        環境変数の接続設定を反映したSQLAlchemy用のURL。既定ポートは13307。
+
+    Raises:
+        RuntimeError: 利用できるMySQLドライバーが見つからない場合。
+    """
     user = os.getenv("DB_USER", "teraid_pay_admin_user")
     password = os.getenv("DB_PASSWORD", "password")
     host = os.getenv("DB_HOST", "127.0.0.1")
-    port = os.getenv("DB_PORT", "3307")
+    port = os.getenv("DB_PORT", "13307")
     database = os.getenv("DB_NAME", "db_local")
     driver = detect_driver()
     return f"mysql+{driver}://{user}:{password}@{host}:{port}/{database}?charset=utf8mb4"
