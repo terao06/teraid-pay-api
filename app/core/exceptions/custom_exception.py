@@ -43,6 +43,10 @@ class DeviceActivationCodeInvalidException(Exception):
     pass
 
 
+class VisitSessionConflictException(Exception):
+    pass
+
+
 class DeviceActivationStateInvalidException(Exception):
     pass
 

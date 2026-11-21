@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import Engine
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
 
@@ -193,6 +194,22 @@ def insert_device_activation_data(engine) -> str:
 
 def insert_device_access_token_data(engine) -> str:
     return _execute_sql_file(engine, "devices.sql", "issue_device_access_token")
+
+
+def insert_visit_session_data(engine: Engine) -> tuple[str, str, str]:
+    """来店セッションのテスト専用の店舗、端末、既存セッションを投入する。
+
+    Args:
+        engine: 初期化済みのテスト用MySQL Engine。
+
+    Returns:
+        データの投入元となった3つのSQLファイル名。
+    """
+    return (
+        _execute_sql_file(engine, "stores.sql", "start_visit_session"),
+        _execute_sql_file(engine, "devices.sql", "start_visit_session"),
+        _execute_sql_file(engine, "visit_sessions.sql"),
+    )
 
 
 def insert_users(engine) -> str:

@@ -40,3 +40,23 @@ INSERT INTO devices (
         NOW(), TRUE, NOW(), NOW(), NULL),
     (810056, 101, '資格情報不一致のテスト用端末', '81005600-0000-4000-8000-000000000056', SHA2('test-device-access-credential', 256),
         NOW(), TRUE, NOW(), NOW(), NULL);
+
+-- fixture: start_visit_session
+INSERT INTO devices (
+    device_id, store_id, device_name, device_uuid, device_credential_hash,
+    activated_at, is_active, created_at, updated_at, deleted_at
+) VALUES
+    (810061, 109, 'セッション開始端末', '81006100-0000-4000-8000-000000000061',
+        SHA2('test-visit-session-credential', 256), NOW(), TRUE, NOW(), NOW(), NULL),
+    (810062, 109, '終了済みセッションの端末', '81006200-0000-4000-8000-000000000062',
+        SHA2('test-visit-session-credential', 256), NOW(), TRUE, NOW(), NOW(), NULL),
+    (810063, 109, '同じ開始要求の並行テスト端末', '81006300-0000-4000-8000-000000000063',
+        SHA2('test-visit-session-credential', 256), NOW(), TRUE, NOW(), NOW(), NULL),
+    (810064, 109, '別の開始要求の並行テスト端末', '81006400-0000-4000-8000-000000000064',
+        SHA2('test-visit-session-credential', 256), NOW(), TRUE, NOW(), NOW(), NULL),
+    (810065, 109, '決済処理中セッションの端末', '81006500-0000-4000-8000-000000000065',
+        SHA2('test-visit-session-credential', 256), NOW(), TRUE, NOW(), NOW(), NULL),
+    (810066, 110, '別店舗のセッション端末', '81006600-0000-4000-8000-000000000066',
+        SHA2('test-visit-session-credential', 256), NOW(), TRUE, NOW(), NOW(), NULL),
+    (810067, 109, '永続化テスト用端末', '81006700-0000-4000-8000-000000000067',
+        SHA2('test-visit-session-credential', 256), NOW(), TRUE, NOW(), NOW(), NULL);
