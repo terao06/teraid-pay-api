@@ -2,14 +2,15 @@
 
 from collections.abc import Sequence
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.core.utils.datetime import JST
 from app.models.mysql.menu_checkout import MenuCheckout
 from app.models.mysql.menu_checkout_order import MenuCheckoutOrder
-from app.models.mysql.menu_order import CHECKOUT_UNPAID_STATUSES, MenuOrder
+from app.models.mysql.menu_order import CHECKOUT_UNPAID_STATUSES, MenuOrder, OrderStatus
 from app.models.mysql.payment_request import PaymentRequest, PaymentStatus
 from app.models.mysql.visit_session import VisitSession
 
@@ -144,7 +145,7 @@ class DevicePaymentRepository:
     def get_requested_payment(
         self, mysql_session: Session, checkout_id: int, payment_request_id: int
     ) -> PaymentRequest | None:
-        """指定された会計から、更新対象の未送信試行を取得する。
+        """指定された会計の未送信試行をロックし、確定処理との更新競合を防ぐ。
 
         Args:
             mysql_session: 決済試行を更新するトランザクションのMySQLセッション。
@@ -160,8 +161,99 @@ class DevicePaymentRepository:
                 PaymentRequest.payment_request_id == payment_request_id,
                 PaymentRequest.status == PaymentStatus.REQUESTED,
                 PaymentRequest.deleted_at.is_(None),
+            ).with_for_update()
+        )
+
+    def get_payment_for_result(
+        self, mysql_session: Session, device_id: int, store_id: int, checkout_id: int, payment_request_id: int
+    ) -> tuple[PaymentRequest, VisitSession] | None:
+        """端末が所有する会計の決済試行と現在の来店セッションを一度に取得する。
+
+        Args:
+            mysql_session: DB参照用のMySQLセッション。
+            device_id: 認証済み端末ID。
+            store_id: 端末の所属店舗ID。
+            checkout_id: 照会対象の会計ID。
+            payment_request_id: 照会対象の決済試行ID。
+
+        Returns:
+            未削除の決済試行と来店セッションの組。対象がなければNone。
+        """
+        statement = (
+            select(PaymentRequest, VisitSession)
+            .join(MenuCheckout, MenuCheckout.checkout_id == PaymentRequest.checkout_id)
+            .join(VisitSession, VisitSession.visit_session_id == MenuCheckout.visit_session_id)
+            .where(
+                VisitSession.device_id == device_id,
+                MenuCheckout.checkout_id == checkout_id,
+                PaymentRequest.payment_request_id == payment_request_id,
+                PaymentRequest.store_id == store_id,
+                PaymentRequest.deleted_at.is_(None),
             )
         )
+        row = mysql_session.execute(statement).tuples().one_or_none()
+        return (row[0], row[1]) if row is not None else None
+
+    def get_payment_for_update(
+        self, mysql_session: Session, store_id: int, checkout_id: int, payment_request_id: int
+    ) -> PaymentRequest | None:
+        """ロック済みの会計に紐づく決済試行を排他ロックする。
+
+        Args:
+            mysql_session: 決済結果を確定するMySQLセッション。
+            store_id: 認証済み端末の所属店舗ID。
+            checkout_id: ロック済みの会計ID。
+            payment_request_id: ロック対象の決済試行ID。
+
+        Returns:
+            ロック済みの決済試行。対象がなければNone。
+        """
+        return mysql_session.scalar(
+            select(PaymentRequest).where(
+                PaymentRequest.checkout_id == checkout_id,
+                PaymentRequest.payment_request_id == payment_request_id,
+                PaymentRequest.store_id == store_id,
+                PaymentRequest.deleted_at.is_(None),
+            ).with_for_update()
+        )
+
+    def get_checkout_orders_for_update(
+        self, mysql_session: Session, checkout_id: int
+    ) -> Sequence[tuple[MenuOrder, Decimal]]:
+        """会計の対象注文と保存済み金額を結合して取得し、行をロックする。
+
+        Args:
+            mysql_session: 決済結果を確定するMySQLセッション。
+            checkout_id: ロック済みの会計ID。
+
+        Returns:
+            対象注文と会計時点の注文金額の組。
+        """
+        statement = (
+            select(MenuOrder, MenuCheckoutOrder.order_amount)
+            .join(MenuCheckoutOrder, MenuCheckoutOrder.menu_order_id == MenuOrder.menu_order_id)
+            .where(MenuCheckoutOrder.checkout_id == checkout_id)
+            .with_for_update()
+        )
+        return mysql_session.execute(statement).tuples().all()
+
+    def mark_checkout_orders_paid(self, mysql_session: Session, order_ids: Sequence[int]) -> int:
+        """検証済みの全対象注文を支払済みに更新する。
+
+        Args:
+            mysql_session: 対象注文をロック済みのMySQLセッション。
+            order_ids: 会計に紐づく検証済みの注文ID。
+
+        Returns:
+            支払済みにした注文件数。
+        """
+        result = mysql_session.execute(
+            update(MenuOrder)
+            .where(MenuOrder.menu_order_id.in_(order_ids))
+            .values(status=OrderStatus.PAID.value, paid_at=func.utc_timestamp())
+            .execution_options(synchronize_session=False)
+        )
+        return result.rowcount
 
     def create_payment_request(self, mysql_session: Session, payment_request: PaymentRequest) -> PaymentRequest:
         """会計に紐づく決済試行を登録し、IDを確定する。

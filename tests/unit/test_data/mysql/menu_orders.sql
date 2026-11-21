@@ -68,4 +68,9 @@ INSERT INTO menu_orders (
     (913008, 'face-checkout-deleted', 912001, 9201, 10.000000, 1, NOW()),
     (913009, 'face-checkout-canceled', 912001, 9201, 10.000000, 5, NULL),
     (913010, 'face-checkout-timeout-unselected', 912002, 9201, 20.000000, 1, NULL),
-    (913011, 'face-checkout-update-failure', 912006, 9201, 600.175000, 1, NULL);
+    (913011, 'face-checkout-update-failure', 912006, 9201, 600.175000, 1, NULL),
+    (913021, 'payment-result-1', 912021, 9201, 100.125000, 1, NULL),
+    (913022, 'payment-result-2', 912022, 9201, 100.125000, 1, NULL),
+    (913023, 'payment-result-3', 912023, 9201, 100.125000, 1, NULL),
+    (913024, 'payment-result-4', 912024, 9201, 100.125000, 1, NULL),
+    (913025, 'payment-result-1-unselected', 912021, 9201, 50.250000, 1, NULL);

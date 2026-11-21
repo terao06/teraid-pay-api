@@ -512,6 +512,79 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /device/checkouts/{checkout_id}/payments/{payment_request_id}/verify:
+    post:
+      tags: [Device]
+      summary: 決済結果確認
+      description: 端末の会計に紐づく決済試行を照会し、確定時に会計・注文・来店セッションへ反映する。
+      operationId: verifyDevicePayment
+      security:
+        - DeviceBearerAuth: []
+      parameters:
+        - name: checkout_id
+          in: path
+          required: true
+          description: ASCIIの正の十進整数。
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+            maximum: 9223372036854775807
+        - name: payment_request_id
+          in: path
+          required: true
+          description: 決済開始APIが返した決済試行ID。
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+            maximum: 9223372036854775807
+      responses:
+        '200':
+          description: 決済状態と現在の来店セッション状態
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/VisitSessionCacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevicePaymentResultResponse'
+        '401':
+          description: トークンまたは端末が利用できない
+          headers:
+            WWW-Authenticate:
+              schema:
+                type: string
+                example: Bearer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 端末に紐づく会計または決済試行が見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: 会計IDまたは決済試行IDの形式が不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '500':
+          description: 決済確定に必要なデータが不整合、または内部処理に失敗
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: ブロックチェーンRPCの障害により照会できない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /device/menu/categories:
     get:
       tags: [Device]
@@ -873,6 +946,23 @@ components:
           type: string
           enum: [requested, submitted, confirming, paid, tx_failed, verify_failed, canceled, error]
           example: submitted
+    DevicePaymentResultResponse:
+      type: object
+      required: [payment_request_id, status, visit_session_status]
+      properties:
+        payment_request_id:
+          type: integer
+          format: int64
+          example: 901
+        status:
+          type: string
+          description: 送金準備中または未確定の場合はconfirmingを返す。
+          enum: [confirming, paid, tx_failed, verify_failed, canceled, error]
+          example: paid
+        visit_session_status:
+          type: string
+          enum: [active, checkout_processing, closed]
+          example: active
     DeviceCheckoutCreateResponse:
       type: object
       required: [checkout_id, orders, total_amount, token_symbol]
