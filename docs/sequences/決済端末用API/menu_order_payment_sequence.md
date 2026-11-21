@@ -88,13 +88,13 @@ sequenceDiagram
                         API-->>Client: 404または400エラー
                     else 決済可能
                         critical 注文と決済リクエストを登録
-                            API->>Orders: 注文登録<br/>status=pending_payment
+                            API->>Orders: 注文登録<br/>status=1（PENDING_PAYMENT）
                             Orders-->>API: menu_order_id
                             API->>OrderItems: 商品明細・商品名・基本単価登録
                             API->>OrderItemOptions: 選択オプション・追加料金登録
                             API->>Payments: 決済リクエスト登録<br/>menu_order_id, amount, status=requested
                             Payments-->>API: payment_request_id
-                            API->>Orders: status=payment_processing
+                            API->>Orders: status=2（PAYMENT_PROCESSING）
                         end
 
                         API->>Payments: REQUESTEDの決済リクエスト取得
@@ -104,7 +104,7 @@ sequenceDiagram
 
                         alt 送信失敗
                             API->>Payments: status=error
-                            API->>Orders: status=payment_failed
+                            API->>Orders: status=4（PAYMENT_FAILED）
                             API-->>Client: 決済失敗
                         else 送信成功
                             Chain-->>API: transaction_hash
@@ -147,7 +147,7 @@ sequenceDiagram
             API-->>Client: confirming
         else receipt.status == 0
             API->>Payments: status=tx_failed
-            API->>Orders: status=payment_failed
+            API->>Orders: status=4（PAYMENT_FAILED）
             API-->>Client: tx_failed（決済終了）
         else receipt.status == 1
             API->>Chain: PaymentProcessedイベント検証<br/>menu_order_id基準のpaymentId
@@ -155,11 +155,11 @@ sequenceDiagram
 
             alt イベント検証失敗
                 API->>Payments: status=verify_failed
-                API->>Orders: status=payment_failed
+                API->>Orders: status=4（PAYMENT_FAILED）
                 API-->>Client: verify_failed（決済終了）
             else イベント検証成功
                 API->>Payments: status=paid
-                API->>Orders: status=paid, paid_at設定
+                API->>Orders: status=3（PAID）, paid_at設定
                 API-->>Client: paid（決済終了）
             end
         end
