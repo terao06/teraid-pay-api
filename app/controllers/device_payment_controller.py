@@ -9,6 +9,7 @@ from app.core.exceptions.custom_exception import (
     FaceEmbeddingNotFoundException,
     FaceNotFoundException,
     InsufficientFundsError,
+    PaymentRequestNotFoundException,
     SameFaceFoundException,
     UnauthorizedException,
     UserNotFoundException,
@@ -23,14 +24,18 @@ from app.core.exceptions.message import (
     FACE_NOTE_FOUND_ERROR,
     INSUFFICIENT_FUNDS_ERROR,
     NOT_MATCH_ERROR,
+    PAYMENT_INFO_NOT_FOUND,
     SAME_FACE_FOUND_ERROR,
     SERVER_ERROR,
     USER_NOT_FOUND_ERROR,
     WALLET_NOT_FOUND_ERROR,
     WALLET_NOT_PERMITTED_ERROR,
 )
+from app.helpers.device_payment_chain_helper import DevicePaymentRpcUnavailable
 from app.models.requests.device_face_payment_request import DeviceFacePaymentRequest
 from app.models.responses.device_face_payment_response import DeviceFacePaymentResponse
+from app.models.responses.device_payment_result_response import DevicePaymentResultResponse
+from app.services.device_payment_result_service import DevicePaymentResultService
 from app.services.device_payment_service import DevicePaymentService
 
 logger = logging.getLogger(__name__)
@@ -95,4 +100,38 @@ class DevicePaymentController:
             raise CustomHttpException.get_http_exception(status_code=status, message=message) from None
         except Exception as error:
             logger.error("顔認証決済の開始に失敗しました (%s)", type(error).__name__)
+            raise CustomHttpException.get_http_exception(status_code=500, message=SERVER_ERROR) from None
+
+    def verify_payment(
+        self, device_uuid: str, checkout_id: int, payment_request_id: int
+    ) -> DevicePaymentResultResponse:
+        """決済結果と確認時の業務エラーをHTTP応答に変換する。
+
+        Args:
+            device_uuid: 検証済みの端末UUID。
+            checkout_id: 決済対象の会計ID。
+            payment_request_id: 照会する決済試行ID。
+
+        Returns:
+            決済状態と来店セッション状態。
+
+        Raises:
+            HTTPException: 端末認証、照会対象の取得、または決済確認に失敗した場合。
+        """
+        try:
+            return DevicePaymentResultService().verify_payment(device_uuid, checkout_id, payment_request_id)
+        except UnauthorizedException:
+            raise CustomHttpException.get_http_exception(
+                status_code=401,
+                message=DEVICE_AUTHENTICATION_FAILED_ERROR,
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from None
+        except PaymentRequestNotFoundException:
+            raise CustomHttpException.get_http_exception(status_code=404, message=PAYMENT_INFO_NOT_FOUND) from None
+        except DevicePaymentRpcUnavailable:
+            raise CustomHttpException.get_http_exception(
+                status_code=503, message="決済結果を確認できませんでした。"
+            ) from None
+        except Exception as error:
+            logger.error("決済結果の確認に失敗しました (%s)", type(error).__name__)
             raise CustomHttpException.get_http_exception(status_code=500, message=SERVER_ERROR) from None
