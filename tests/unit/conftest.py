@@ -25,6 +25,7 @@ from tests.unit.test_data.mysql.build_local_db import (
     insert_menu_mutation_stores as load_menu_mutation_stores,
     insert_menu_option_groups_update as load_menu_option_groups_update,
     insert_sample_data as load_mysql_sample_data,
+    insert_visit_session_data as load_visit_session_data,
 )
 from tests.unit.test_data.postgres.build_local_db import (
     build_database_url as build_postgres_database_url,
@@ -240,6 +241,19 @@ def insert_device_activation_data(mysql_engine: Engine) -> str:
 @pytest.fixture(scope="session")
 def insert_device_access_token_data(mysql_engine: Engine) -> str:
     return load_device_access_token_data(mysql_engine)
+
+
+@pytest.fixture(scope="session")
+def insert_visit_session_data(mysql_engine: Engine) -> tuple[str, str, str]:
+    """来店セッションテスト専用の店舗、端末、セッションを投入する。
+
+    Args:
+        mysql_engine: 初期化済みのテスト用MySQL Engine。
+
+    Returns:
+        データの投入元となった3つのSQLファイル名。
+    """
+    return load_visit_session_data(mysql_engine)
 
 
 @pytest.fixture()

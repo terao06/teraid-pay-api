@@ -8,17 +8,21 @@ from app.core.exceptions.custom_exception import (
     CustomHttpException,
     DeviceActivationCodeInvalidException,
     UnauthorizedException,
+    VisitSessionConflictException,
 )
 from app.core.exceptions.message import (
     DEVICE_ACTIVATION_CODE_INVALID_ERROR,
     DEVICE_AUTHENTICATION_FAILED_ERROR,
     SERVER_ERROR,
+    VISIT_SESSION_CONFLICT_ERROR,
 )
 from app.middlewares.transaction import mysql_transaction
 from app.models.requests.device_access_token_request import DeviceAccessTokenRequest
 from app.models.requests.device_activate_request import DeviceActivateRequest
+from app.models.requests.visit_session_start_request import VisitSessionStartRequest
 from app.models.responses.device_access_token_response import DeviceAccessTokenResponse
 from app.models.responses.device_activate_response import DeviceActivateResponse
+from app.models.responses.visit_session_start_response import VisitSessionStartResponse
 from app.services.device_service import DeviceService
 
 
@@ -101,6 +105,52 @@ class DeviceController:
             ) from None
         except Exception as error:
             logger.error("端末アクセストークン発行処理に失敗しました (%s)", type(error).__name__)
+            raise CustomHttpException.get_http_exception(
+                status_code=500,
+                message=SERVER_ERROR,
+            ) from None
+
+
+    @mysql_transaction(log_error_details=False, http_500_on_error=True)
+    def start_visit_session(
+        self,
+        mysql_session: Session,
+        device_uuid: str,
+        request: VisitSessionStartRequest,
+    ) -> tuple[VisitSessionStartResponse, bool]:
+        """端末の利用状態を確認し、来店セッション開始の結果をコミットする。
+
+        Args:
+            mysql_session: デコレーターが渡すMySQLセッション。
+            device_uuid: 検証済み端末アクセストークンに含まれるUUID。
+            request: 検証済みの来店セッション開始リクエスト。
+
+        Returns:
+            来店セッションのレスポンスと、新規作成した場合にTrueとなるフラグ。
+
+        Raises:
+            HTTPException: 端末が利用できない場合は401、競合は409、処理失敗は500。
+        """
+        try:
+            visit_session_id, created = DeviceService().start_visit_session(
+                mysql_session=mysql_session,
+                device_uuid=device_uuid,
+                start_request_id=request.start_request_id,
+            )
+            return VisitSessionStartResponse(visit_session_id=visit_session_id), created
+        except UnauthorizedException:
+            raise CustomHttpException.get_http_exception(
+                status_code=401,
+                message=DEVICE_AUTHENTICATION_FAILED_ERROR,
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from None
+        except VisitSessionConflictException:
+            raise CustomHttpException.get_http_exception(
+                status_code=409,
+                message=VISIT_SESSION_CONFLICT_ERROR,
+            ) from None
+        except Exception as error:
+            logger.error("来店セッション開始処理に失敗しました (%s)", type(error).__name__)
             raise CustomHttpException.get_http_exception(
                 status_code=500,
                 message=SERVER_ERROR,

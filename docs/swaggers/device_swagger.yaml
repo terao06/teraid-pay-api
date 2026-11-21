@@ -9,7 +9,7 @@ servers:
 
 tags:
   - name: Device
-    description: 端末の有効化と認証
+    description: 端末の有効化、認証、来店セッション開始
 
 paths:
   /device/activate:
@@ -118,7 +118,81 @@ paths:
                   status: error
                   message: 予期せぬエラーが発生しました。
 
+  /device/visit-sessions:
+    post:
+      tags: [Device]
+      summary: 来店セッション開始
+      description: 認証済み端末の来店セッションを開始する。同じ開始要求のセッションが進行中の場合は既存のIDを返す。
+      operationId: startVisitSession
+      security:
+        - DeviceBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VisitSessionStartRequest'
+      responses:
+        '200':
+          description: 同じ開始要求に対応する進行中のセッションを返した
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/VisitSessionCacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitSessionStartResponse'
+        '201':
+          description: 新規セッションを作成した
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/VisitSessionCacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitSessionStartResponse'
+        '401':
+          description: 端末アクセストークンが利用できないか、対象端末が利用できない
+          headers:
+            WWW-Authenticate:
+              schema:
+                type: string
+                example: Bearer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: 同じ開始要求に対応するセッションが終了済み、または別のセッションが進行中
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: JSONの形式または開始要求IDの値が不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '500':
+          description: 来店セッション開始処理に失敗
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
+  securitySchemes:
+    DeviceBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  headers:
+    VisitSessionCacheControl:
+      description: 来店セッションの成功レスポンスのキャッシュ禁止
+      schema:
+        type: string
+        example: no-store
   schemas:
     DeviceActivateRequest:
       type: object
@@ -169,6 +243,25 @@ components:
           minimum: 1
           description: アクセストークンの有効期間（秒）。
           example: 300
+    VisitSessionStartRequest:
+      type: object
+      required: [start_request_id]
+      properties:
+        start_request_id:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: 開始操作ごとに端末で生成し、同じ操作の再送では同じ値を使用する。空白のみの値は不可。
+          example: b93c8a2b-5464-47b2-b87d-e36e7f2a64e4
+    VisitSessionStartResponse:
+      type: object
+      required: [visit_session_id]
+      properties:
+        visit_session_id:
+          type: integer
+          format: int64
+          description: 新規または既存の来店セッションID
+          example: 123
     ErrorResponse:
       type: object
       required: [detail]
