@@ -37,6 +37,7 @@ from app.core.exceptions.message import (
     DEVICE_CHECKOUT_PROCESSING_ERROR,
 )
 from app.core.utils.datetime import JST
+from app.helpers.device_payment_chain_helper import DevicePaymentChainHelper
 from app.helpers.face_helper import FaceHelper
 from app.middlewares.transaction import get_mysql_db, get_postgres_db
 from app.models.mysql.device import Device
@@ -79,6 +80,27 @@ _ERC20_BALANCE_ABI = [
         "type": "function",
     },
 ]
+
+
+def verify_checkout_payment_on_chain(payment: PaymentRequest) -> PaymentStatus:
+    """保存されたチェーンIDと送信ハッシュで端末会計の決済結果を照会する。
+
+    Args:
+        payment: DBから取得済みの端末決済試行。
+
+    Returns:
+        支払済み、失敗確定、または確認中の状態。
+
+    Raises:
+        DevicePaymentRpcUnavailable: RPC照会が失敗した場合。
+        ValueError: チェーンやコントラクトの設定が不正な場合。
+    """
+    chain = get_chain_config(payment.chain_id)
+    web3 = Web3(HTTPProvider(
+        chain.rpc_url, request_kwargs={"timeout": 5}, exception_retry_configuration=None,
+    ))
+    web3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
+    return DevicePaymentChainHelper.verify_checkout_payment_receipt(web3, payment)
 
 
 @dataclass(frozen=True)
@@ -350,7 +372,7 @@ class DevicePaymentService:
             address=web3.to_checksum_address(processor_config.payment_processor_address),
             abi=_PAYMENT_PROCESSOR_ABI,
         )
-        payment_id = keccak(text=f"teraid-pay:checkout:v1:{payment.chain_id}:{payment.checkout_id}")
+        payment_id = DevicePaymentChainHelper.build_checkout_payment_id(payment.chain_id, payment.checkout_id)
         nonce = web3.eth.get_transaction_count(account.address, "pending")
         transaction = processor.functions.pay(payment_id, token_address, payer, recipient, amount).build_transaction(
             {"from": account.address, "nonce": nonce, "chainId": payment.chain_id}

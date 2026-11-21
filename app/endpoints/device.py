@@ -17,6 +17,7 @@ from app.models.requests.device_face_payment_request import DeviceFacePaymentPat
 from app.models.requests.device_menu_category_list_request import DeviceMenuCategoryListRequest
 from app.models.requests.device_menu_items_by_category_request import DeviceMenuItemsByCategoryRequest
 from app.models.requests.device_order_create_request import DeviceOrderCreateRequest, DeviceOrderPathRequest
+from app.models.requests.device_payment_result_request import DevicePaymentResultPathRequest
 from app.models.requests.visit_session_start_request import VisitSessionStartRequest
 from app.models.responses.device_access_token_response import DeviceAccessTokenResponse
 from app.models.responses.device_activate_response import DeviceActivateResponse
@@ -25,6 +26,7 @@ from app.models.responses.device_face_payment_response import DeviceFacePaymentR
 from app.models.responses.device_menu_item_list_response import DeviceMenuItemListResponse
 from app.models.responses.device_order_create_response import DeviceOrderCreateResponse
 from app.models.responses.device_order_history_response import DeviceOrderHistoryResponse
+from app.models.responses.device_payment_result_response import DevicePaymentResultResponse
 from app.models.responses.menu_category_response import DeviceMenuCategoryListResponse
 from app.models.responses.visit_session_start_response import VisitSessionStartResponse
 
@@ -230,6 +232,33 @@ def start_face_payment(
         request=request,
     )
     return result
+
+
+@device_router.post("/checkouts/{checkout_id}/payments/{payment_request_id}/verify")
+@response_device_rapper()
+@request_device_rapper()
+def verify_device_payment(
+    response: Response,
+    path: Annotated[DevicePaymentResultPathRequest, Depends()],
+    credentials: HTTPAuthorizationCredentials | None = Depends(device_bearer_scheme),
+) -> DevicePaymentResultResponse:
+    """認証済み端末に紐づく会計の決済結果を返す。
+
+    Args:
+        response: 成功時のキャッシュ制御を設定するレスポンス。
+        path: 検証済みの会計IDと決済試行ID。
+        credentials: AuthorizationヘッダーのBearer認証情報。
+
+    Returns:
+        決済試行ID、決済状態、来店セッション状態。
+
+    Raises:
+        HTTPException: 端末認証、対象の照会または決済結果の確定に失敗した場合。
+    """
+    device_uuid = get_device_token_uuid(credentials)
+    return DevicePaymentController().verify_payment(
+        device_uuid=device_uuid, checkout_id=path.checkout_id, payment_request_id=path.payment_request_id,
+    )
 
 
 @device_router.get("/menu/categories")
