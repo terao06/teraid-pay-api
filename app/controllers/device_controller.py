@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.exceptions.custom_exception import (
     CustomHttpException,
     DeviceActivationCodeInvalidException,
+    MenuCategoryNotFoundException,
     UnauthorizedException,
     VisitSessionConflictException,
     VisitSessionNotFoundException,
@@ -14,6 +15,7 @@ from app.core.exceptions.custom_exception import (
 from app.core.exceptions.message import (
     DEVICE_ACTIVATION_CODE_INVALID_ERROR,
     DEVICE_AUTHENTICATION_FAILED_ERROR,
+    MENU_CATEGORY_NOT_FOUND_ERROR,
     SERVER_ERROR,
     VISIT_SESSION_CONFLICT_ERROR,
     VISIT_SESSION_NOT_FOUND_ERROR,
@@ -24,6 +26,7 @@ from app.models.requests.device_activate_request import DeviceActivateRequest
 from app.models.requests.visit_session_start_request import VisitSessionStartRequest
 from app.models.responses.device_access_token_response import DeviceAccessTokenResponse
 from app.models.responses.device_activate_response import DeviceActivateResponse
+from app.models.responses.device_menu_item_list_response import DeviceMenuItemListResponse
 from app.models.responses.menu_category_response import DeviceMenuCategoryListResponse
 from app.models.responses.visit_session_start_response import VisitSessionStartResponse
 from app.services.device_service import DeviceService
@@ -195,4 +198,50 @@ class DeviceController:
             raise CustomHttpException.get_http_exception(
                 status_code=404,
                 message=VISIT_SESSION_NOT_FOUND_ERROR,
+            ) from None
+
+    @mysql_transaction(log_error_details=False, http_500_on_error=True)
+    def get_menu_items_by_category(
+        self,
+        mysql_session: Session,
+        device_uuid: str,
+        visit_session_id: int,
+        menu_category_id: int,
+    ) -> DeviceMenuItemListResponse:
+        """カテゴリー別メニューを取得し、業務例外をHTTP応答に変換する。
+
+        Args:
+            mysql_session: デコレーターが渡すMySQLセッション。
+            device_uuid: 検証済み端末アクセストークンに含まれるUUID。
+            visit_session_id: 端末が指定した来店セッションID。
+            menu_category_id: 端末が指定したメニューカテゴリーID。
+
+        Returns:
+            販売可能な商品と選択可能なオプションの一覧。
+
+        Raises:
+            HTTPException: 端末が利用できない場合は401、セッションやカテゴリーが対象外の場合は404、処理失敗は500。
+        """
+        try:
+            return DeviceService().get_menu_items_by_category(
+                mysql_session=mysql_session,
+                device_uuid=device_uuid,
+                visit_session_id=visit_session_id,
+                menu_category_id=menu_category_id,
+            )
+        except UnauthorizedException:
+            raise CustomHttpException.get_http_exception(
+                status_code=401,
+                message=DEVICE_AUTHENTICATION_FAILED_ERROR,
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from None
+        except VisitSessionNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=404,
+                message=VISIT_SESSION_NOT_FOUND_ERROR,
+            ) from None
+        except MenuCategoryNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=404,
+                message=MENU_CATEGORY_NOT_FOUND_ERROR,
             ) from None

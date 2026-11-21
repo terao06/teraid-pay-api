@@ -2,6 +2,8 @@
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.core.utils.device_request import SIGNED_BIGINT_MAX, validate_decimal_id
+
 
 class DeviceMenuCategoryListRequest(BaseModel):
     """端末が指定した来店セッションIDの形式と範囲を検証する。
@@ -18,7 +20,7 @@ class DeviceMenuCategoryListRequest(BaseModel):
 
     visit_session_id: int = Field(
         ge=1,
-        le=9_223_372_036_854_775_807,
+        le=SIGNED_BIGINT_MAX,
         description="認証済み端末に紐づく来店セッションID。",
     )
 
@@ -36,8 +38,4 @@ class DeviceMenuCategoryListRequest(BaseModel):
         Raises:
             ValueError: 整数またはASCIIの十進数字だけで構成される文字列以外の場合。
         """
-        if type(value) is int:
-            return value
-        if not isinstance(value, str) or not value.isascii() or not value.isdecimal():
-            raise ValueError("来店セッションIDは十進整数で指定してください。")
-        return value
+        return validate_decimal_id(value, "来店セッションID")

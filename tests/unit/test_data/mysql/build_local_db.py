@@ -208,6 +208,27 @@ def insert_device_menu_categories(engine: Engine) -> str:
     return _execute_sql_file(engine, "menu_categories.sql", "device_menu_categories")
 
 
+def insert_device_menu_items(engine: Engine) -> tuple[str, ...]:
+    """カテゴリー別メニュー取得の専用データを外部キーの依存順に投入する。
+
+    Args:
+        engine: 初期化済みのテスト用MySQL Engine。
+
+    Returns:
+        専用の店舗、端末、来店セッション、メニューを投入したSQLファイル名。
+    """
+    sql_files = (
+        "stores.sql",
+        "devices.sql",
+        "visit_sessions.sql",
+        "menu_categories.sql",
+        "menu_items.sql",
+        "menu_option_groups.sql",
+        "menu_options.sql",
+    )
+    return tuple(_execute_sql_file(engine, sql_file, "device_menu_items") for sql_file in sql_files)
+
+
 def insert_visit_session_data(engine: Engine) -> tuple[str, str, str]:
     """来店セッションのテスト専用の店舗、端末、既存セッションを投入する。
 

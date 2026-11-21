@@ -20,6 +20,7 @@ from tests.unit.test_data.mysql.build_local_db import (
     insert_device_access_token_data as load_device_access_token_data,
     insert_device_activation_data as load_device_activation_data,
     insert_device_menu_categories as load_device_menu_categories,
+    insert_device_menu_items as load_device_menu_items,
     insert_devices as load_devices,
     insert_menu_category_deletion_data as load_menu_category_deletion_data,
     insert_menu_deletion_data as load_menu_deletion_data,
@@ -71,39 +72,67 @@ def initialize_aws_env() -> bool:
 
 
 @pytest.fixture(scope="session")
-def initialize_ssm(initialize_aws_env: bool) -> None:
-    put_mock_ssm_parameters()
-    assert initialize_aws_env == True
+def initialize_ssm(initialize_aws_env: bool) -> dict[str, str]:
+    """共通のSSM設定を一度だけ投入し、各テストの復元元を提供する。
+
+    Args:
+        initialize_aws_env: ローカルAWS接続情報を設定するフィクスチャー。
+
+    Returns:
+        SSMに投入した初期設定。
+    """
+    assert initialize_aws_env
+    return put_mock_ssm_parameters()
 
 
-@pytest.fixture()
-def put_ssm_parameter(initialize_aws_env: bool) -> Callable[[str, str], None]:
+@pytest.fixture(scope="session")
+def put_ssm_parameter(initialize_aws_env: bool) -> Generator[Callable[[str, str], None], None, None]:
+    """同じSSMクライアントでテスト用の設定項目を更新する。
+
+    Args:
+        initialize_aws_env: ローカルAWS接続情報を設定するフィクスチャー。
+
+    Yields:
+        設定名と値を受け取り、対象の設定だけを上書きする関数。
+    """
+    assert initialize_aws_env
+    ssm_client = boto3.client(
+        "ssm",
+        endpoint_url=ENDPOINT_URL,
+        region_name=REGION_NAME,
+        aws_access_key_id=AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+    )
+
     def _put_ssm_parameter(name: str, value: str) -> None:
-        ssm_client = boto3.client(
-            "ssm",
-            endpoint_url=ENDPOINT_URL,
-            region_name=REGION_NAME,
-            aws_access_key_id=AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-        )
-        ssm_client.put_parameter(
-            Name=name,
-            Value=value,
-            Type="String",
-            Overwrite=True,
-        )
+        """SSMの指定項目を上書きする。"""
+        ssm_client.put_parameter(Name=name, Value=value, Type="String", Overwrite=True)
 
-    assert initialize_aws_env == True
-    return _put_ssm_parameter
+    try:
+        yield _put_ssm_parameter
+    finally:
+        ssm_client.close()
 
 
 @pytest.fixture()
 def use_local_s3_endpoint(
+    initialize_ssm: dict[str, str],
     put_ssm_parameter: Callable[[str, str], None],
 ) -> Generator[None, None, None]:
+    """テスト中だけS3の接続先をローカル向けに変更する。
+
+    Args:
+        initialize_ssm: セッション開始時に投入したSSM設定。
+        put_ssm_parameter: 指定したSSM設定だけを上書きする関数。
+
+    Yields:
+        S3の接続先を切り替えたテスト環境。
+    """
     put_ssm_parameter("s3_endpoint", S3_ENDPOINT_URL)
-    yield
-    put_mock_ssm_parameters()
+    try:
+        yield
+    finally:
+        put_ssm_parameter("s3_endpoint", initialize_ssm["s3_endpoint"])
 
 
 @pytest.fixture(scope="session")
@@ -255,6 +284,19 @@ def insert_device_menu_categories(
     insert_visit_session_data: tuple[str, str, str],
 ) -> str:
     return load_device_menu_categories(mysql_engine)
+
+
+@pytest.fixture(scope="session")
+def insert_device_menu_items(mysql_engine: Engine) -> tuple[str, ...]:
+    """カテゴリー別メニュー取得専用の店舗とメニューを一度だけ投入する。
+
+    Args:
+        mysql_engine: 初期化済みのテスト用MySQL Engine。
+
+    Returns:
+        専用データを投入したSQLファイル名。
+    """
+    return load_device_menu_items(mysql_engine)
 
 
 @pytest.fixture()

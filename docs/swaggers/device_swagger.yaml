@@ -9,7 +9,7 @@ servers:
 
 tags:
   - name: Device
-    description: 端末の有効化、認証、来店セッション開始、メニューカテゴリー取得
+    description: 端末の有効化、認証、来店セッション開始、メニューの参照
 
 paths:
   /device/activate:
@@ -246,6 +246,114 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /device/menu/categories/{menu_category_id}/items:
+    get:
+      tags: [Device]
+      summary: カテゴリー別メニュー取得
+      description: 注文受付中の来店セッションに対し、認証済み端末の所属店舗の指定カテゴリーから、販売可能な商品、商品画像URL、選択可能なオプションを表示順で返す。
+      operationId: getDeviceMenuItemsByCategory
+      security:
+        - DeviceBearerAuth: []
+      parameters:
+        - name: menu_category_id
+          in: path
+          required: true
+          description: 取得対象のメニューカテゴリーID。ASCIIの正の十進整数。
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+            maximum: 9223372036854775807
+          example: 1
+        - name: visit_session_id
+          in: query
+          required: true
+          description: 認証済み端末に紐づく来店セッションID。ASCIIの正の十進整数。
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+            maximum: 9223372036854775807
+          example: 123
+      responses:
+        '200':
+          description: 一覧の取得に成功。カテゴリーに販売可能な商品がなければ空配列を返す。
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceMenuItemListResponse'
+              examples:
+                available:
+                  summary: 商品とオプションを取得
+                  value:
+                    menu_items:
+                      - menu_item_id: 10
+                        name: チーズバーガー
+                        price: '600.000000'
+                        token_symbol: JPYC
+                        image_url: https://example.com/menus/101/10.jpeg?signature=...
+                        display_order: 1
+                        option_groups:
+                          - menu_option_group_id: 20
+                            name: トッピング
+                            min_selections: 0
+                            max_selections: 1
+                            display_order: 1
+                            options:
+                              - menu_option_id: 30
+                                name: チーズ追加
+                                additional_price: '100.000000'
+                                display_order: 1
+                empty:
+                  summary: 販売可能な商品なし
+                  value:
+                    menu_items: []
+        '401':
+          description: 端末アクセストークンが未指定・無効、または端末が利用できない
+          headers:
+            WWW-Authenticate:
+              schema:
+                type: string
+                example: Bearer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 認証済み端末に紐づく注文受付中の来店セッション、または所属店舗の有効・未削除カテゴリーが見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                visitSessionNotFound:
+                  value:
+                    detail:
+                      status: error
+                      message: 来店セッションが見つかりません。
+                menuCategoryNotFound:
+                  value:
+                    detail:
+                      status: error
+                      message: メニューカテゴリーが存在しません。
+        '422':
+          description: 必須クエリが未指定、またはIDが整数形式以外・範囲外
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '500':
+          description: 認証設定の取得、DB処理、または商品画像の設定取得・URL生成に失敗
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     DeviceBearerAuth:
@@ -354,6 +462,96 @@ components:
         display_order:
           type: integer
           example: 1
+    DeviceMenuItemListResponse:
+      type: object
+      required: [menu_items]
+      properties:
+        menu_items:
+          type: array
+          description: 販売可能な商品の一覧。表示順と商品IDの昇順。
+          items:
+            $ref: '#/components/schemas/DeviceMenuItemResponse'
+    DeviceMenuItemResponse:
+      type: object
+      required: [menu_item_id, name, price, token_symbol, image_url, display_order, option_groups]
+      properties:
+        menu_item_id:
+          type: integer
+          format: int64
+          minimum: 1
+          description: 商品ID。
+        name:
+          type: string
+          description: 商品名。
+        price:
+          type: string
+          pattern: '^\d{1,14}\.\d{6}$'
+          description: 小数点以下6桁で表した基本価格。
+        token_symbol:
+          type: string
+          description: 価格のトークンシンボル。
+        image_url:
+          type: string
+          format: uri
+          description: S3の商品画像を取得する署名付きGET URL。
+        display_order:
+          type: integer
+          minimum: 0
+          description: 表示順。
+        option_groups:
+          type: array
+          description: 有効かつ未削除のグループを表示順とグループIDの昇順で返す。
+          items:
+            $ref: '#/components/schemas/DeviceMenuOptionGroupResponse'
+    DeviceMenuOptionGroupResponse:
+      type: object
+      required: [menu_option_group_id, name, min_selections, max_selections, display_order, options]
+      properties:
+        menu_option_group_id:
+          type: integer
+          format: int64
+          minimum: 1
+          description: オプショングループID。
+        name:
+          type: string
+          description: グループ名。
+        min_selections:
+          type: integer
+          minimum: 0
+          description: 最小選択数。選択可能なオプション数以下。
+        max_selections:
+          type: integer
+          minimum: 1
+          description: 最大選択数。
+        display_order:
+          type: integer
+          minimum: 0
+          description: 表示順。
+        options:
+          type: array
+          description: 選択可能かつ未削除のオプションを表示順とオプションIDの昇順で返す。
+          items:
+            $ref: '#/components/schemas/DeviceMenuOptionResponse'
+    DeviceMenuOptionResponse:
+      type: object
+      required: [menu_option_id, name, additional_price, display_order]
+      properties:
+        menu_option_id:
+          type: integer
+          format: int64
+          minimum: 1
+          description: オプションID。
+        name:
+          type: string
+          description: オプション名。
+        additional_price:
+          type: string
+          pattern: '^\d{1,14}\.\d{6}$'
+          description: 小数点以下6桁で表した追加料金。
+        display_order:
+          type: integer
+          minimum: 0
+          description: 表示順。
     ErrorResponse:
       type: object
       required: [detail]
