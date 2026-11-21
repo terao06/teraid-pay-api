@@ -24,3 +24,16 @@ INSERT INTO menu_options (
     (840003, 840003, '別店舗の削除対象外オプション', 300.000000, 0, TRUE, '2026-01-01 09:00:00', '2026-01-01 09:00:00', NULL),
     (840005, 840005, 'ロールバックテスト用オプション', 100.000000, 0, FALSE, '2026-01-01 09:00:00', '2026-01-01 09:00:00', NULL),
     (840006, 840006, 'Repository削除テスト用オプション', 100.000000, 0, FALSE, '2026-01-01 09:00:00', '2026-01-01 09:00:00', NULL);
+
+-- fixture: device_menu_items
+INSERT INTO menu_options (
+    menu_option_id, menu_option_group_id, name, additional_price,
+    display_order, is_available, created_at, updated_at, deleted_at
+) VALUES
+    (865211, 864111, 'ベーコン', 120.000000, 2, TRUE, NOW(), NOW(), NULL),
+    (865212, 864111, 'チーズ追加', 100.500000, 1, TRUE, NOW(), NOW(), NULL),
+    (865213, 864111, 'レタス', 50.000000, 1, TRUE, NOW(), NOW(), NULL),
+    (865214, 864111, '選択不可オプション', 50.000000, 0, FALSE, NOW(), NOW(), NULL),
+    (865215, 864111, '削除済みオプション', 50.000000, 0, TRUE, NOW(), NOW(), NOW()),
+    (865216, 864112, '在庫切れのソース', 50.000000, 0, FALSE, NOW(), NOW(), NULL),
+    (865217, 864115, '通常サイズ', 0.000000, 0, TRUE, NOW(), NOW(), NULL);

@@ -40,3 +40,15 @@ INSERT INTO menu_categories (
     (830013, 110, 'デザート', 'png', 1, TRUE, NOW(), NOW(), NULL),
     (830014, 110, '無効カテゴリー', 'png', 0, FALSE, NOW(), NOW(), NULL),
     (830015, 110, '削除済みカテゴリー', 'png', 0, TRUE, NOW(), NOW(), NOW());
+
+-- fixture: device_menu_items
+INSERT INTO menu_categories (
+    menu_category_id, store_id, name, image_extension, display_order, is_active,
+    created_at, updated_at, deleted_at
+) VALUES
+    (860011, 111, 'ドリンク', 'png', 2, TRUE, NOW(), NOW(), NULL),
+    (860012, 111, 'フード', 'jpg', 1, TRUE, NOW(), NOW(), NULL),
+    (860013, 111, 'デザート', 'png', 1, TRUE, NOW(), NOW(), NULL),
+    (860014, 111, '無効カテゴリー', 'png', 0, FALSE, NOW(), NOW(), NULL),
+    (860015, 111, '削除済みカテゴリー', 'png', 0, TRUE, NOW(), NOW(), NOW()),
+    (860016, 112, '他店舗のカテゴリー', 'png', 1, TRUE, NOW(), NOW(), NULL);

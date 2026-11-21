@@ -1,13 +1,16 @@
-"""端末の有効化、認証、来店セッション開始、カテゴリー取得の業務処理を提供する。"""
+"""端末の有効化、認証、来店セッション開始、メニュー参照の業務処理を提供する。"""
 
 import secrets
 from datetime import datetime
 
 from sqlalchemy.orm import Session
 
+from app.core.aws.s3_client import S3Client
+from app.core.aws.ssm_manager import SsmClient
 from app.core.config.device_auth import get_device_auth_config
 from app.core.exceptions.custom_exception import (
     DeviceActivationCodeInvalidException,
+    MenuCategoryNotFoundException,
     UnauthorizedException,
     VisitSessionConflictException,
     VisitSessionNotFoundException,
@@ -16,15 +19,23 @@ from app.core.utils.datetime import JST
 from app.core.utils.device_activation import hash_device_secret
 from app.core.utils.device_auth import DeviceAuthUtil
 from app.helpers.menu_category_image_helper import MenuCategoryImageHelper
+from app.models.mysql.device import Device
 from app.models.mysql.visit_session import VisitSession, VisitSessionStatus
 from app.models.responses.device_access_token_response import DeviceAccessTokenResponse
 from app.models.responses.device_activate_response import DeviceActivateResponse
+from app.models.responses.device_menu_item_list_response import (
+    DeviceMenuItemListResponse,
+    DeviceMenuItemResponse,
+    DeviceMenuOptionGroupResponse,
+    DeviceMenuOptionResponse,
+)
 from app.models.responses.menu_category_response import (
     DeviceMenuCategoryListResponse,
     MenuCategoryDisplayResponse,
 )
 from app.repositories.mysql.device_repository import DeviceRepository
 from app.repositories.mysql.store_menu_category_repository import StoreMenuCategoryRepository
+from app.repositories.mysql.store_menu_repository import StoreMenuRepository
 from app.repositories.mysql.visit_session_repository import VisitSessionRepository
 
 
@@ -207,20 +218,7 @@ class DeviceService:
             UnauthorizedException: 端末が未登録、未有効化、停止、または削除済みの場合。
             VisitSessionNotFoundException: 端末に紐づく注文受付中のセッションが存在しない場合。
         """
-        device = DeviceRepository().get_device_by_uuid(
-            mysql_session=mysql_session,
-            device_uuid=device_uuid,
-        )
-        if device is None or device.activated_at is None or not device.is_active:
-            raise UnauthorizedException()
-
-        if not VisitSessionRepository().has_active_visit_session(
-            mysql_session=mysql_session,
-            device_id=device.device_id,
-            visit_session_id=visit_session_id,
-        ):
-            raise VisitSessionNotFoundException()
-
+        device = self._get_device_for_active_visit(mysql_session, device_uuid, visit_session_id)
         store_id = device.store_id
         categories = StoreMenuCategoryRepository().get_menu_categories(
             mysql_session=mysql_session,
@@ -242,3 +240,105 @@ class DeviceService:
                 for category in categories
             ],
         )
+
+    def get_menu_items_by_category(
+        self,
+        mysql_session: Session,
+        device_uuid: str,
+        visit_session_id: int,
+        menu_category_id: int,
+    ) -> DeviceMenuItemListResponse:
+        """指定カテゴリーの販売可能な商品と画像URL、オプションを返す。
+
+        Args:
+            mysql_session: トランザクション中のMySQLセッション。
+            device_uuid: 検証済み端末アクセストークンに含まれるUUID。
+            visit_session_id: 端末が指定した来店セッションID。
+            menu_category_id: 端末が指定したメニューカテゴリーID。
+
+        Returns:
+            商品と選択ルールの一覧。有効なカテゴリーに対象商品がなければ空配列。
+
+        Raises:
+            UnauthorizedException: 端末を利用できない場合。
+            VisitSessionNotFoundException: 端末に紐づく注文受付中のセッションが存在しない場合。
+            MenuCategoryNotFoundException: 所属店舗に対象の有効なカテゴリーが存在しない場合。
+        """
+        device = self._get_device_for_active_visit(mysql_session, device_uuid, visit_session_id)
+        rows = StoreMenuRepository().get_menu_items_by_category(
+            mysql_session=mysql_session,
+            store_id=device.store_id,
+            menu_category_id=menu_category_id,
+        )
+        if not rows:
+            raise MenuCategoryNotFoundException()
+        if rows[0][1] is None:
+            return DeviceMenuItemListResponse(menu_items=[])
+
+        params = SsmClient()
+        client = S3Client(s3_endpoint=params.s3_endpoint)
+        bucket_name = params.menu_image_bucket
+        expires_in = params.menu_image_url_expires_in
+        items: dict[int, DeviceMenuItemResponse] = {}
+        groups: dict[int, DeviceMenuOptionGroupResponse] = {}
+        for _, item, group, option in rows:
+            if item is None:
+                continue
+            if item.menu_item_id not in items:
+                key = f"{device.store_id}/{item.menu_item_id}.{item.image_extension}"
+                items[item.menu_item_id] = DeviceMenuItemResponse(
+                    menu_item_id=item.menu_item_id,
+                    name=item.name,
+                    price=f"{item.price:.6f}",
+                    token_symbol=item.token_symbol,
+                    image_url=client.generate_presigned_get_url(
+                        bucket_name=bucket_name, file_name=key, expires_in=expires_in,
+                    ),
+                    display_order=item.display_order,
+                    option_groups=[],
+                )
+            if group is None:
+                continue
+            if group.menu_option_group_id not in groups:
+                group_response = DeviceMenuOptionGroupResponse(
+                    menu_option_group_id=group.menu_option_group_id,
+                    name=group.name,
+                    min_selections=group.min_selections,
+                    max_selections=group.max_selections,
+                    display_order=group.display_order,
+                    options=[],
+                )
+                groups[group.menu_option_group_id] = group_response
+                items[item.menu_item_id].option_groups.append(group_response)
+            if option is not None:
+                groups[group.menu_option_group_id].options.append(DeviceMenuOptionResponse(
+                    menu_option_id=option.menu_option_id,
+                    name=option.name,
+                    additional_price=f"{option.additional_price:.6f}",
+                    display_order=option.display_order,
+                ))
+
+        return DeviceMenuItemListResponse(menu_items=list(items.values()))
+
+    def _get_device_for_active_visit(
+        self,
+        mysql_session: Session,
+        device_uuid: str,
+        visit_session_id: int,
+    ) -> Device:
+        """利用可能な端末を取得し、その端末自身の注文受付中セッションを確認する。"""
+        device = DeviceRepository().get_device_by_uuid(
+            mysql_session=mysql_session,
+            device_uuid=device_uuid,
+        )
+        if device is None or device.activated_at is None or not device.is_active:
+            raise UnauthorizedException()
+
+        if not VisitSessionRepository().has_active_visit_session(
+            mysql_session=mysql_session,
+            device_id=device.device_id,
+            visit_session_id=visit_session_id,
+        ):
+            raise VisitSessionNotFoundException()
+
+        return device

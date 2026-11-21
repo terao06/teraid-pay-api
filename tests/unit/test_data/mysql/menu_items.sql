@@ -47,3 +47,17 @@ INSERT INTO menu_items (
     is_available, display_order, created_at, updated_at
 ) VALUES
     (850001, 107, NULL, 'オプション構成更新テスト用商品', 300.000000, 'JPYC', 'png', TRUE, 0, '2026-01-01 09:00:00', '2026-01-01 09:00:00');
+
+-- fixture: device_menu_items
+INSERT INTO menu_items (
+    menu_item_id, store_id, menu_category_id, name, price, token_symbol, image_extension,
+    is_available, display_order, created_at, updated_at, deleted_at
+) VALUES
+    (863011, 111, 860012, 'ポテト', 300.000000, 'JPYC', 'png', TRUE, 2, NOW(), NOW(), NULL),
+    (863012, 111, 860012, 'チーズバーガー', 650.250000, 'JPYC', 'jpeg', TRUE, 1, NOW(), NOW(), NULL),
+    (863013, 111, 860012, 'サンドイッチ', 450.000000, 'JPYC', 'jpg', TRUE, 1, NOW(), NOW(), NULL),
+    (863014, 112, 860012, '他店舗商品', 500.000000, 'JPYC', 'png', TRUE, 0, NOW(), NOW(), NULL),
+    (863015, 111, 860012, '販売停止商品', 500.000000, 'JPYC', 'png', FALSE, 0, NOW(), NOW(), NULL),
+    (863016, 111, 860012, '削除済み商品', 500.000000, 'JPYC', 'png', TRUE, 0, NOW(), NOW(), NOW()),
+    (863017, 111, 860013, '販売停止デザート', 300.000000, 'JPYC', 'png', FALSE, 0, NOW(), NOW(), NULL),
+    (863018, 111, 860011, 'ジュース', 200.000000, 'JPYC', 'png', TRUE, 1, NOW(), NOW(), NULL);

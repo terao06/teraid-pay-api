@@ -1,4 +1,4 @@
-"""端末の有効化、認証、来店セッション開始、カテゴリー一覧のエンドポイントを提供する。"""
+"""端末の有効化、認証、来店セッション開始、メニュー参照のエンドポイントを提供する。"""
 
 from typing import Annotated
 
@@ -12,9 +12,11 @@ from app.middlewares.response_wrapper import response_device_rapper
 from app.models.requests.device_access_token_request import DeviceAccessTokenRequest
 from app.models.requests.device_activate_request import DeviceActivateRequest
 from app.models.requests.device_menu_category_list_request import DeviceMenuCategoryListRequest
+from app.models.requests.device_menu_items_by_category_request import DeviceMenuItemsByCategoryRequest
 from app.models.requests.visit_session_start_request import VisitSessionStartRequest
 from app.models.responses.device_access_token_response import DeviceAccessTokenResponse
 from app.models.responses.device_activate_response import DeviceActivateResponse
+from app.models.responses.device_menu_item_list_response import DeviceMenuItemListResponse
 from app.models.responses.menu_category_response import DeviceMenuCategoryListResponse
 from app.models.responses.visit_session_start_response import VisitSessionStartResponse
 
@@ -119,4 +121,33 @@ def get_menu_categories(
     return DeviceController().get_menu_categories(
         device_uuid=device_uuid,
         visit_session_id=request.visit_session_id,
+    )
+
+
+@device_router.get("/menu/categories/{menu_category_id}/items")
+@response_device_rapper()
+@request_device_rapper()
+def get_menu_items_by_category(
+    response: Response,
+    request: Annotated[DeviceMenuItemsByCategoryRequest, Depends()],
+    credentials: HTTPAuthorizationCredentials | None = Depends(device_bearer_scheme),
+) -> DeviceMenuItemListResponse:
+    """注文受付中の来店セッション向けに、指定カテゴリーのメニューを返す。
+
+    Args:
+        response: キャッシュ制御を設定するレスポンス。
+        request: カテゴリーIDと来店セッションIDを含む検証済みのリクエスト。
+        credentials: AuthorizationヘッダーのBearer認証情報。
+
+    Returns:
+        商品画像URLと選択可能なオプションを含むメニュー一覧。
+
+    Raises:
+        HTTPException: 端末認証、来店セッションの確認、またはメニューの取得に失敗した場合。
+    """
+    device_uuid = get_device_token_uuid(credentials)
+    return DeviceController().get_menu_items_by_category(
+        device_uuid=device_uuid,
+        visit_session_id=request.visit_session_id,
+        menu_category_id=request.menu_category_id,
     )
