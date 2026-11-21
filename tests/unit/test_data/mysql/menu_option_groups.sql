@@ -35,3 +35,9 @@ INSERT INTO menu_option_groups (
     (864113, 863012, '無効グループ', 0, 1, 0, FALSE, NOW(), NOW(), NULL),
     (864114, 863012, '削除済みグループ', 0, 1, 0, TRUE, NOW(), NOW(), NOW()),
     (864115, 863012, 'サイズ', 1, 1, 0, TRUE, NOW(), NOW(), NULL);
+
+-- fixture: device_orders
+INSERT INTO menu_option_groups (
+    menu_option_group_id, menu_item_id, name, min_selections, max_selections, is_active
+) VALUES
+    (884001, 883001, '注文トッピング', 1, 3, TRUE);

@@ -1,8 +1,8 @@
-"""端末の有効化、認証、来店セッション開始、メニュー参照のエンドポイントを提供する。"""
+"""端末の有効化、認証、来店セッション開始、注文登録、メニュー参照を提供する。"""
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Header, Query, Response
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.controllers.device_controller import DeviceController
@@ -13,10 +13,12 @@ from app.models.requests.device_access_token_request import DeviceAccessTokenReq
 from app.models.requests.device_activate_request import DeviceActivateRequest
 from app.models.requests.device_menu_category_list_request import DeviceMenuCategoryListRequest
 from app.models.requests.device_menu_items_by_category_request import DeviceMenuItemsByCategoryRequest
+from app.models.requests.device_order_create_request import DeviceOrderCreateRequest, DeviceOrderPathRequest
 from app.models.requests.visit_session_start_request import VisitSessionStartRequest
 from app.models.responses.device_access_token_response import DeviceAccessTokenResponse
 from app.models.responses.device_activate_response import DeviceActivateResponse
 from app.models.responses.device_menu_item_list_response import DeviceMenuItemListResponse
+from app.models.responses.device_order_create_response import DeviceOrderCreateResponse
 from app.models.responses.menu_category_response import DeviceMenuCategoryListResponse
 from app.models.responses.visit_session_start_response import VisitSessionStartResponse
 
@@ -91,6 +93,43 @@ def start_visit_session(
     """
     device_uuid = get_device_token_uuid(credentials)
     result, created = DeviceController().start_visit_session(device_uuid=device_uuid, request=request)
+    if not created:
+        response.status_code = 200
+    return result
+
+
+@device_router.post("/visit-sessions/{visit_session_id}/orders", status_code=201)
+@response_device_rapper()
+@request_device_rapper()
+def create_order(
+    response: Response,
+    path: Annotated[DeviceOrderPathRequest, Depends()],
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=64, pattern=r"\S")],
+    request: DeviceOrderCreateRequest,
+    credentials: HTTPAuthorizationCredentials | None = Depends(device_bearer_scheme),
+) -> DeviceOrderCreateResponse:
+    """認証済み端末から未払いの注文を受け付ける。
+
+    Args:
+        response: ステータスとキャッシュ制御を設定するレスポンス。
+        path: 来店セッションIDを含む検証済みのパス入力。
+        idempotency_key: 注文操作とその再送を識別するキー。
+        request: 商品とオプションの明細。
+        credentials: AuthorizationヘッダーのBearer認証情報。
+
+    Returns:
+        新規または登録済みの注文ID、合計金額、トークンシンボル。
+
+    Raises:
+        HTTPException: 端末認証、セッション確認、注文内容の検証、または登録に失敗した場合。
+    """
+    device_uuid = get_device_token_uuid(credentials)
+    result, created = DeviceController().create_order(
+        device_uuid=device_uuid,
+        visit_session_id=path.visit_session_id,
+        idempotency_key=idempotency_key,
+        request=request,
+    )
     if not created:
         response.status_code = 200
     return result

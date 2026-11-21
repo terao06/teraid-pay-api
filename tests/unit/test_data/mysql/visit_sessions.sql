@@ -13,3 +13,8 @@ INSERT INTO visit_sessions (
 ) VALUES
     (862001, 861001, 'device-menu-items', 'active', '2026-11-16 10:00:00', NULL),
     (862002, 861002, 'device-menu-items-other-device', 'active', '2026-11-16 10:00:00', NULL);
+
+-- fixture: device_orders
+INSERT INTO visit_sessions (visit_session_id, device_id, start_request_id, status, started_at, ended_at) VALUES
+    (882001, 881001, 'order-active', 'active', NOW(), NULL),
+    (882002, 881001, 'order-closed', 'closed', NOW(), NOW());
