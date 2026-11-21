@@ -1,3 +1,5 @@
+"""ローカルのテスト用SSMへ共通設定を投入する。"""
+
 from __future__ import annotations
 
 import json
@@ -31,7 +33,16 @@ def load_parameters(settings_file: Path) -> dict[str, str]:
     return parameters
 
 
-def put_mock_ssm_parameters(settings_file: Path = SETTINGS_FILE) -> None:
+def put_mock_ssm_parameters(settings_file: Path = SETTINGS_FILE) -> dict[str, str]:
+    """テスト用SSMに共通設定を投入し、投入した設定を返す。
+
+    Args:
+        settings_file: パラメーター名と値を定義したJSONファイル。
+
+    Returns:
+        SSMに登録したパラメーター名と文字列値。
+    """
+    parameters = load_parameters(settings_file)
     ssm_client = boto3.client(
         "ssm",
         endpoint_url=ENDPOINT_URL,
@@ -40,7 +51,7 @@ def put_mock_ssm_parameters(settings_file: Path = SETTINGS_FILE) -> None:
         aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
     )
 
-    for name, value in load_parameters(settings_file=settings_file).items():
+    for name, value in parameters.items():
         print(f"パラメータストア作成開始 パラメータ名: {name}")
         ssm_client.put_parameter(
             Name=name,
@@ -48,6 +59,7 @@ def put_mock_ssm_parameters(settings_file: Path = SETTINGS_FILE) -> None:
             Type="String",
             Overwrite=True,
         )
+    return parameters
 
 
 def main() -> None:
