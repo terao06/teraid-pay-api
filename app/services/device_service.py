@@ -1,4 +1,4 @@
-"""端末の初回有効化、アクセストークン発行、来店セッション開始の業務処理を提供する。"""
+"""端末の有効化、認証、来店セッション開始、カテゴリー取得の業務処理を提供する。"""
 
 import secrets
 from datetime import datetime
@@ -10,14 +10,21 @@ from app.core.exceptions.custom_exception import (
     DeviceActivationCodeInvalidException,
     UnauthorizedException,
     VisitSessionConflictException,
+    VisitSessionNotFoundException,
 )
 from app.core.utils.datetime import JST
 from app.core.utils.device_activation import hash_device_secret
 from app.core.utils.device_auth import DeviceAuthUtil
+from app.helpers.menu_category_image_helper import MenuCategoryImageHelper
 from app.models.mysql.visit_session import VisitSession, VisitSessionStatus
 from app.models.responses.device_access_token_response import DeviceAccessTokenResponse
 from app.models.responses.device_activate_response import DeviceActivateResponse
+from app.models.responses.menu_category_response import (
+    DeviceMenuCategoryListResponse,
+    MenuCategoryDisplayResponse,
+)
 from app.repositories.mysql.device_repository import DeviceRepository
+from app.repositories.mysql.store_menu_category_repository import StoreMenuCategoryRepository
 from app.repositories.mysql.visit_session_repository import VisitSessionRepository
 
 
@@ -179,3 +186,59 @@ class DeviceService:
             visit_session=visit_session,
         )
         return saved_visit_session.visit_session_id, True
+
+    def get_menu_categories(
+        self,
+        mysql_session: Session,
+        device_uuid: str,
+        visit_session_id: int,
+    ) -> DeviceMenuCategoryListResponse:
+        """端末と来店セッションの利用可否を確認し、所属店舗のカテゴリーを取得する。
+
+        Args:
+            mysql_session: トランザクション中のMySQLセッション。
+            device_uuid: 検証済み端末アクセストークンに含まれるUUID。
+            visit_session_id: 端末が指定した来店セッションID。
+
+        Returns:
+            所属店舗の有効・未削除カテゴリーの一覧と画像URL。
+
+        Raises:
+            UnauthorizedException: 端末が未登録、未有効化、停止、または削除済みの場合。
+            VisitSessionNotFoundException: 端末に紐づく注文受付中のセッションが存在しない場合。
+        """
+        device = DeviceRepository().get_device_by_uuid(
+            mysql_session=mysql_session,
+            device_uuid=device_uuid,
+        )
+        if device is None or device.activated_at is None or not device.is_active:
+            raise UnauthorizedException()
+
+        if not VisitSessionRepository().has_active_visit_session(
+            mysql_session=mysql_session,
+            device_id=device.device_id,
+            visit_session_id=visit_session_id,
+        ):
+            raise VisitSessionNotFoundException()
+
+        store_id = device.store_id
+        categories = StoreMenuCategoryRepository().get_menu_categories(
+            mysql_session=mysql_session,
+            store_id=store_id,
+            is_active=True,
+        )
+        if not categories:
+            return DeviceMenuCategoryListResponse(menu_categories=[])
+
+        image_helper = MenuCategoryImageHelper()
+        return DeviceMenuCategoryListResponse(
+            menu_categories=[
+                MenuCategoryDisplayResponse(
+                    menu_category_id=category.menu_category_id,
+                    name=category.name,
+                    image_url=image_helper.generate_presigned_get_url(store_id, category),
+                    display_order=category.display_order,
+                )
+                for category in categories
+            ],
+        )

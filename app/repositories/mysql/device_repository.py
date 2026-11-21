@@ -197,15 +197,36 @@ class DeviceRepository:
         Returns:
             一致する端末。存在しない場合はNone。
         """
-        return (
-            mysql_session.query(Device)
-            .filter(
-                Device.device_uuid == device_uuid,
-                Device.deleted_at.is_(None),
-            )
-            .with_for_update()
-            .one_or_none()
+        return self.get_device_by_uuid(
+            mysql_session=mysql_session,
+            device_uuid=device_uuid,
+            lock_for_update=True,
         )
+
+    def get_device_by_uuid(
+        self,
+        mysql_session: Session,
+        device_uuid: str,
+        *,
+        lock_for_update: bool = False,
+    ) -> Device | None:
+        """認証済みUUIDに一致する未削除端末を参照する。
+
+        Args:
+            mysql_session: トランザクション中のMySQLセッション。
+            device_uuid: 参照する端末のUUID。
+            lock_for_update: 更新を伴う処理で対象端末を排他ロックするか。
+
+        Returns:
+            UUIDに一致する未削除の端末。見つからない場合はNone。
+        """
+        query = mysql_session.query(Device).filter(
+            Device.device_uuid == device_uuid,
+            Device.deleted_at.is_(None),
+        )
+        if lock_for_update:
+            query = query.with_for_update()
+        return query.one_or_none()
 
     def save_device(
         self,

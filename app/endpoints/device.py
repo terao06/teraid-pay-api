@@ -1,6 +1,8 @@
-"""端末の初回有効化、認証、来店セッション開始のエンドポイントを提供する。"""
+"""端末の有効化、認証、来店セッション開始、カテゴリー一覧のエンドポイントを提供する。"""
 
-from fastapi import APIRouter, Depends, Response
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Query, Response
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.controllers.device_controller import DeviceController
@@ -9,9 +11,11 @@ from app.middlewares.request_wrapper import request_device_rapper
 from app.middlewares.response_wrapper import response_device_rapper
 from app.models.requests.device_access_token_request import DeviceAccessTokenRequest
 from app.models.requests.device_activate_request import DeviceActivateRequest
+from app.models.requests.device_menu_category_list_request import DeviceMenuCategoryListRequest
 from app.models.requests.visit_session_start_request import VisitSessionStartRequest
 from app.models.responses.device_access_token_response import DeviceAccessTokenResponse
 from app.models.responses.device_activate_response import DeviceActivateResponse
+from app.models.responses.menu_category_response import DeviceMenuCategoryListResponse
 from app.models.responses.visit_session_start_response import VisitSessionStartResponse
 
 
@@ -88,3 +92,31 @@ def start_visit_session(
     if not created:
         response.status_code = 200
     return result
+
+
+@device_router.get("/menu/categories")
+@response_device_rapper()
+@request_device_rapper()
+def get_menu_categories(
+    response: Response,
+    request: Annotated[DeviceMenuCategoryListRequest, Query()],
+    credentials: HTTPAuthorizationCredentials | None = Depends(device_bearer_scheme),
+) -> DeviceMenuCategoryListResponse:
+    """注文受付中の来店セッション用に、端末の所属店舗のカテゴリーを返す。
+
+    Args:
+        response: キャッシュ制御を設定するレスポンス。
+        request: 来店セッションIDを含む検証済みのクエリ。
+        credentials: AuthorizationヘッダーのBearer認証情報。
+
+    Returns:
+        有効なカテゴリーの表示順の一覧。対象がない場合は空配列。
+
+    Raises:
+        HTTPException: 端末認証失敗は401、対象セッションなしは404、取得失敗は500。
+    """
+    device_uuid = get_device_token_uuid(credentials)
+    return DeviceController().get_menu_categories(
+        device_uuid=device_uuid,
+        visit_session_id=request.visit_session_id,
+    )

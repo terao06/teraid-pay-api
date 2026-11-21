@@ -13,8 +13,8 @@ from app.services.store_menu_category_service import StoreMenuCategoryService
 class TestGetMenuCategoryDetail:
     """StoreMenuCategoryServiceのカテゴリー詳細取得を検証する。"""
 
-    @patch("app.services.store_menu_category_service.S3Client")
-    @patch("app.services.store_menu_category_service.SsmClient")
+    @patch("app.helpers.menu_category_image_helper.S3Client")
+    @patch("app.helpers.menu_category_image_helper.SsmClient")
     @patch("app.services.store_menu_category_service.StoreMenuCategoryRepository")
     def test_get_menu_category_detail(
         self,
@@ -67,8 +67,8 @@ class TestGetMenuCategoryDetail:
             expires_in=3600,
         )
 
-    @patch("app.services.store_menu_category_service.S3Client")
-    @patch("app.services.store_menu_category_service.SsmClient")
+    @patch("app.helpers.menu_category_image_helper.S3Client")
+    @patch("app.helpers.menu_category_image_helper.SsmClient")
     @patch("app.services.store_menu_category_service.StoreMenuCategoryRepository")
     def test_get_menu_category_detail_raises_when_not_found(
         self,

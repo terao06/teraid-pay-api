@@ -47,6 +47,10 @@ class VisitSessionConflictException(Exception):
     pass
 
 
+class VisitSessionNotFoundException(Exception):
+    pass
+
+
 class DeviceActivationStateInvalidException(Exception):
     pass
 

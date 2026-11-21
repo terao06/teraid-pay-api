@@ -3,14 +3,44 @@
 from pydantic import BaseModel, Field
 
 
-class MenuCategoryResponse(BaseModel):
-    """メニューカテゴリー情報。"""
+class MenuCategoryDisplayResponse(BaseModel):
+    """カテゴリー表示に必要な情報を表す。
+
+    Args:
+        menu_category_id: メニューカテゴリーID。
+        name: カテゴリー名。
+        image_url: カテゴリー画像の署名付きGET URL。
+        display_order: 表示順。
+
+    Returns:
+        カテゴリー表示用のレスポンス要素。
+    """
 
     menu_category_id: int = Field(..., description="Menu category ID")
     name: str = Field(..., description="Menu category name")
     image_url: str = Field(..., description="Presigned category image URL")
     display_order: int = Field(..., description="Display order")
+
+
+class MenuCategoryResponse(MenuCategoryDisplayResponse):
+    """メニューカテゴリーの表示情報と有効状態を表す。"""
+
     is_active: bool = Field(..., description="Active flag")
+
+
+class DeviceMenuCategoryListResponse(BaseModel):
+    """注文端末向けのメニューカテゴリー一覧を表す。
+
+    Args:
+        menu_categories: 所属店舗の有効なカテゴリーの表示順の一覧。
+
+    Returns:
+        カテゴリー一覧のレスポンス。
+    """
+
+    menu_categories: list[MenuCategoryDisplayResponse] = Field(
+        description="Active menu categories for the authenticated device's store",
+    )
 
 
 class MenuCategoryCreateResponse(BaseModel):

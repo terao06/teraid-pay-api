@@ -196,6 +196,18 @@ def insert_device_access_token_data(engine) -> str:
     return _execute_sql_file(engine, "devices.sql", "issue_device_access_token")
 
 
+def insert_device_menu_categories(engine: Engine) -> str:
+    """注文端末のカテゴリー取得に必要な店舗別カテゴリーを投入する。
+
+    Args:
+        engine: 来店セッション用の店舗を投入済みのMySQL Engine。
+
+    Returns:
+        カテゴリーの投入元となったSQLファイル名。
+    """
+    return _execute_sql_file(engine, "menu_categories.sql", "device_menu_categories")
+
+
 def insert_visit_session_data(engine: Engine) -> tuple[str, str, str]:
     """来店セッションのテスト専用の店舗、端末、既存セッションを投入する。
 

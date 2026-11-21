@@ -9,7 +9,7 @@ servers:
 
 tags:
   - name: Device
-    description: 端末の有効化、認証、来店セッション開始
+    description: 端末の有効化、認証、来店セッション開始、メニューカテゴリー取得
 
 paths:
   /device/activate:
@@ -181,6 +181,71 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /device/menu/categories:
+    get:
+      tags: [Device]
+      summary: メニューカテゴリー一覧取得
+      description: 注文受付中の来店セッションに対し、端末の所属店舗の有効・未削除カテゴリーを表示順で返す。
+      operationId: getDeviceMenuCategories
+      security:
+        - DeviceBearerAuth: []
+      parameters:
+        - name: visit_session_id
+          in: query
+          required: true
+          description: 認証済み端末に紐づく来店セッションID。正の十進整数。
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+            maximum: 9223372036854775807
+          example: 123
+      responses:
+        '200':
+          description: カテゴリー一覧の取得に成功。該当するカテゴリーがない場合は空配列を返す。
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceMenuCategoryListResponse'
+        '401':
+          description: 端末アクセストークンが無効か、端末が利用できない
+          headers:
+            WWW-Authenticate:
+              schema:
+                type: string
+                example: Bearer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 認証済み端末に紐づく注文受付中の来店セッションが見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail:
+                  status: error
+                  message: 来店セッションが見つかりません。
+        '422':
+          description: 来店セッションIDが未指定、整数形式以外、または範囲外
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '500':
+          description: 認証設定の取得、DB処理、または画像URLの生成に失敗
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     DeviceBearerAuth:
@@ -262,6 +327,33 @@ components:
           format: int64
           description: 新規または既存の来店セッションID
           example: 123
+    DeviceMenuCategoryListResponse:
+      type: object
+      required: [menu_categories]
+      properties:
+        menu_categories:
+          type: array
+          description: display_order、menu_category_id の昇順のカテゴリー一覧。
+          items:
+            $ref: '#/components/schemas/DeviceMenuCategory'
+    DeviceMenuCategory:
+      type: object
+      required: [menu_category_id, name, image_url, display_order]
+      properties:
+        menu_category_id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: ハンバーガー
+        image_url:
+          type: string
+          format: uri
+          description: カテゴリー画像取得用の署名付きURL。
+        display_order:
+          type: integer
+          example: 1
     ErrorResponse:
       type: object
       required: [detail]
