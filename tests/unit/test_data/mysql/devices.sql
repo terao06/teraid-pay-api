@@ -59,4 +59,6 @@ INSERT INTO devices (
     (810066, 110, '別店舗のセッション端末', '81006600-0000-4000-8000-000000000066',
         SHA2('test-visit-session-credential', 256), NOW(), TRUE, NOW(), NOW(), NULL),
     (810067, 109, '永続化テスト用端末', '81006700-0000-4000-8000-000000000067',
+        SHA2('test-visit-session-credential', 256), NOW(), TRUE, NOW(), NOW(), NULL),
+    (810068, 109, 'カテゴリー未登録店舗の端末', '81006800-0000-4000-8000-000000000068',
         SHA2('test-visit-session-credential', 256), NOW(), TRUE, NOW(), NOW(), NULL);

@@ -1,3 +1,5 @@
+"""管理者用カテゴリー一覧の検索条件、ページング、画像署名を検証する。"""
+
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -12,8 +14,8 @@ from app.services.store_menu_category_service import StoreMenuCategoryService
 class TestGetMenuCategories:
     """StoreMenuCategoryService のメニューカテゴリー取得処理を検証する。"""
 
-    @patch("app.services.store_menu_category_service.S3Client")
-    @patch("app.services.store_menu_category_service.SsmClient")
+    @patch("app.helpers.menu_category_image_helper.S3Client")
+    @patch("app.helpers.menu_category_image_helper.SsmClient")
     @patch("app.services.store_menu_category_service.StoreMenuCategoryRepository")
     def test_get_menu_categories(
         self,

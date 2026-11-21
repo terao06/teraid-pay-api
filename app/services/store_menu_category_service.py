@@ -16,6 +16,7 @@ from app.helpers.image_replacement_helper import (
     ImageBucketType,
     ImageReplacementHelper,
 )
+from app.helpers.menu_category_image_helper import MenuCategoryImageHelper
 from app.middlewares.transaction import add_mysql_rollback_callback
 from app.models.mysql.menu_category import MenuCategory
 from app.models.requests.menu_category_create_request import MenuCategoryCreateRequest
@@ -65,16 +66,12 @@ class StoreMenuCategoryService:
             offset=(page - 1) * page_size if page_size is not None else 0, limit=page_size)
         if not categories:
             return MenuCategoryListResponse(menu_categories=[], pagination=pagination)
-        params = SsmClient()
-        client = S3Client(s3_endpoint=params.s3_endpoint)
+        image_helper = MenuCategoryImageHelper()
         responses = []
         for category in categories:
-            key = f"{store_id}/{category.menu_category_id}.{category.image_extension}"
             responses.append(MenuCategoryResponse(
                 menu_category_id=category.menu_category_id, name=category.name,
-                image_url=client.generate_presigned_get_url(
-                    bucket_name=params.category_image_bucket, file_name=key,
-                    expires_in=params.menu_image_url_expires_in),
+                image_url=image_helper.generate_presigned_get_url(store_id, category),
                 display_order=category.display_order, is_active=category.is_active))
         return MenuCategoryListResponse(menu_categories=responses, pagination=pagination)
 
@@ -107,17 +104,11 @@ class StoreMenuCategoryService:
                 "メニューカテゴリーが存在しません。"
             )
 
-        params = SsmClient()
-        client = S3Client(s3_endpoint=params.s3_endpoint)
-        key = f"{store_id}/{category.menu_category_id}.{category.image_extension}"
+        image_helper = MenuCategoryImageHelper()
         return MenuCategoryResponse(
             menu_category_id=category.menu_category_id,
             name=category.name,
-            image_url=client.generate_presigned_get_url(
-                bucket_name=params.category_image_bucket,
-                file_name=key,
-                expires_in=params.menu_image_url_expires_in,
-            ),
+            image_url=image_helper.generate_presigned_get_url(store_id, category),
             display_order=category.display_order,
             is_active=category.is_active,
         )

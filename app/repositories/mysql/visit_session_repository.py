@@ -40,6 +40,33 @@ class VisitSessionRepository:
             .one_or_none()
         )
 
+    def has_active_visit_session(
+        self,
+        mysql_session: Session,
+        device_id: int,
+        visit_session_id: int,
+    ) -> bool:
+        """指定されたセッションが端末に属し、注文受付中かを調べる。
+
+        Args:
+            mysql_session: トランザクション中のMySQLセッション。
+            device_id: 認証済み端末のID。
+            visit_session_id: 端末が指定した来店セッションID。
+
+        Returns:
+            指定端末に紐づく注文受付中のセッションが見つかればTrue。
+        """
+        return (
+            mysql_session.query(VisitSession.visit_session_id)
+            .filter(
+                VisitSession.visit_session_id == visit_session_id,
+                VisitSession.device_id == device_id,
+                VisitSession.status == VisitSessionStatus.ACTIVE,
+            )
+            .first()
+            is not None
+        )
+
     def has_in_progress_session(self, mysql_session: Session, device_id: int) -> bool:
         """端末に注文受付中または決済処理中のセッションがあるか調べる。
 
