@@ -89,6 +89,8 @@ phpMyAdmin は以下で確認できます。
 http://localhost:8014
 ```
 
+ホストから MySQL に接続する場合は `127.0.0.1:13307` を使用します。Compose 内の接続先は `teraid-pay-api-db:3306` です。
+
 ## ローカルシークレット
 
 API は MySQL 接続情報やコントラクト情報を Secrets Manager から取得します。ローカルでは LocalStack の Secrets Manager を使います。

@@ -36,7 +36,7 @@ services:
       dockerfile: ./local_setting/local_mysql/Dockerfile
     command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     ports:
-      - 3307:3306
+      - 13307:3306
     volumes:
       - ./local_data/mysql:/var/lib/mysql
     environment:
