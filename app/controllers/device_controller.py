@@ -13,6 +13,7 @@ from app.core.exceptions.custom_exception import (
     DeviceOrderInvalidException,
     MenuCategoryNotFoundException,
     UnauthorizedException,
+    VisitSessionCompletionConflictException,
     VisitSessionConflictException,
     VisitSessionNotFoundException,
 )
@@ -40,6 +41,7 @@ from app.models.responses.device_menu_item_list_response import DeviceMenuItemLi
 from app.models.responses.device_order_create_response import DeviceOrderCreateResponse
 from app.models.responses.device_order_history_response import DeviceOrderHistoryResponse
 from app.models.responses.menu_category_response import DeviceMenuCategoryListResponse
+from app.models.responses.visit_session_complete_response import VisitSessionCompleteResponse
 from app.models.responses.visit_session_start_response import VisitSessionStartResponse
 from app.services.device_order_service import DeviceOrderService
 from app.services.device_service import DeviceService
@@ -174,6 +176,41 @@ class DeviceController:
                 status_code=500,
                 message=SERVER_ERROR,
             ) from None
+
+    @mysql_transaction(log_error_details=False, http_500_on_error=True)
+    def complete_visit_session(
+        self, mysql_session: Session, device_uuid: str, visit_session_id: int
+    ) -> VisitSessionCompleteResponse:
+        """来店セッションの終了をコミットし、業務例外をHTTP応答に変換する。
+
+        Args:
+            mysql_session: デコレーターが渡すMySQLセッション。
+            device_uuid: 検証済み端末アクセストークンのUUID。
+            visit_session_id: 終了対象の来店セッションID。
+
+        Returns:
+            コミット済みの来店セッションIDと終了済みの状態。
+
+        Raises:
+            HTTPException: 端末認証失敗は401、対象なしは404、決済状態の競合は409、処理失敗は500。
+        """
+        try:
+            DeviceService().complete_visit_session(
+                mysql_session=mysql_session, device_uuid=device_uuid, visit_session_id=visit_session_id
+            )
+        except UnauthorizedException:
+            raise CustomHttpException.get_http_exception(
+                status_code=401,
+                message=DEVICE_AUTHENTICATION_FAILED_ERROR,
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from None
+        except VisitSessionNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=404, message=VISIT_SESSION_NOT_FOUND_ERROR
+            ) from None
+        except VisitSessionCompletionConflictException as error:
+            raise CustomHttpException.get_http_exception(status_code=409, message=str(error)) from None
+        return VisitSessionCompleteResponse(visit_session_id=visit_session_id, status="closed")
 
     @mysql_transaction(log_error_details=False, http_500_on_error=True)
     def create_order(

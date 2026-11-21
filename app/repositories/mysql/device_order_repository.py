@@ -158,6 +158,33 @@ class DeviceOrderRepository:
         return mysql_session.execute(statement).tuples().all()
 
 
+    def has_unpaid_orders(self, mysql_session: Session, store_id: int, visit_session_id: int) -> bool:
+        """指定店舗の来店セッションに未払い注文が残っているかを調べる。
+
+        Args:
+            mysql_session: 端末行と来店セッション行を排他ロックしたMySQLセッション。
+            store_id: 認証済み端末が所属する店舗のID。
+            visit_session_id: 確認対象の来店セッションID。
+
+        Returns:
+            削除されていない支払い待ちまたは決済失敗の注文があればTrue。
+
+        Raises:
+            SQLAlchemyError: 注文の参照に失敗した場合。
+        """
+        statement = (
+            select(MenuOrder.menu_order_id)
+            .where(
+                MenuOrder.store_id == store_id,
+                MenuOrder.visit_session_id == visit_session_id,
+                MenuOrder.deleted_at.is_(None),
+                MenuOrder.paid_at.is_(None),
+                MenuOrder.status.in_(CHECKOUT_UNPAID_STATUSES),
+            )
+            .limit(1)
+        )
+        return mysql_session.scalar(statement) is not None
+
     def get_checkout_orders(
         self, mysql_session: Session, store_id: int, visit_session_id: int, menu_order_id: int | None
     ) -> Sequence[_OrderRow]:

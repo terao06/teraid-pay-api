@@ -45,3 +45,12 @@ INSERT INTO visit_sessions (visit_session_id, device_id, start_request_id, statu
     (912022, 911022, 'payment-result-2', 'active', NOW()),
     (912023, 911023, 'payment-result-3', 'active', NOW()),
     (912024, 911024, 'payment-result-4', 'active', NOW());
+
+-- fixture: complete_visit_session
+INSERT INTO visit_sessions (visit_session_id, device_id, start_request_id, status, started_at, ended_at) VALUES
+    (932001, 931001, 'complete-paid', 'active', '2026-11-21 02:00:00', NULL),
+    (932002, 931002, 'complete-unpaid', 'active', '2026-11-21 02:00:00', NULL),
+    (932003, 931003, 'complete-processing', 'checkout_processing', '2026-11-21 02:00:00', NULL),
+    (932004, 931004, 'complete-failed-payment', 'active', '2026-11-21 02:00:00', NULL),
+    (932005, 931005, 'complete-disabled-device', 'active', '2026-11-21 02:00:00', NULL),
+    (932006, 931001, 'complete-previously-closed', 'closed', '2026-11-21 01:00:00', '2026-11-21 01:30:00');

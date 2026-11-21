@@ -47,6 +47,17 @@ class VisitSessionConflictException(Exception):
     pass
 
 
+class VisitSessionCompletionConflictException(Exception):
+    """未払い注文や決済処理のため来店セッションを終了できないことを表す。
+
+    Args:
+        message: 終了できない理由を示すメッセージ。
+
+    Returns:
+        来店セッションの終了条件を満たさないことを表す例外。
+    """
+
+
 class VisitSessionNotFoundException(Exception):
     pass
 

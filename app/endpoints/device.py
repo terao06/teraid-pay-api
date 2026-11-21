@@ -28,6 +28,7 @@ from app.models.responses.device_order_create_response import DeviceOrderCreateR
 from app.models.responses.device_order_history_response import DeviceOrderHistoryResponse
 from app.models.responses.device_payment_result_response import DevicePaymentResultResponse
 from app.models.responses.menu_category_response import DeviceMenuCategoryListResponse
+from app.models.responses.visit_session_complete_response import VisitSessionCompleteResponse
 from app.models.responses.visit_session_start_response import VisitSessionStartResponse
 
 
@@ -104,6 +105,33 @@ def start_visit_session(
     if not created:
         response.status_code = 200
     return result
+
+
+@device_router.post("/visit-sessions/{visit_session_id}/complete")
+@response_device_rapper()
+@request_device_rapper()
+def complete_visit_session(
+    response: Response,
+    path: Annotated[DeviceOrderPathRequest, Depends()],
+    credentials: HTTPAuthorizationCredentials | None = Depends(device_bearer_scheme),
+) -> VisitSessionCompleteResponse:
+    """認証済み端末の来店セッションを終了し、結果を返す。
+
+    Args:
+        response: 成功時のキャッシュ制御を設定するレスポンス。
+        path: 来店セッションIDを含む検証済みのパス入力。
+        credentials: AuthorizationヘッダーのBearer認証情報。
+
+    Returns:
+        来店セッションIDと終了済みの状態。
+
+    Raises:
+        HTTPException: 端末認証失敗は401、対象なしは404、決済状態の競合は409、処理失敗は500。
+    """
+    device_uuid = get_device_token_uuid(credentials)
+    return DeviceController().complete_visit_session(
+        device_uuid=device_uuid, visit_session_id=path.visit_session_id
+    )
 
 
 @device_router.post("/visit-sessions/{visit_session_id}/orders", status_code=201)
