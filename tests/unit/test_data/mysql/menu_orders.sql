@@ -25,3 +25,15 @@ INSERT INTO menu_orders (
         '2026-11-16 01:50:00', '2026-11-16 01:50:00', '2026-11-16 01:30:00', '2026-11-16 01:51:00'),
     (870111, 'other-store-served', 862002, 112, 500.000000, 1,
         NULL, '2026-11-16 01:50:00', '2026-11-16 01:40:00', NULL);
+
+-- fixture: device_order_history
+INSERT INTO menu_orders (
+    menu_order_id, idempotency_key, visit_session_id, store_id, total_amount, status, created_at, deleted_at
+) VALUES
+    (893001, 'history-most-recent', 892001, 113, 1700.000000, 1, '2026-11-21 03:00:00', NULL),
+    (893002, 'history-earlier', 892001, 113, 300.000000, 5, '2026-11-21 02:30:00', NULL),
+    (893003, 'history-same-time', 892001, 113, 300.000000, 3, '2026-11-21 02:30:00', NULL),
+    (893004, 'history-deleted', 892001, 113, 300.000000, 1, '2026-11-21 03:15:00', '2026-11-21 03:20:00'),
+    (893005, 'history-other-store', 892001, 102, 300.000000, 1, '2026-11-21 03:15:00', NULL),
+    (893006, 'history-other-visit', 892004, 113, 300.000000, 1, '2026-11-21 03:15:00', NULL),
+    (893007, 'history-checkout-deleted', 892003, 113, 300.000000, 1, '2026-11-21 03:15:00', '2026-11-21 03:20:00');
