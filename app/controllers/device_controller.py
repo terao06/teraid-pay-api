@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 from app.core.exceptions.custom_exception import (
     CustomHttpException,
     DeviceActivationCodeInvalidException,
+    DeviceCheckoutConflictException,
+    DeviceCheckoutOrderNotFoundException,
     DeviceOrderConflictException,
     DeviceOrderInvalidException,
     MenuCategoryNotFoundException,
@@ -17,6 +19,7 @@ from app.core.exceptions.custom_exception import (
 from app.core.exceptions.message import (
     DEVICE_ACTIVATION_CODE_INVALID_ERROR,
     DEVICE_AUTHENTICATION_FAILED_ERROR,
+    DEVICE_CHECKOUT_ORDER_NOT_FOUND_ERROR,
     DEVICE_ORDER_CONFLICT_ERROR,
     DEVICE_ORDER_INVALID_ERROR,
     MENU_CATEGORY_NOT_FOUND_ERROR,
@@ -27,10 +30,12 @@ from app.core.exceptions.message import (
 from app.middlewares.transaction import mysql_transaction
 from app.models.requests.device_access_token_request import DeviceAccessTokenRequest
 from app.models.requests.device_activate_request import DeviceActivateRequest
+from app.models.requests.device_checkout_create_request import DeviceCheckoutCreateRequest
 from app.models.requests.device_order_create_request import DeviceOrderCreateRequest
 from app.models.requests.visit_session_start_request import VisitSessionStartRequest
 from app.models.responses.device_access_token_response import DeviceAccessTokenResponse
 from app.models.responses.device_activate_response import DeviceActivateResponse
+from app.models.responses.device_checkout_create_response import DeviceCheckoutCreateResponse
 from app.models.responses.device_menu_item_list_response import DeviceMenuItemListResponse
 from app.models.responses.device_order_create_response import DeviceOrderCreateResponse
 from app.models.responses.device_order_history_response import DeviceOrderHistoryResponse
@@ -224,6 +229,53 @@ class DeviceController:
                 status_code=422,
                 message=DEVICE_ORDER_INVALID_ERROR,
             ) from None
+
+    @mysql_transaction(log_error_details=False, http_500_on_error=True)
+    def create_checkout(
+        self,
+        mysql_session: Session,
+        device_uuid: str,
+        visit_session_id: int,
+        request: DeviceCheckoutCreateRequest,
+    ) -> DeviceCheckoutCreateResponse:
+        """会計と対象注文をコミットし、業務例外をHTTP応答に変換する。
+
+        Args:
+            mysql_session: デコレーターが渡すMySQLセッション。
+            device_uuid: 検証済み端末のUUID。
+            visit_session_id: 会計を作成する来店セッションID。
+            request: 検証済みの対象範囲と注文ID。
+
+        Returns:
+            コミット済みの会計ID、対象注文の明細、合計金額、トークンシンボル。
+
+        Raises:
+            HTTPException: 端末認証失敗は401、対象セッション・注文なしは404、
+                決済状態や通貨の競合は409、DB処理やコミットの失敗は500。
+        """
+        try:
+            return DeviceOrderService().create_checkout(
+                mysql_session=mysql_session,
+                device_uuid=device_uuid,
+                visit_session_id=visit_session_id,
+                request=request,
+            )
+        except UnauthorizedException:
+            raise CustomHttpException.get_http_exception(
+                status_code=401,
+                message=DEVICE_AUTHENTICATION_FAILED_ERROR,
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from None
+        except VisitSessionNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=404, message=VISIT_SESSION_NOT_FOUND_ERROR
+            ) from None
+        except DeviceCheckoutOrderNotFoundException:
+            raise CustomHttpException.get_http_exception(
+                status_code=404, message=DEVICE_CHECKOUT_ORDER_NOT_FOUND_ERROR
+            ) from None
+        except DeviceCheckoutConflictException as error:
+            raise CustomHttpException.get_http_exception(status_code=409, message=str(error)) from None
 
     @mysql_transaction(log_error_details=False, http_500_on_error=True)
     def get_order_history(

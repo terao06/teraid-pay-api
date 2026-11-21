@@ -14,6 +14,8 @@
 | 追加 | menu_orders |
 | 追加 | menu_order_items |
 | 追加 | menu_order_item_options |
+| 追加 | menu_checkouts |
+| 追加 | menu_checkout_orders |
 | 変更 | payment_requests |
 
 ## 2. テーブルの用途
@@ -30,6 +32,8 @@
 | menu_orders | 1回の注文について、購入者、店舗、合計金額、決済状態、提供完了日時を管理する。 |
 | menu_order_items | 注文した商品と購入時点の商品名・基本単価を管理する。 |
 | menu_order_item_options | 注文時に選択したオプションと購入時点の追加料金を管理する。 |
+| menu_checkouts | 来店セッションごとの会計の対象範囲、状態、合計金額を管理する。 |
+| menu_checkout_orders | 会計と対象注文を紐づけ、会計作成時点の注文ごとの金額を保存する。 |
 | payment_requests | menu_order_idを追加し、注文に対する決済試行を管理する。 |
 
 ## 3. テーブル定義
@@ -214,6 +218,30 @@
 - 同じ端末からの開始要求を識別するため、`(device_id, start_request_id)` を一意とする。
 - 端末1台につき、`active` または `checkout_processing` のセッションは合計1件までとする。終了済みのセッションは履歴として保持する。
 
+### 3.12 menu_checkouts
+
+| カラム | 型 | NULL | デフォルト | キー | 説明 |
+| --- | --- | --- | --- | --- | --- |
+| checkout_id | BIGINT | NO | AUTO_INCREMENT | PK | 会計ID |
+| visit_session_id | BIGINT | NO | - | FK → visit_sessions.visit_session_id | 会計を作成した来店セッション |
+| scope | ENUM | NO | - | - | all_unpaid（一括会計）、single_order（注文ごとの会計） |
+| status | ENUM | NO | pending_confirmation | - | pending_confirmation（確認待ち）、processing（決済処理中）、paid（支払済み）、failed（決済失敗） |
+| total_amount | DECIMAL(28, 6) | NO | - | - | 会計対象注文の合計金額 |
+| token_symbol | VARCHAR(20) | NO | - | - | 会計対象注文で共通のトークンシンボル |
+| created_at | DATETIME | NO | UTC_TIMESTAMP() | - | 会計作成日時（UTC） |
+
+- `(visit_session_id, status)` に索引を設定する。会計作成時の状態は `pending_confirmation`。
+
+### 3.13 menu_checkout_orders
+
+| カラム | 型 | NULL | デフォルト | キー | 説明 |
+| --- | --- | --- | --- | --- | --- |
+| checkout_id | BIGINT | NO | - | PK、FK → menu_checkouts.checkout_id | 対象の会計 |
+| menu_order_id | BIGINT | NO | - | PK、FK → menu_orders.menu_order_id | 会計対象の注文 |
+| order_amount | DECIMAL(20, 6) | NO | - | - | 会計作成時に保存した注文の合計金額 |
+
+既存の MySQL には、`visit_sessions` と `menu_orders` の作成後に [会計テーブル追加 SQL](../local_setting/local_mysql/create_menu_checkout_tables.sql) を適用する。
+
 ## 4. ER図
 
 ~~~mermaid
@@ -235,6 +263,9 @@ erDiagram
     MENU_ITEMS ||--o{ MENU_ORDER_ITEMS : snapshot_of
 
     MENU_ORDER_ITEMS ||--o{ MENU_ORDER_ITEM_OPTIONS : selected
+    VISIT_SESSIONS ||--o{ MENU_CHECKOUTS : groups
+    MENU_CHECKOUTS ||--|{ MENU_CHECKOUT_ORDERS : contains
+    MENU_ORDERS ||--o{ MENU_CHECKOUT_ORDERS : selected_for
     MENU_OPTIONS ||--o{ MENU_ORDER_ITEM_OPTIONS : snapshot_of
 
     STORES ||--o{ PAYMENT_REQUESTS : receives
@@ -331,6 +362,22 @@ erDiagram
         tinyint status
         datetime paid_at
         datetime served_at
+    }
+
+    MENU_CHECKOUTS {
+        bigint checkout_id PK
+        bigint visit_session_id FK
+        enum scope
+        enum status
+        decimal total_amount
+        varchar token_symbol
+        datetime created_at
+    }
+
+    MENU_CHECKOUT_ORDERS {
+        bigint checkout_id PK, FK
+        bigint menu_order_id PK, FK
+        decimal order_amount
     }
 
     MENU_ORDER_ITEMS {

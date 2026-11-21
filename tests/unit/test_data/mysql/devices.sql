@@ -92,3 +92,11 @@ INSERT INTO devices (
     (891004, 113, 'History Disabled', '89100400-0000-4000-8000-000000891004', FALSE, NOW(), NULL),
     (891005, 113, 'History Unactivated', '89100500-0000-4000-8000-000000891005', TRUE, NULL, NULL),
     (891006, 113, 'History Deleted', '89100600-0000-4000-8000-000000891006', TRUE, NOW(), NOW());
+
+-- fixture: device_checkout
+INSERT INTO devices (device_id, store_id, device_name, device_uuid, is_active, activated_at) VALUES
+    (901001, 9101, 'Checkout Active', '90100100-0000-4000-8000-000000901001', TRUE, NOW()),
+    (901002, 9101, 'Checkout Processing', '90100200-0000-4000-8000-000000901002', TRUE, NOW()),
+    (901003, 9101, 'Checkout Empty', '90100300-0000-4000-8000-000000901003', TRUE, NOW()),
+    (901004, 9101, 'Checkout Mixed', '90100400-0000-4000-8000-000000901004', TRUE, NOW()),
+    (901005, 9101, 'Checkout Disabled', '90100500-0000-4000-8000-000000901005', FALSE, NOW());

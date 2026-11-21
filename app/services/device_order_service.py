@@ -1,7 +1,7 @@
-"""端末注文の登録、再送照合、履歴取得を行う。"""
+"""端末注文の登録、再送照合、履歴取得と会計作成を行う。"""
 
 from collections import Counter, defaultdict
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import timezone
 from decimal import Decimal
 
@@ -9,15 +9,29 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.exceptions.custom_exception import (
+    DeviceCheckoutConflictException,
+    DeviceCheckoutOrderNotFoundException,
     DeviceOrderConflictException,
     DeviceOrderInvalidException,
     UnauthorizedException,
     VisitSessionNotFoundException,
 )
-from app.models.mysql.menu_order import MenuOrder, OrderStatus
+from app.core.exceptions.message import (
+    DEVICE_CHECKOUT_MIXED_TOKEN_ERROR,
+    DEVICE_CHECKOUT_NO_UNPAID_ORDER_ERROR,
+    DEVICE_CHECKOUT_PROCESSING_ERROR,
+)
+from app.models.mysql.menu_checkout import CheckoutScope, MenuCheckout
+from app.models.mysql.menu_order import CHECKOUT_UNPAID_STATUSES, MenuOrder, OrderStatus
 from app.models.mysql.menu_order_item import MenuOrderItem
 from app.models.mysql.menu_order_item_option import MenuOrderItemOption
+from app.models.mysql.visit_session import VisitSessionStatus
+from app.models.requests.device_checkout_create_request import DeviceCheckoutCreateRequest, SingleOrderCheckoutRequest
 from app.models.requests.device_order_create_request import DeviceOrderCreateRequest
+from app.models.responses.device_checkout_create_response import (
+    DeviceCheckoutCreateResponse,
+    DeviceCheckoutOrderResponse,
+)
 from app.models.responses.device_order_create_response import DeviceOrderCreateResponse
 from app.models.responses.device_order_history_response import (
     DeviceOrderHistoryEntryResponse,
@@ -36,7 +50,7 @@ _MYSQL_DUPLICATE_ENTRY = 1062
 
 
 class DeviceOrderService:
-    """端末からの注文を登録し、保存済みの結果と履歴を返す。
+    """端末からの注文を登録し、保存済みの注文を参照して履歴や会計を返す。
 
     Args:
         なし。
@@ -68,43 +82,100 @@ class DeviceOrderService:
         if rows[0][0] is None:
             raise VisitSessionNotFoundException()
 
-        orders: dict[int, DeviceOrderHistoryEntryResponse] = {}
-        items: dict[int, DeviceOrderHistoryItemResponse] = {}
-        for _, order, item, option in rows:
-            if order is None:
-                continue
-            if order.menu_order_id not in orders:
-                orders[order.menu_order_id] = DeviceOrderHistoryEntryResponse(
+        details = self._group_order_details((order, item, option) for _, order, item, option in rows)
+        return DeviceOrderHistoryResponse(
+            orders=[
+                DeviceOrderHistoryEntryResponse(
                     menu_order_id=order.menu_order_id,
                     created_at=order.created_at.replace(tzinfo=timezone.utc),
                     status=order.status,
                     total_amount=f"{order.total_amount:.6f}",
                     token_symbol=order.token_symbol,
-                    items=[],
+                    items=items,
                 )
-            if item is None:
-                continue
-            if item.menu_order_item_id not in items:
-                item_response = DeviceOrderHistoryItemResponse(
-                    menu_item_name=item.menu_item_name,
-                    unit_price=f"{item.unit_price:.6f}",
-                    quantity=item.quantity,
-                    line_amount=f"{item.line_amount:.6f}",
-                    options=[],
-                )
-                items[item.menu_order_item_id] = item_response
-                orders[order.menu_order_id].items.append(item_response)
-            if option is not None:
-                items[item.menu_order_item_id].options.append(
-                    DeviceOrderHistoryOptionResponse(
-                        option_group_name=option.option_group_name,
-                        option_name=option.option_name,
-                        additional_price=f"{option.additional_price:.6f}",
-                        option_quantity=option.option_quantity,
-                    )
-                )
-        return DeviceOrderHistoryResponse(orders=list(orders.values()))
+                for order, items in details.values()
+            ]
+        )
 
+    def create_checkout(
+        self,
+        mysql_session: Session,
+        device_uuid: str,
+        visit_session_id: int,
+        request: DeviceCheckoutCreateRequest,
+    ) -> DeviceCheckoutCreateResponse:
+        """対象の未払い注文を確定し、確認待ちの会計と保存済み明細を返す。
+
+        Args:
+            mysql_session: 参照と登録を同じトランザクションで行うMySQLセッション。
+            device_uuid: 検証済み端末アクセストークンに含まれるUUID。
+            visit_session_id: 会計を作成する来店セッションID。
+            request: 一括会計または注文ごとの会計の指定。
+
+        Returns:
+            会計ID、対象の注文と明細、合計金額、トークンシンボル。
+
+        Raises:
+            UnauthorizedException: 端末が利用できない場合。
+            VisitSessionNotFoundException: 端末自身の進行中のセッションが見つからない場合。
+            DeviceCheckoutOrderNotFoundException: 個別会計の指定注文が見つからない場合。
+            DeviceCheckoutConflictException: 決済処理中、対象が未払いではない、または通貨が混在する場合。
+            SQLAlchemyError: DB参照または登録に失敗した場合。
+        """
+        device = DeviceRepository().get_device_by_uuid_for_update(mysql_session, device_uuid)
+        if device is None or device.activated_at is None or not device.is_active:
+            raise UnauthorizedException()
+
+        visit = VisitSessionRepository().get_visit_session_for_update(
+            mysql_session, device.device_id, visit_session_id
+        )
+        if visit is None or visit.status == VisitSessionStatus.CLOSED:
+            raise VisitSessionNotFoundException()
+        if visit.status == VisitSessionStatus.CHECKOUT_PROCESSING:
+            raise DeviceCheckoutConflictException(DEVICE_CHECKOUT_PROCESSING_ERROR)
+
+        repository = DeviceOrderRepository()
+        menu_order_id = request.menu_order_id if isinstance(request, SingleOrderCheckoutRequest) else None
+        rows = repository.get_checkout_orders(mysql_session, device.store_id, visit_session_id, menu_order_id)
+        if not rows:
+            if menu_order_id is not None:
+                raise DeviceCheckoutOrderNotFoundException()
+            raise DeviceCheckoutConflictException(DEVICE_CHECKOUT_NO_UNPAID_ORDER_ERROR)
+        if menu_order_id is not None:
+            order, _, _ = rows[0]
+            if order.paid_at is not None or order.status not in CHECKOUT_UNPAID_STATUSES:
+                raise DeviceCheckoutConflictException(DEVICE_CHECKOUT_NO_UNPAID_ORDER_ERROR)
+
+        details = self._group_order_details(rows)
+        orders = [order for order, _ in details.values()]
+        token_symbol = orders[0].token_symbol
+        if any(order.token_symbol != token_symbol for order in orders):
+            raise DeviceCheckoutConflictException(DEVICE_CHECKOUT_MIXED_TOKEN_ERROR)
+
+        total_amount = sum((order.total_amount for order in orders), Decimal("0"))
+        checkout_id = repository.create_checkout(
+            mysql_session,
+            MenuCheckout(
+                visit_session_id=visit_session_id,
+                scope=CheckoutScope(request.scope),
+                total_amount=total_amount,
+                token_symbol=token_symbol,
+            ),
+            orders,
+        )
+        return DeviceCheckoutCreateResponse(
+            checkout_id=checkout_id,
+            orders=[
+                DeviceCheckoutOrderResponse(
+                    menu_order_id=order.menu_order_id,
+                    total_amount=f"{order.total_amount:.6f}",
+                    items=items,
+                )
+                for order, items in details.values()
+            ],
+            total_amount=f"{total_amount:.6f}",
+            token_symbol=token_symbol,
+        )
 
     def create_order(
         self,
@@ -185,6 +256,41 @@ class DeviceOrderService:
 
         repository.create_order_items(mysql_session, order.menu_order_id, lines)
         return self._to_response(order), True
+
+    @staticmethod
+    def _group_order_details(
+        rows: Iterable[tuple[MenuOrder | None, MenuOrderItem | None, MenuOrderItemOption | None]],
+    ) -> dict[int, tuple[MenuOrder, list[DeviceOrderHistoryItemResponse]]]:
+        """結合行を注文IDと商品明細IDでまとめ、明細の順序を保つ。"""
+        orders: dict[int, tuple[MenuOrder, list[DeviceOrderHistoryItemResponse]]] = {}
+        items: dict[int, DeviceOrderHistoryItemResponse] = {}
+        for order, item, option in rows:
+            if order is None:
+                continue
+            if order.menu_order_id not in orders:
+                orders[order.menu_order_id] = (order, [])
+            if item is None:
+                continue
+            if item.menu_order_item_id not in items:
+                item_response = DeviceOrderHistoryItemResponse(
+                    menu_item_name=item.menu_item_name,
+                    unit_price=f"{item.unit_price:.6f}",
+                    quantity=item.quantity,
+                    line_amount=f"{item.line_amount:.6f}",
+                    options=[],
+                )
+                items[item.menu_order_item_id] = item_response
+                orders[order.menu_order_id][1].append(item_response)
+            if option is not None:
+                items[item.menu_order_item_id].options.append(
+                    DeviceOrderHistoryOptionResponse(
+                        option_group_name=option.option_group_name,
+                        option_name=option.option_name,
+                        additional_price=f"{option.additional_price:.6f}",
+                        option_quantity=option.option_quantity,
+                    )
+                )
+        return orders
 
     def _price_order(
         self,

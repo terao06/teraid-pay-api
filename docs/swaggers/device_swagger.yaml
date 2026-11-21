@@ -332,6 +332,83 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /device/visit-sessions/{visit_session_id}/checkouts:
+    post:
+      tags: [Device]
+      summary: 会計作成
+      description: >-
+        認証済み端末の受付中の来店セッションについて、未払い注文の全件または指定した1件を
+        確認待ちの会計として登録し、保存済みの明細と合計金額を返す。
+      operationId: createDeviceCheckout
+      security:
+        - DeviceBearerAuth: []
+      parameters:
+        - name: visit_session_id
+          in: path
+          required: true
+          description: ASCIIの正の十進整数。
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+            maximum: 9223372036854775807
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceCheckoutCreateRequest'
+            examples:
+              allUnpaid:
+                value: {scope: all_unpaid}
+              singleOrder:
+                value: {scope: single_order, menu_order_id: 456}
+      responses:
+        '201':
+          description: 確認待ちの会計と対象注文を登録した
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/VisitSessionCacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceCheckoutCreateResponse'
+        '401':
+          description: トークンまたは端末が利用できない
+          headers:
+            WWW-Authenticate:
+              schema:
+                type: string
+                example: Bearer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 端末自身の進行中の来店セッション、または個別会計の指定注文が見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: セッションは決済処理中、対象の未払い注文がない、または対象注文の通貨が一致しない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: 来店セッションID、JSON、会計範囲または注文IDの指定が不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '500':
+          description: 認証設定の取得、DB処理、またはトランザクションの確定に失敗
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /device/menu/categories:
     get:
       tags: [Device]
@@ -638,6 +715,74 @@ components:
         token_symbol:
           type: string
           example: JPYC
+
+    DeviceCheckoutCreateRequest:
+      oneOf:
+        - $ref: '#/components/schemas/AllUnpaidCheckoutRequest'
+        - $ref: '#/components/schemas/SingleOrderCheckoutRequest'
+      discriminator:
+        propertyName: scope
+        mapping:
+          all_unpaid: '#/components/schemas/AllUnpaidCheckoutRequest'
+          single_order: '#/components/schemas/SingleOrderCheckoutRequest'
+    AllUnpaidCheckoutRequest:
+      type: object
+      additionalProperties: false
+      required: [scope]
+      properties:
+        scope:
+          type: string
+          enum: [all_unpaid]
+    SingleOrderCheckoutRequest:
+      type: object
+      additionalProperties: false
+      required: [scope, menu_order_id]
+      properties:
+        scope:
+          type: string
+          enum: [single_order]
+        menu_order_id:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9223372036854775807
+          example: 456
+    DeviceCheckoutCreateResponse:
+      type: object
+      required: [checkout_id, orders, total_amount, token_symbol]
+      properties:
+        checkout_id:
+          type: integer
+          format: int64
+          example: 789
+        orders:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/DeviceCheckoutOrderResponse'
+        total_amount:
+          type: string
+          description: 小数点以下6桁の会計合計金額。
+          example: '1400.000000'
+        token_symbol:
+          type: string
+          example: JPYC
+    DeviceCheckoutOrderResponse:
+      type: object
+      required: [menu_order_id, total_amount, items]
+      properties:
+        menu_order_id:
+          type: integer
+          format: int64
+          example: 456
+        total_amount:
+          type: string
+          description: 小数点以下6桁の保存済み注文合計金額。
+          example: '1400.000000'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceOrderHistoryItemResponse'
 
     DeviceOrderHistoryResponse:
       type: object

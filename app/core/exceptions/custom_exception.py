@@ -62,6 +62,28 @@ class DeviceOrderConflictException(Exception):
     """
 
 
+class DeviceCheckoutOrderNotFoundException(Exception):
+    """指定した注文が認証済み端末の来店セッションに存在しないことを表す。
+
+    Args:
+        なし。
+
+    Returns:
+        対象注文が見つからない場合の例外。
+    """
+
+
+class DeviceCheckoutConflictException(Exception):
+    """来店セッションまたは注文の状態により会計を作成できないことを表す。
+
+    Args:
+        message: 端末に返す会計作成エラーの理由。
+
+    Returns:
+        会計作成時の競合を表す例外。
+    """
+
+
 class DeviceOrderInvalidException(Exception):
     """カートの内容が注文の登録条件を満たさないことを表す。
 

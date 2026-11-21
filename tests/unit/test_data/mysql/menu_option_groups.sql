@@ -41,3 +41,8 @@ INSERT INTO menu_option_groups (
     menu_option_group_id, menu_item_id, name, min_selections, max_selections, is_active
 ) VALUES
     (884001, 883001, '注文トッピング', 1, 3, TRUE);
+
+-- fixture: device_checkout
+INSERT INTO menu_option_groups (
+    menu_option_group_id, menu_item_id, name, min_selections, max_selections, is_active
+) VALUES (905001, 904001, '現行トッピング', 0, 2, TRUE);

@@ -25,3 +25,11 @@ INSERT INTO visit_sessions (visit_session_id, device_id, start_request_id, statu
     (892002, 891001, 'history-closed', 'closed', '2026-11-21 01:00:00', '2026-11-21 01:30:00'),
     (892003, 891002, 'history-checkout', 'checkout_processing', '2026-11-21 02:00:00', NULL),
     (892004, 891003, 'history-other-device', 'active', '2026-11-21 02:00:00', NULL);
+
+-- fixture: device_checkout
+INSERT INTO visit_sessions (visit_session_id, device_id, start_request_id, status, started_at, ended_at) VALUES
+    (902001, 901001, 'checkout-active', 'active', '2026-11-21 02:00:00', NULL),
+    (902002, 901001, 'checkout-closed', 'closed', '2026-11-21 01:00:00', '2026-11-21 01:30:00'),
+    (902003, 901002, 'checkout-processing', 'checkout_processing', '2026-11-21 02:00:00', NULL),
+    (902004, 901003, 'checkout-empty', 'active', '2026-11-21 02:00:00', NULL),
+    (902005, 901004, 'checkout-mixed', 'active', '2026-11-21 02:00:00', NULL);

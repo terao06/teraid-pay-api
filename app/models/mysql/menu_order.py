@@ -36,6 +36,9 @@ class OrderStatus(IntEnum):
     CANCELED = 5
 
 
+CHECKOUT_UNPAID_STATUSES = (OrderStatus.PENDING_PAYMENT.value, OrderStatus.PAYMENT_FAILED.value)
+
+
 class OrderFulfillmentStatus(str, Enum):
     """オーダー一覧で指定する提供状態を定義する。
 
