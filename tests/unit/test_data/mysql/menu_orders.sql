@@ -37,3 +37,19 @@ INSERT INTO menu_orders (
     (893005, 'history-other-store', 892001, 102, 300.000000, 1, '2026-11-21 03:15:00', NULL),
     (893006, 'history-other-visit', 892004, 113, 300.000000, 1, '2026-11-21 03:15:00', NULL),
     (893007, 'history-checkout-deleted', 892003, 113, 300.000000, 1, '2026-11-21 03:15:00', '2026-11-21 03:20:00');
+
+-- fixture: device_checkout
+INSERT INTO menu_orders (
+    menu_order_id, idempotency_key, visit_session_id, store_id, total_amount, token_symbol,
+    status, paid_at, created_at, deleted_at
+) VALUES
+    (903001, 'checkout-pending', 902001, 9101, 1400.000000, 'JPYC', 1, NULL, '2026-11-21 03:00:00', NULL),
+    (903002, 'checkout-failed', 902001, 9101, 300.000000, 'JPYC', 4, NULL, '2026-11-21 02:30:00', NULL),
+    (903003, 'checkout-paid', 902001, 9101, 300.000000, 'JPYC', 3, NOW(), '2026-11-21 02:30:00', NULL),
+    (903004, 'checkout-deleted', 902001, 9101, 300.000000, 'JPYC', 1, NULL, '2026-11-21 02:30:00', NOW()),
+    (903005, 'checkout-other-store', 902001, 102, 300.000000, 'JPYC', 1, NULL, '2026-11-21 02:30:00', NULL),
+    (903006, 'checkout-mixed-jpyc', 902005, 9101, 400.000000, 'JPYC', 1, NULL, '2026-11-21 02:30:00', NULL),
+    (903007, 'checkout-mixed-other', 902005, 9101, 300.000000, 'OTHER', 1, NULL, '2026-11-21 02:30:00', NULL),
+    (903008, 'checkout-canceled', 902001, 9101, 300.000000, 'JPYC', 5, NULL, '2026-11-21 02:30:00', NULL),
+    (903009, 'checkout-order-processing', 902001, 9101, 300.000000, 'JPYC', 2, NULL, '2026-11-21 02:30:00', NULL),
+    (903010, 'checkout-paid-at', 902001, 9101, 300.000000, 'JPYC', 1, NOW(), '2026-11-21 02:30:00', NULL);

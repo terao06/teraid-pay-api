@@ -45,3 +45,8 @@ INSERT INTO menu_options (
     (885001, 884001, '注文チーズ', 100.500000, TRUE, NULL),
     (885002, 884001, '注文ソース', 10.125000, TRUE, NULL),
     (885003, 884001, '注文削除オプション', 50.000000, TRUE, NOW());
+
+-- fixture: device_checkout
+INSERT INTO menu_options (menu_option_id, menu_option_group_id, name, additional_price, is_available) VALUES
+    (906001, 905001, '現行チーズ', 120.000000, TRUE),
+    (906002, 905001, '現行ソース', 80.000000, TRUE);
