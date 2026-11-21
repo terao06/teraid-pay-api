@@ -68,3 +68,8 @@ INSERT INTO menu_items (menu_item_id, store_id, name, price, token_symbol, image
     (883002, 113, '注文ポテト', 300.000000, 'JPYC', 'png', TRUE),
     (883003, 113, '注文販売停止商品', 500.000000, 'JPYC', 'png', FALSE),
     (883004, 113, '注文別通貨商品', 200.000000, 'OTHER', 'png', TRUE);
+
+-- fixture: device_checkout
+INSERT INTO menu_items (menu_item_id, store_id, name, price, token_symbol, image_extension, is_available) VALUES
+    (904001, 9101, '会計テストの現行商品', 900.000000, 'JPYC', 'png', TRUE),
+    (904002, 9101, '会計テストの別通貨商品', 300.000000, 'OTHER', 'png', TRUE);

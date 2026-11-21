@@ -1,4 +1,4 @@
-"""端末の注文登録と履歴取得に必要なMySQL操作を提供する。"""
+"""端末の注文登録、履歴取得、会計作成に必要なMySQL操作を提供する。"""
 
 from collections.abc import Sequence
 
@@ -6,10 +6,12 @@ from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
 from app.models.mysql.device import Device
+from app.models.mysql.menu_checkout import MenuCheckout
+from app.models.mysql.menu_checkout_order import MenuCheckoutOrder
 from app.models.mysql.menu_item import MenuItem
 from app.models.mysql.menu_option import MenuOption
 from app.models.mysql.menu_option_group import MenuOptionGroup
-from app.models.mysql.menu_order import MenuOrder
+from app.models.mysql.menu_order import CHECKOUT_UNPAID_STATUSES, MenuOrder
 from app.models.mysql.menu_order_item import MenuOrderItem
 from app.models.mysql.menu_order_item_option import MenuOrderItemOption
 from app.models.mysql.visit_session import VisitSession, VisitSessionStatus
@@ -155,6 +157,81 @@ class DeviceOrderRepository:
         statement = _join_order_details(statement, Device.store_id, VisitSession.visit_session_id)
         return mysql_session.execute(statement).tuples().all()
 
+
+    def get_checkout_orders(
+        self, mysql_session: Session, store_id: int, visit_session_id: int, menu_order_id: int | None
+    ) -> Sequence[_OrderRow]:
+        """会計候補の注文と保存済み明細を1回のSELECTで取得する。
+
+        Args:
+            mysql_session: 対象の端末行とセッション行をロックしたMySQLセッション。
+            store_id: 認証済み端末の所属店舗ID。
+            visit_session_id: 会計を作成する来店セッションID。
+            menu_order_id: 個別会計の注文ID。一括会計の場合はNone。
+
+        Returns:
+            一括会計なら未払い注文、個別会計なら指定注文を含む結合行。
+            対象注文が存在しない場合は空。
+
+        Raises:
+            SQLAlchemyError: DB参照に失敗した場合。
+        """
+        statement = (
+            select(MenuOrder, MenuOrderItem, MenuOrderItemOption)
+            .select_from(MenuOrder)
+            .where(
+                MenuOrder.store_id == store_id,
+                MenuOrder.visit_session_id == visit_session_id,
+                MenuOrder.deleted_at.is_(None),
+            )
+            .order_by(
+                MenuOrder.created_at.desc(),
+                MenuOrder.menu_order_id.desc(),
+                MenuOrderItem.display_order,
+                MenuOrderItem.menu_order_item_id,
+                MenuOrderItemOption.display_order,
+                MenuOrderItemOption.menu_order_item_option_id,
+            )
+        )
+        if menu_order_id is None:
+            statement = statement.where(
+                MenuOrder.paid_at.is_(None), MenuOrder.status.in_(CHECKOUT_UNPAID_STATUSES)
+            )
+        else:
+            statement = statement.where(MenuOrder.menu_order_id == menu_order_id)
+        statement = _join_order_details(statement, store_id, visit_session_id)
+        return mysql_session.execute(statement).tuples().all()
+
+    def create_checkout(
+        self, mysql_session: Session, checkout: MenuCheckout, orders: Sequence[MenuOrder]
+    ) -> int:
+        """会計と対象注文の金額を同じトランザクションに登録する。
+
+        Args:
+            mysql_session: 会計作成中のMySQLセッション。
+            checkout: 登録する確認待ちの会計。
+            orders: 注文IDごとに1件にまとめた会計対象注文。
+
+        Returns:
+            採番済みの会計ID。
+
+        Raises:
+            SQLAlchemyError: 会計または対象注文の登録に失敗した場合。
+        """
+        mysql_session.add(checkout)
+        mysql_session.flush()
+        mysql_session.add_all(
+            [
+                MenuCheckoutOrder(
+                    checkout_id=checkout.checkout_id,
+                    menu_order_id=order.menu_order_id,
+                    order_amount=order.total_amount,
+                )
+                for order in orders
+            ]
+        )
+        mysql_session.flush()
+        return checkout.checkout_id
 
     def get_catalog(
         self, mysql_session: Session, store_id: int, item_ids: set[int], option_ids: set[int]

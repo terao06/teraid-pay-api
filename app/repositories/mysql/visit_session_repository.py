@@ -40,6 +40,29 @@ class VisitSessionRepository:
             .one_or_none()
         )
 
+    def get_visit_session_for_update(
+        self, mysql_session: Session, device_id: int, visit_session_id: int
+    ) -> VisitSession | None:
+        """指定端末に属するセッションを排他ロックして現在の状態を取得する。
+
+        Args:
+            mysql_session: トランザクション中のMySQLセッション。
+            device_id: 認証済み端末のID。
+            visit_session_id: 端末が指定した来店セッションID。
+
+        Returns:
+            取得した来店セッション。対象端末に属するセッションがなければNone。
+
+        Raises:
+            SQLAlchemyError: DB参照またはロックの取得に失敗した場合。
+        """
+        return (
+            mysql_session.query(VisitSession)
+            .filter(VisitSession.visit_session_id == visit_session_id, VisitSession.device_id == device_id)
+            .with_for_update()
+            .one_or_none()
+        )
+
     def has_active_visit_session(
         self,
         mysql_session: Session,
