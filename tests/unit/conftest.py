@@ -20,6 +20,7 @@ from tests.unit.test_data.mysql.build_local_db import (
     insert_device_access_token_data as load_device_access_token_data,
     insert_device_activation_data as load_device_activation_data,
     insert_device_menu_categories as load_device_menu_categories,
+    insert_device_menu_items as load_device_menu_items,
     insert_devices as load_devices,
     insert_menu_category_deletion_data as load_menu_category_deletion_data,
     insert_menu_deletion_data as load_menu_deletion_data,
@@ -255,6 +256,19 @@ def insert_device_menu_categories(
     insert_visit_session_data: tuple[str, str, str],
 ) -> str:
     return load_device_menu_categories(mysql_engine)
+
+
+@pytest.fixture(scope="session")
+def insert_device_menu_items(mysql_engine: Engine) -> tuple[str, ...]:
+    """カテゴリー別メニュー取得専用の店舗とメニューを一度だけ投入する。
+
+    Args:
+        mysql_engine: 初期化済みのテスト用MySQL Engine。
+
+    Returns:
+        専用データを投入したSQLファイル名。
+    """
+    return load_device_menu_items(mysql_engine)
 
 
 @pytest.fixture()

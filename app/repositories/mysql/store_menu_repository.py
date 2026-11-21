@@ -1,8 +1,9 @@
 """店舗メニューとオプションを操作するRepository。"""
 
+from collections.abc import Sequence
 from datetime import datetime
 
-from sqlalchemy import and_
+from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 from app.models.mysql.menu_category import MenuCategory
 from app.models.mysql.menu_item import MenuItem
@@ -79,6 +80,68 @@ class StoreMenuRepository(StoreMenuCategoryRepository):
             条件に一致するメニュー数。
         """
         return self._build_menu_items_query(mysql_session, store_id, name, menu_category_id, is_available).count()
+
+    def get_menu_items_by_category(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        menu_category_id: int,
+    ) -> Sequence[tuple[int, MenuItem | None, MenuOptionGroup | None, MenuOption | None]]:
+        """有効なカテゴリーと販売可能なメニュー構成を1回のSELECTで取得する。
+
+        Args:
+            mysql_session: SQLAlchemyのセッション。
+            store_id: 認証済み端末が所属する店舗ID。
+            menu_category_id: 取得対象のメニューカテゴリーID。
+
+        Returns:
+            カテゴリーID、商品、グループ、オプションの結合行。カテゴリーが対象外の場合は
+            空の一覧。カテゴリーが有効で商品がない場合は商品以降がNoneの行を返す。
+        """
+        statement = (
+            select(MenuCategory.menu_category_id, MenuItem, MenuOptionGroup, MenuOption)
+            .select_from(MenuCategory)
+            .outerjoin(
+                MenuItem,
+                and_(
+                    MenuItem.menu_category_id == MenuCategory.menu_category_id,
+                    MenuItem.store_id == MenuCategory.store_id,
+                    MenuItem.is_available.is_(True),
+                    MenuItem.deleted_at.is_(None),
+                ),
+            )
+            .outerjoin(
+                MenuOptionGroup,
+                and_(
+                    MenuOptionGroup.menu_item_id == MenuItem.menu_item_id,
+                    MenuOptionGroup.is_active.is_(True),
+                    MenuOptionGroup.deleted_at.is_(None),
+                ),
+            )
+            .outerjoin(
+                MenuOption,
+                and_(
+                    MenuOption.menu_option_group_id == MenuOptionGroup.menu_option_group_id,
+                    MenuOption.is_available.is_(True),
+                    MenuOption.deleted_at.is_(None),
+                ),
+            )
+            .where(
+                MenuCategory.menu_category_id == menu_category_id,
+                MenuCategory.store_id == store_id,
+                MenuCategory.is_active.is_(True),
+                MenuCategory.deleted_at.is_(None),
+            )
+            .order_by(
+                MenuItem.display_order,
+                MenuItem.menu_item_id,
+                MenuOptionGroup.display_order,
+                MenuOptionGroup.menu_option_group_id,
+                MenuOption.display_order,
+                MenuOption.menu_option_id,
+            )
+        )
+        return mysql_session.execute(statement).tuples().all()
 
     def get_menu_detail(
         self,

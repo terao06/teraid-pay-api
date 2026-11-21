@@ -62,3 +62,13 @@ INSERT INTO devices (
         SHA2('test-visit-session-credential', 256), NOW(), TRUE, NOW(), NOW(), NULL),
     (810068, 109, 'カテゴリー未登録店舗の端末', '81006800-0000-4000-8000-000000000068',
         SHA2('test-visit-session-credential', 256), NOW(), TRUE, NOW(), NOW(), NULL);
+
+-- fixture: device_menu_items
+INSERT INTO devices (
+    device_id, store_id, device_name, device_uuid, device_credential_hash,
+    activated_at, is_active, created_at, updated_at, deleted_at
+) VALUES
+    (861001, 111, 'カテゴリー別メニュー取得端末', '86100100-0000-4000-8000-000000861001',
+        SHA2('test-device-menu-items-credential', 256), NOW(), TRUE, NOW(), NOW(), NULL),
+    (861002, 112, 'カテゴリー別メニューの他店舗端末', '86100200-0000-4000-8000-000000861002',
+        SHA2('test-device-menu-items-credential', 256), NOW(), TRUE, NOW(), NOW(), NULL);

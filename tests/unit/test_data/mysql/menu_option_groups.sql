@@ -24,3 +24,14 @@ INSERT INTO menu_option_groups (
     (840003, 840003, '別店舗の削除対象外グループ', 0, 1, 0, TRUE, '2026-01-01 09:00:00', '2026-01-01 09:00:00', NULL),
     (840005, 840005, 'ロールバックテスト用グループ', 0, 1, 0, FALSE, '2026-01-01 09:00:00', '2026-01-01 09:00:00', NULL),
     (840006, 840006, 'Repository削除テスト用グループ', 0, 1, 0, FALSE, '2026-01-01 09:00:00', '2026-01-01 09:00:00', NULL);
+
+-- fixture: device_menu_items
+INSERT INTO menu_option_groups (
+    menu_option_group_id, menu_item_id, name, min_selections, max_selections,
+    display_order, is_active, created_at, updated_at, deleted_at
+) VALUES
+    (864111, 863012, 'トッピング', 0, 2, 1, TRUE, NOW(), NOW(), NULL),
+    (864112, 863012, '追加ソース', 0, 1, 1, TRUE, NOW(), NOW(), NULL),
+    (864113, 863012, '無効グループ', 0, 1, 0, FALSE, NOW(), NOW(), NULL),
+    (864114, 863012, '削除済みグループ', 0, 1, 0, TRUE, NOW(), NOW(), NOW()),
+    (864115, 863012, 'サイズ', 1, 1, 0, TRUE, NOW(), NOW(), NULL);
