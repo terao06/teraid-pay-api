@@ -73,6 +73,17 @@ class DeviceCheckoutOrderNotFoundException(Exception):
     """
 
 
+class DeviceCheckoutNotFoundException(Exception):
+    """認証済み端末に紐づく会計が見つからないことを表す。
+
+    Args:
+        なし。
+
+    Returns:
+        会計へのアクセスを拒否する例外。
+    """
+
+
 class DeviceCheckoutConflictException(Exception):
     """来店セッションまたは注文の状態により会計を作成できないことを表す。
 
@@ -125,6 +136,17 @@ class InvalidImageError(Exception):
 
 class WalletNotFoundException(Exception):
     pass
+
+
+class WalletMismatchException(ValueError):
+    """会計通貨とウォレットの通貨・チェーンが決済条件に合わないことを表す。
+
+    Args:
+        message: 通貨またはチェーンの不一致を説明するメッセージ。
+
+    Returns:
+        ウォレットの不一致を表す例外。
+    """
 
 
 class WalletNotPermittedException(Exception):

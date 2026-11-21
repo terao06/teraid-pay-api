@@ -1,0 +1,191 @@
+"""端末決済の会計と保存済みの注文金額を読み取る。"""
+
+from collections.abc import Sequence
+from datetime import datetime
+
+from sqlalchemy import or_, select
+from sqlalchemy.orm import Session
+
+from app.core.utils.datetime import JST
+from app.models.mysql.menu_checkout import MenuCheckout
+from app.models.mysql.menu_checkout_order import MenuCheckoutOrder
+from app.models.mysql.menu_order import CHECKOUT_UNPAID_STATUSES, MenuOrder
+from app.models.mysql.payment_request import PaymentRequest, PaymentStatus
+from app.models.mysql.visit_session import VisitSession
+
+
+class DevicePaymentRepository:
+    """会計の所有端末と対象注文を参照し、端末の決済試行を永続化する。
+
+    Args:
+        なし。
+
+    Returns:
+        端末の会計を照合するリポジトリ。
+    """
+
+    def get_owned_checkout(
+        self, mysql_session: Session, checkout_id: int, device_id: int
+    ) -> tuple[MenuCheckout, VisitSession] | None:
+        """端末が所有する会計と来店セッションを取得する。
+
+        Args:
+            mysql_session: 参照用のMySQLセッション。
+            checkout_id: 対象の会計ID。
+            device_id: 認証済みの端末ID。
+
+        Returns:
+            会計と来店セッションの組。対象がなければNone。
+        """
+        statement = (
+            select(MenuCheckout, VisitSession)
+            .join(VisitSession, MenuCheckout.visit_session_id == VisitSession.visit_session_id)
+            .where(MenuCheckout.checkout_id == checkout_id, VisitSession.device_id == device_id)
+        )
+        row = mysql_session.execute(statement).tuples().one_or_none()
+        return (row[0], row[1]) if row is not None else None
+
+    def get_checkout_for_update(
+        self, mysql_session: Session, checkout_id: int, visit_session_id: int
+    ) -> MenuCheckout | None:
+        """ロック済みの来店セッションに属する会計を排他ロックする。
+
+        Args:
+            mysql_session: 登録トランザクションのMySQLセッション。
+            checkout_id: ロックする会計ID。
+            visit_session_id: 認証済み端末が所有し、ロック済みのセッションID。
+
+        Returns:
+            排他ロックした会計。対象がなければNone。
+        """
+        return mysql_session.scalar(
+            select(MenuCheckout)
+            .where(MenuCheckout.checkout_id == checkout_id, MenuCheckout.visit_session_id == visit_session_id)
+            .with_for_update()
+        )
+
+    def get_checkout_snapshot(self, mysql_session: Session, checkout_id: int) -> Sequence[MenuCheckoutOrder]:
+        """会計を作成した時点の注文IDと金額を取得する。
+
+        Args:
+            mysql_session: 参照用のMySQLセッション。
+            checkout_id: 対象の会計ID。
+
+        Returns:
+            保存済みの注文IDと注文金額の行。
+        """
+        return mysql_session.scalars(
+            select(MenuCheckoutOrder).where(MenuCheckoutOrder.checkout_id == checkout_id)
+        ).all()
+
+    def get_unpaid_orders(
+        self,
+        mysql_session: Session,
+        store_id: int,
+        visit_session_id: int,
+        order_ids: set[int] | None,
+    ) -> Sequence[MenuOrder]:
+        """認証済み店舗の来店セッションから現在の未払い注文を取得する。
+
+        Args:
+            mysql_session: 注文検索のMySQLセッション。
+            store_id: 認証済み端末の店舗ID。
+            visit_session_id: 認証済み端末の来店セッションID。
+            order_ids: 個別会計の対象注文ID。全件を照合する場合はNone。
+
+        Returns:
+            条件に一致する未削除・未払いの注文。
+        """
+        statement = select(MenuOrder).where(
+            MenuOrder.store_id == store_id,
+            MenuOrder.visit_session_id == visit_session_id,
+            MenuOrder.deleted_at.is_(None),
+            MenuOrder.paid_at.is_(None),
+            MenuOrder.status.in_(CHECKOUT_UNPAID_STATUSES),
+        )
+        if order_ids is not None:
+            statement = statement.where(MenuOrder.menu_order_id.in_(order_ids))
+        return mysql_session.scalars(statement).all()
+
+    def get_checkout_payment(
+        self,
+        mysql_session: Session,
+        checkout_id: int,
+        idempotency_key_hash: bytes,
+        *,
+        include_processing: bool,
+    ) -> PaymentRequest | None:
+        """同じキーの試行を優先し、必要に応じて会計で処理中の試行を返す。
+
+        Args:
+            mysql_session: 決済試行を参照するMySQLセッション。
+            checkout_id: 認証済み端末に紐づく会計ID。
+            idempotency_key_hash: 再送を識別するキーのSHA-256。
+            include_processing: 別のキーで処理中の同じ会計の試行も検索するか。
+
+        Returns:
+            一致した決済試行。見つからない場合はNone。
+        """
+        same_key = PaymentRequest.idempotency_key_hash == idempotency_key_hash
+        condition = same_key
+        if include_processing:
+            condition = or_(same_key, PaymentRequest.status.in_(
+                (PaymentStatus.REQUESTED, PaymentStatus.SUBMITTED, PaymentStatus.CONFIRMING)
+            ))
+
+        statement = (
+            select(PaymentRequest)
+            .where(PaymentRequest.checkout_id == checkout_id, PaymentRequest.deleted_at.is_(None), condition)
+            .order_by(same_key.desc(), PaymentRequest.payment_request_id.desc())
+            .limit(1)
+        )
+        return mysql_session.scalar(statement)
+
+    def get_requested_payment(
+        self, mysql_session: Session, checkout_id: int, payment_request_id: int
+    ) -> PaymentRequest | None:
+        """指定された会計から、更新対象の未送信試行を取得する。
+
+        Args:
+            mysql_session: 決済試行を更新するトランザクションのMySQLセッション。
+            checkout_id: 対象の会計ID。
+            payment_request_id: 更新対象の決済試行ID。
+
+        Returns:
+            未送信の試行。会計や試行の状態が一致しない場合はNone。
+        """
+        return mysql_session.scalar(
+            select(PaymentRequest).where(
+                PaymentRequest.checkout_id == checkout_id,
+                PaymentRequest.payment_request_id == payment_request_id,
+                PaymentRequest.status == PaymentStatus.REQUESTED,
+                PaymentRequest.deleted_at.is_(None),
+            )
+        )
+
+    def create_payment_request(self, mysql_session: Session, payment_request: PaymentRequest) -> PaymentRequest:
+        """会計に紐づく決済試行を登録し、IDを確定する。
+
+        Args:
+            mysql_session: 会計と来店セッションをロックしたMySQLセッション。
+            payment_request: 会計と冪等性キーを設定済みの決済試行。
+
+        Returns:
+            採番済みの決済試行。
+        """
+        mysql_session.add(payment_request)
+        mysql_session.flush()
+        return payment_request
+
+    def update_payment_request(self, mysql_session: Session, payment_request: PaymentRequest) -> None:
+        """端末決済試行の更新日時と変更内容をトランザクションに登録する。
+
+        Args:
+            mysql_session: 決済試行を更新するMySQLセッション。
+            payment_request: 送信ハッシュまたは決済状態を変更済みの試行。
+
+        Returns:
+            なし。
+        """
+        payment_request.updated_at = datetime.now(JST)
+        mysql_session.add(payment_request)

@@ -409,6 +409,109 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /device/checkouts/{checkout_id}/payments/face:
+    post:
+      tags: [Device]
+      summary: 顔認証決済開始
+      description: 顔照合で特定した支払者から、会計に保存された注文の代金を送金する。
+      operationId: startDeviceFacePayment
+      security:
+        - DeviceBearerAuth: []
+      parameters:
+        - name: checkout_id
+          in: path
+          required: true
+          description: ASCIIの正の十進整数。
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+            maximum: 9223372036854775807
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: 同じ会計で同じ支払い要求を再送するときに使うキー。
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 64
+            pattern: '\S'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceFacePaymentRequest'
+      responses:
+        '200':
+          description: 同じキーに紐づく試行、または同じ会計で処理中の試行を返した
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/VisitSessionCacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceFacePaymentResponse'
+        '201':
+          description: 新しい試行のRPC送信受付を記録した
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/VisitSessionCacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceFacePaymentResponse'
+        '202':
+          description: 試行を登録し、RPCの送信受付の有無を確認中
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/VisitSessionCacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceFacePaymentResponse'
+        '400':
+          description: 顔を検出できない、顔が複数、ウォレットが決済条件を満たさない、または残高不足
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: トークンまたは端末が利用できない
+          headers:
+            WWW-Authenticate:
+              schema:
+                type: string
+                example: Bearer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 端末の会計、顔の照合先、利用者、またはウォレットが見つからない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: 会計内容が変わった、または会計と来店セッションの状態が決済開始を許可しない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: 会計ID、冪等性キー、JSONまたは顔画像が不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '500':
+          description: 認証設定、顔照合、DBまたは送信前の準備に失敗
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /device/menu/categories:
     get:
       tags: [Device]
@@ -747,6 +850,29 @@ components:
           minimum: 1
           maximum: 9223372036854775807
           example: 456
+    DeviceFacePaymentRequest:
+      type: object
+      required: [content]
+      additionalProperties: false
+      properties:
+        content:
+          type: string
+          format: byte
+          minLength: 1
+          maxLength: 5000
+          description: JPEGまたはPNGのBase64文字列。画像の縦横は各2048ピクセル以内。
+    DeviceFacePaymentResponse:
+      type: object
+      required: [payment_request_id, status]
+      properties:
+        payment_request_id:
+          type: integer
+          format: int64
+          example: 901
+        status:
+          type: string
+          enum: [requested, submitted, confirming, paid, tx_failed, verify_failed, canceled, error]
+          example: submitted
     DeviceCheckoutCreateResponse:
       type: object
       required: [checkout_id, orders, total_amount, token_symbol]

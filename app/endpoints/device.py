@@ -6,12 +6,14 @@ from fastapi import APIRouter, Body, Depends, Header, Query, Response
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.controllers.device_controller import DeviceController
+from app.controllers.device_payment_controller import DevicePaymentController
 from app.dependencies.device_auth import device_bearer_scheme, get_device_token_uuid
 from app.middlewares.request_wrapper import request_device_rapper
 from app.middlewares.response_wrapper import response_device_rapper
 from app.models.requests.device_access_token_request import DeviceAccessTokenRequest
 from app.models.requests.device_activate_request import DeviceActivateRequest
 from app.models.requests.device_checkout_create_request import DeviceCheckoutCreateRequest
+from app.models.requests.device_face_payment_request import DeviceFacePaymentPathRequest, DeviceFacePaymentRequest
 from app.models.requests.device_menu_category_list_request import DeviceMenuCategoryListRequest
 from app.models.requests.device_menu_items_by_category_request import DeviceMenuItemsByCategoryRequest
 from app.models.requests.device_order_create_request import DeviceOrderCreateRequest, DeviceOrderPathRequest
@@ -19,6 +21,7 @@ from app.models.requests.visit_session_start_request import VisitSessionStartReq
 from app.models.responses.device_access_token_response import DeviceAccessTokenResponse
 from app.models.responses.device_activate_response import DeviceActivateResponse
 from app.models.responses.device_checkout_create_response import DeviceCheckoutCreateResponse
+from app.models.responses.device_face_payment_response import DeviceFacePaymentResponse
 from app.models.responses.device_menu_item_list_response import DeviceMenuItemListResponse
 from app.models.responses.device_order_create_response import DeviceOrderCreateResponse
 from app.models.responses.device_order_history_response import DeviceOrderHistoryResponse
@@ -192,6 +195,41 @@ def create_checkout(
         visit_session_id=path.visit_session_id,
         request=request,
     )
+
+
+@device_router.post("/checkouts/{checkout_id}/payments/face", status_code=201)
+@response_device_rapper()
+@request_device_rapper()
+def start_face_payment(
+    response: Response,
+    path: Annotated[DeviceFacePaymentPathRequest, Depends()],
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=64, pattern=r"\S")],
+    request: DeviceFacePaymentRequest,
+    credentials: HTTPAuthorizationCredentials | None = Depends(device_bearer_scheme),
+) -> DeviceFacePaymentResponse:
+    """認証済み端末の会計について顔照合で決済を開始する。
+
+    Args:
+        response: HTTPステータスとキャッシュ制御を設定するレスポンス。
+        path: 会計IDを含む検証済みのパス入力。
+        idempotency_key: 同じ支払い要求の再送を識別するキー。
+        request: Base64形式の顔画像を含むリクエスト。
+        credentials: AuthorizationヘッダーのBearer認証情報。
+
+    Returns:
+        既存または新規の決済試行IDと状態。
+
+    Raises:
+        HTTPException: 端末認証、会計の再照合、顔照合、または決済開始に失敗した場合。
+    """
+    device_uuid = get_device_token_uuid(credentials)
+    result, response.status_code = DevicePaymentController().start_face_payment(
+        device_uuid=device_uuid,
+        checkout_id=path.checkout_id,
+        idempotency_key=idempotency_key,
+        request=request,
+    )
+    return result
 
 
 @device_router.get("/menu/categories")

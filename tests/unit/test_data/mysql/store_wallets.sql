@@ -107,3 +107,7 @@ INSERT INTO store_wallets (
     CURRENT_TIMESTAMP,
     NULL
 );
+
+-- fixture: face_checkout_payment
+INSERT INTO store_wallets (store_wallet_id, store_id, wallet_id) VALUES
+    (915001, 9201, 301);
