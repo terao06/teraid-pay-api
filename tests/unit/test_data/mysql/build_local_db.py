@@ -308,6 +308,22 @@ def insert_order_list_data(engine: Engine) -> tuple[str, ...]:
     )
 
 
+def insert_face_checkout_payment_data(engine: Engine) -> tuple[str, ...]:
+    """顔認証決済開始に必要な専用の店舗、会計と対象注文を投入する。
+
+    Args:
+        engine: 共通のウォレットと店舗を投入済みのMySQL Engine。
+
+    Returns:
+        データを投入したテーブル単位のSQLファイル名。
+    """
+    sql_files = (
+        "stores.sql", "store_wallets.sql", "devices.sql", "visit_sessions.sql",
+        "menu_orders.sql", "menu_checkouts.sql", "menu_checkout_orders.sql",
+    )
+    return tuple(_execute_sql_file(engine, sql_file, "face_checkout_payment") for sql_file in sql_files)
+
+
 def insert_visit_session_data(engine: Engine) -> tuple[str, str, str]:
     """来店セッションのテスト専用の店舗、端末、既存セッションを投入する。
 

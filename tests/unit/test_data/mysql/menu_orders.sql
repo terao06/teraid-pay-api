@@ -53,3 +53,19 @@ INSERT INTO menu_orders (
     (903008, 'checkout-canceled', 902001, 9101, 300.000000, 'JPYC', 5, NULL, '2026-11-21 02:30:00', NULL),
     (903009, 'checkout-order-processing', 902001, 9101, 300.000000, 'JPYC', 2, NULL, '2026-11-21 02:30:00', NULL),
     (903010, 'checkout-paid-at', 902001, 9101, 300.000000, 'JPYC', 1, NOW(), '2026-11-21 02:30:00', NULL);
+
+-- fixture: face_checkout_payment
+INSERT INTO menu_orders (
+    menu_order_id, idempotency_key, visit_session_id, store_id, total_amount, status, deleted_at
+) VALUES
+    (913001, 'face-checkout-first', 912001, 9201, 1200.125000, 1, NULL),
+    (913002, 'face-checkout-second', 912001, 9201, 300.250000, 4, NULL),
+    (913003, 'face-checkout-timeout', 912002, 9201, 700.125000, 1, NULL),
+    (913004, 'face-checkout-insufficient', 912003, 9201, 900.125000, 1, NULL),
+    (913005, 'face-checkout-changed', 912004, 9201, 300.000000, 1, NULL),
+    (913006, 'face-checkout-added', 912004, 9201, 50.000000, 1, NULL),
+    (913007, 'face-checkout-other-store', 912001, 102, 10.000000, 1, NULL),
+    (913008, 'face-checkout-deleted', 912001, 9201, 10.000000, 1, NOW()),
+    (913009, 'face-checkout-canceled', 912001, 9201, 10.000000, 5, NULL),
+    (913010, 'face-checkout-timeout-unselected', 912002, 9201, 20.000000, 1, NULL),
+    (913011, 'face-checkout-update-failure', 912006, 9201, 600.175000, 1, NULL);

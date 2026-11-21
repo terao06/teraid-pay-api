@@ -33,3 +33,11 @@ INSERT INTO visit_sessions (visit_session_id, device_id, start_request_id, statu
     (902003, 901002, 'checkout-processing', 'checkout_processing', '2026-11-21 02:00:00', NULL),
     (902004, 901003, 'checkout-empty', 'active', '2026-11-21 02:00:00', NULL),
     (902005, 901004, 'checkout-mixed', 'active', '2026-11-21 02:00:00', NULL);
+
+-- fixture: face_checkout_payment
+INSERT INTO visit_sessions (visit_session_id, device_id, start_request_id, status, started_at) VALUES
+    (912001, 911001, 'face-checkout-send', 'active', NOW()),
+    (912002, 911002, 'face-checkout-timeout', 'active', NOW()),
+    (912003, 911003, 'face-checkout-insufficient', 'active', NOW()),
+    (912004, 911004, 'face-checkout-changed', 'active', NOW()),
+    (912006, 911006, 'face-checkout-update-failure', 'active', NOW());

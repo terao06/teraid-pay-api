@@ -34,7 +34,7 @@
 | menu_order_item_options | 注文時に選択したオプションと購入時点の追加料金を管理する。 |
 | menu_checkouts | 来店セッションごとの会計の対象範囲、状態、合計金額を管理する。 |
 | menu_checkout_orders | 会計と対象注文を紐づけ、会計作成時点の注文ごとの金額を保存する。 |
-| payment_requests | menu_order_idを追加し、注文に対する決済試行を管理する。 |
+| payment_requests | 端末の決済試行を会計に紐づけ、冪等性キーのハッシュを保存する。 |
 
 ## 3. テーブル定義
 
@@ -182,7 +182,14 @@
 
 | カラム | 型 | NULL | デフォルト | キー | 説明 |
 | --- | --- | --- | --- | --- | --- |
-| menu_order_id | BIGINT | YES | NULL | FK → menu_orders.menu_order_id | 関連する注文ID。既存の自由金額決済ではNULL |
+| checkout_id | BIGINT | YES | NULL | FK → menu_checkouts.checkout_id | 端末の決済に対応する会計ID。自由金額決済ではNULL |
+| idempotency_key_hash | BINARY(32) | YES | NULL | - | 端末が送った冪等性キーのSHA-256。自由金額決済ではNULL |
+| checkout_transaction_hash | VARCHAR(66) | YES | NULL | - | 端末の会計決済で送信前に確定するハッシュ。自由金額決済ではNULL |
+
+- `(checkout_id, idempotency_key_hash)` を一意とする。
+- `amount` は会計合計と同じ `DECIMAL(28, 6)` とする。
+- 端末の会計決済では `transaction_hash` を NULL に保つ。自由金額決済のハッシュは `transaction_hash` に保存する。
+- 既存の MySQL には `menu_checkouts` の作成後、[会計決済の列追加 SQL](../local_setting/local_mysql/add_checkout_payment_fields.sql)、[会計決済ハッシュの移行 SQL](../local_setting/local_mysql/isolate_checkout_payment_hash.sql) の順に適用する。
 
 ### 3.10 devices
 
@@ -270,7 +277,7 @@ erDiagram
 
     STORES ||--o{ PAYMENT_REQUESTS : receives
     USERS ||--o{ PAYMENT_REQUESTS : pays
-    MENU_ORDERS o|--o{ PAYMENT_REQUESTS : attempts
+    MENU_CHECKOUTS o|--o{ PAYMENT_REQUESTS : attempts
 
     STORES {
         bigint store_id PK
@@ -402,7 +409,9 @@ erDiagram
 
     PAYMENT_REQUESTS {
         bigint payment_request_id PK
-        bigint menu_order_id FK
+        bigint checkout_id FK
+        binary idempotency_key_hash
+        varchar checkout_transaction_hash
         bigint store_id FK
         bigint user_id FK
         decimal amount
