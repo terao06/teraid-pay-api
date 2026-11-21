@@ -18,6 +18,7 @@ from tests.unit.test_data.mysql.build_local_db import (
     build_database_url,
     import_mysql_models,
     insert_device_checkout_data as load_device_checkout_data,
+    insert_face_checkout_payment_data as load_face_checkout_payment_data,
     insert_device_access_token_data as load_device_access_token_data,
     insert_device_activation_data as load_device_activation_data,
     insert_device_menu_categories as load_device_menu_categories,
@@ -330,6 +331,19 @@ def insert_device_order_history_data(
         履歴取得専用データを投入したSQLファイル名。
     """
     return load_device_order_history_data(mysql_engine)
+
+
+@pytest.fixture(scope="session")
+def insert_face_checkout_payment_data(mysql_engine: Engine) -> tuple[str, ...]:
+    """顔認証決済開始のテスト専用の会計、注文、店舗と端末を投入する。
+
+    Args:
+        mysql_engine: 初期化済みのテスト用MySQL Engine。
+
+    Returns:
+        投入に使ったテーブル単位のSQLファイル名。
+    """
+    return load_face_checkout_payment_data(mysql_engine)
 
 
 @pytest.fixture(scope="session")

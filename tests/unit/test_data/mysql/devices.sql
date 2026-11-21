@@ -100,3 +100,12 @@ INSERT INTO devices (device_id, store_id, device_name, device_uuid, is_active, a
     (901003, 9101, 'Checkout Empty', '90100300-0000-4000-8000-000000901003', TRUE, NOW()),
     (901004, 9101, 'Checkout Mixed', '90100400-0000-4000-8000-000000901004', TRUE, NOW()),
     (901005, 9101, 'Checkout Disabled', '90100500-0000-4000-8000-000000901005', FALSE, NOW());
+
+-- fixture: face_checkout_payment
+INSERT INTO devices (device_id, store_id, device_name, device_uuid, is_active, activated_at) VALUES
+    (911001, 9201, 'Face Checkout Send', '91100100-0000-4000-8000-000000911001', TRUE, NOW()),
+    (911002, 9201, 'Face Checkout Timeout', '91100200-0000-4000-8000-000000911002', TRUE, NOW()),
+    (911003, 9201, 'Face Checkout Insufficient', '91100300-0000-4000-8000-000000911003', TRUE, NOW()),
+    (911004, 9201, 'Face Checkout Changed', '91100400-0000-4000-8000-000000911004', TRUE, NOW()),
+    (911005, 9201, 'Face Checkout Disabled', '91100500-0000-4000-8000-000000911005', FALSE, NOW()),
+    (911006, 9201, 'Face Checkout Update Failure', '91100600-0000-4000-8000-000000911006', TRUE, NOW());
