@@ -37,3 +37,7 @@ INSERT INTO stores (store_id, name, email, created_at, updated_at, deleted_at) V
 INSERT INTO stores (store_id, name, email, created_at, updated_at, deleted_at) VALUES
     (111, 'Device Menu Items Test Store', 'device-menu-items-store@example.com', NOW(), NOW(), NULL),
     (112, 'Device Menu Items Other Store', 'device-menu-items-other-store@example.com', NOW(), NOW(), NULL);
+
+-- fixture: device_orders
+INSERT INTO stores (store_id, name, email, created_at, updated_at) VALUES
+    (113, 'Device Order Test Store', 'device-order-store@example.com', NOW(), NOW());

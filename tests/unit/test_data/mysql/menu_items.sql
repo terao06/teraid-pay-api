@@ -61,3 +61,10 @@ INSERT INTO menu_items (
     (863016, 111, 860012, '削除済み商品', 500.000000, 'JPYC', 'png', TRUE, 0, NOW(), NOW(), NOW()),
     (863017, 111, 860013, '販売停止デザート', 300.000000, 'JPYC', 'png', FALSE, 0, NOW(), NOW(), NULL),
     (863018, 111, 860011, 'ジュース', 200.000000, 'JPYC', 'png', TRUE, 1, NOW(), NOW(), NULL);
+
+-- fixture: device_orders
+INSERT INTO menu_items (menu_item_id, store_id, name, price, token_symbol, image_extension, is_available) VALUES
+    (883001, 113, '注文バーガー', 650.250000, 'JPYC', 'png', TRUE),
+    (883002, 113, '注文ポテト', 300.000000, 'JPYC', 'png', TRUE),
+    (883003, 113, '注文販売停止商品', 500.000000, 'JPYC', 'png', FALSE),
+    (883004, 113, '注文別通貨商品', 200.000000, 'OTHER', 'png', TRUE);

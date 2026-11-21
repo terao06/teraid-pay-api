@@ -37,3 +37,11 @@ INSERT INTO menu_options (
     (865215, 864111, '削除済みオプション', 50.000000, 0, TRUE, NOW(), NOW(), NOW()),
     (865216, 864112, '在庫切れのソース', 50.000000, 0, FALSE, NOW(), NOW(), NULL),
     (865217, 864115, '通常サイズ', 0.000000, 0, TRUE, NOW(), NOW(), NULL);
+
+-- fixture: device_orders
+INSERT INTO menu_options (
+    menu_option_id, menu_option_group_id, name, additional_price, is_available, deleted_at
+) VALUES
+    (885001, 884001, '注文チーズ', 100.500000, TRUE, NULL),
+    (885002, 884001, '注文ソース', 10.125000, TRUE, NULL),
+    (885003, 884001, '注文削除オプション', 50.000000, TRUE, NOW());
