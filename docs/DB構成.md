@@ -16,6 +16,7 @@
 | 追加 | menu_order_item_options |
 | 追加 | menu_checkouts |
 | 追加 | menu_checkout_orders |
+| 追加 | menu_checkout_items |
 | 変更 | payment_requests |
 
 ## 2. テーブルの用途
@@ -34,6 +35,7 @@
 | menu_order_item_options | 注文時に選択したオプションと購入時点の追加料金を管理する。 |
 | menu_checkouts | 来店セッションごとの会計の対象範囲、状態、合計金額を管理する。 |
 | menu_checkout_orders | 会計と対象注文を紐づけ、会計作成時点の注文ごとの金額を保存する。 |
+| menu_checkout_items | 会計ごとに、支払う注文明細と対象数量・金額を保存する。 |
 | payment_requests | 端末の決済試行を会計に紐づけ、冪等性キーのハッシュを保存する。 |
 
 ## 3. テーブル定義
@@ -249,6 +251,18 @@
 
 既存の MySQL には、`visit_sessions` と `menu_orders` の作成後に [会計テーブル追加 SQL](../local_setting/local_mysql/create_menu_checkout_tables.sql) を適用する。
 
+### 3.14 menu_checkout_items
+
+| カラム | 型 | NULL | デフォルト | キー | 説明 |
+| --- | --- | --- | --- | --- | --- |
+| checkout_id | BIGINT | NO | - | PK、FK → menu_checkouts.checkout_id | 対象の会計ID |
+| menu_order_item_id | BIGINT | NO | - | PK、FK → menu_order_items.menu_order_item_id | 対象の注文明細ID |
+| quantity | INT UNSIGNED | NO | - | - | この会計で支払う数量（1以上） |
+| line_amount | DECIMAL(20, 6) | NO | - | - | オプション料金を含む対象数量分の金額 |
+
+- `(checkout_id, menu_order_item_id)` を複合主キーとし、同じ会計内の同じ注文明細は1行にまとめる。
+- `menu_checkouts.status = 'paid'` の会計に紐づく `quantity` を明細ごとに集計し、注文数量から差し引いて未払い数量を求める。
+
 ## 4. ER図
 
 ~~~mermaid
@@ -273,6 +287,8 @@ erDiagram
     VISIT_SESSIONS ||--o{ MENU_CHECKOUTS : groups
     MENU_CHECKOUTS ||--|{ MENU_CHECKOUT_ORDERS : contains
     MENU_ORDERS ||--o{ MENU_CHECKOUT_ORDERS : selected_for
+    MENU_CHECKOUTS ||--o{ MENU_CHECKOUT_ITEMS : contains
+    MENU_ORDER_ITEMS ||--o{ MENU_CHECKOUT_ITEMS : selected_for
     MENU_OPTIONS ||--o{ MENU_ORDER_ITEM_OPTIONS : snapshot_of
 
     STORES ||--o{ PAYMENT_REQUESTS : receives
@@ -385,6 +401,13 @@ erDiagram
         bigint checkout_id PK, FK
         bigint menu_order_id PK, FK
         decimal order_amount
+    }
+
+    MENU_CHECKOUT_ITEMS {
+        bigint checkout_id PK, FK
+        bigint menu_order_item_id PK, FK
+        int quantity
+        decimal line_amount
     }
 
     MENU_ORDER_ITEMS {
