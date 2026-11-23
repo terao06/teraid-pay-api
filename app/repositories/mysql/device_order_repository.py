@@ -229,8 +229,8 @@ class DeviceOrderRepository:
         """指定の来店セッションで支払済みになった数量を注文明細ごとに集計する。
 
         Args:
-            mysql_session: 対象の端末行と来店セッション行をロックしたMySQLセッション。
-            visit_session_id: 会計を作成する来店セッションID。
+            mysql_session: 支払済み数量を参照するMySQLセッション。
+            visit_session_id: 支払済み数量を集計する来店セッションID。
 
         Returns:
             注文明細IDをキー、支払済み数量の合計を値とする辞書。

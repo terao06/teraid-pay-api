@@ -21,6 +21,12 @@ INSERT INTO menu_items (
     (25, 101, 13, '削除済み商品', NULL, 400.000000, 'JPYC', 'png', TRUE, 0, '2026-01-05 09:00:00', '2026-01-05 09:00:00', '2026-02-01 00:00:00'),
     (26, 102, 16, '別店舗商品', NULL, 600.000000, 'JPYC', 'png', TRUE, 0, '2026-01-06 09:00:00', '2026-01-06 09:00:00', NULL);
 
+-- fixture: face_checkout_payment
+INSERT INTO menu_items (
+    menu_item_id, store_id, name, price, token_symbol, image_extension, is_available, display_order, created_at, updated_at
+) VALUES
+    (925101, 9201, '顔認証決済テスト商品', 200.000000, 'JPYC', 'png', TRUE, 1, NOW(), NOW());
+
 -- fixture: delete_menu_category
 INSERT INTO menu_items (
     menu_item_id, store_id, menu_category_id, name, price, token_symbol, image_extension,

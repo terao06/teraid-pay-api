@@ -26,12 +26,12 @@ class TestStartFacePayment:
         なし。
     """
 
-    @pytest.mark.parametrize("existing", [False, True])
-    def test_revalidates_under_lock_after_face_lookup(self, existing) -> None:
-        """照合後に再送を判定し、新規試行の場合は現在の注文金額を再照合する。
+    @pytest.mark.parametrize("change", ["additional_order", "paid_quantity", "existing_payment"])
+    def test_revalidates_under_lock_after_face_lookup(self, change) -> None:
+        """照合後に追加注文、支払済み数量の変化、先行試行を検出する。
 
         Args:
-            existing: ロック取得までに別のAPI呼び出しが試行を登録した場合はTrue。
+            change: ロック取得までに発生する会計または決済試行の変化。
 
         Returns:
             なし。
@@ -40,11 +40,12 @@ class TestStartFacePayment:
         visit = SimpleNamespace(visit_session_id=2, status=VisitSessionStatus.ACTIVE)
         checkout = SimpleNamespace(
             checkout_id=3,
-            scope=CheckoutScope.ALL_UNPAID,
+            scope=CheckoutScope.SELECTED_ITEMS if change == "paid_quantity" else CheckoutScope.ALL_UNPAID,
             status=CheckoutStatus.PENDING_CONFIRMATION,
             token_symbol="JPYC",
             total_amount=Decimal("120"),
         )
+        existing = change == "existing_payment"
         registered = SimpleNamespace(payment_request_id=4, status=PaymentStatus.REQUESTED) if existing else None
         with (
             patch(f"{SERVICE}.get_mysql_db") as mysql,
@@ -52,6 +53,7 @@ class TestStartFacePayment:
             patch(f"{SERVICE}.DeviceRepository") as devices,
             patch(f"{SERVICE}.VisitSessionRepository") as visits,
             patch(f"{SERVICE}.DevicePaymentRepository") as checkouts,
+            patch(f"{SERVICE}.DeviceOrderRepository") as orders,
             patch.object(DevicePaymentService, "_identify_payer") as identify_payer,
             patch.object(DevicePaymentService, "_build_payment_request") as build_payment,
             patch.object(DevicePaymentService, "_prepare_payment") as prepare_payment,
@@ -63,13 +65,14 @@ class TestStartFacePayment:
             repository = checkouts.return_value
             repository.get_owned_checkout.return_value = (checkout, visit)
             repository.get_checkout_for_update.return_value = checkout
-            repository.get_checkout_snapshot.return_value = [
-                SimpleNamespace(menu_order_id=10, order_amount=Decimal("120")),
+            repository.get_checkout_items.return_value = [
+                SimpleNamespace(menu_order_item_id=10, quantity=2, line_amount=Decimal("120")),
             ]
-            repository.get_unpaid_orders.side_effect = [
-                [SimpleNamespace(menu_order_id=10, total_amount=Decimal("120"), token_symbol="JPYC")],
-                [SimpleNamespace(menu_order_id=10, total_amount=Decimal("130"), token_symbol="JPYC")],
-            ]
+            before = [(10, 2, "JPYC")]
+            after = [*before, (11, 1, "JPYC")] if change == "additional_order" else before
+            repository.get_unpaid_order_items.side_effect = [before, after]
+            paid_after = {10: 1} if change == "paid_quantity" else {}
+            orders.return_value.get_paid_checkout_quantities.side_effect = [{}, paid_after]
             repository.get_checkout_payment.side_effect = [None, registered]
             if existing:
                 result, status = DevicePaymentService().start_face_payment("device", 3, "key", "image")
@@ -80,7 +83,8 @@ class TestStartFacePayment:
             devices.return_value.get_device_by_uuid_for_update.assert_called_once_with(session, "device")
             visits.return_value.get_visit_session_for_update.assert_called_once_with(session, 1, 2)
             repository.get_checkout_for_update.assert_called_once_with(session, 3, 2)
-            assert repository.get_unpaid_orders.call_count == (1 if existing else 2)
+            assert repository.get_unpaid_order_items.call_count == (1 if existing else 2)
+            assert orders.return_value.get_paid_checkout_quantities.call_count == (1 if existing else 2)
             identify_payer.assert_called_once()
             build_payment.assert_not_called()
             prepare_payment.assert_not_called()
@@ -103,8 +107,8 @@ class TestStartFacePayment:
             repository.get_checkout_payment.return_value = None
             with pytest.raises(DeviceCheckoutConflictException, match=DEVICE_CHECKOUT_CHANGED_ERROR):
                 DevicePaymentService._find_payment_or_check_checkout(Mock(), Mock(), visit, checkout, b"key")
-        repository.get_checkout_snapshot.assert_not_called()
-        repository.get_unpaid_orders.assert_not_called()
+        repository.get_checkout_items.assert_not_called()
+        repository.get_unpaid_order_items.assert_not_called()
 
     def test_build_payment_rejects_unsupported_checkout_currency(self) -> None:
         """会計通貨がJPYC以外ならウォレットの検索や決済の登録前に拒否する。

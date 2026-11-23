@@ -17,10 +17,19 @@ INSERT INTO menu_checkouts (checkout_id, visit_session_id, scope, total_amount, 
     (914006, 912006, 'all_unpaid', 600.175000, 'JPYC'),
     (914007, 912004, 'all_unpaid', 350.000000, 'JPYC'),
     (914008, 912004, 'single_order', 300.000000, 'JPYC'),
+    (914009, 912009, 'selected_items', 200.000000, 'JPYC'),
+    (914010, 912009, 'selected_items', 200.000000, 'JPYC'),
+    (914011, 912009, 'selected_items', 200.000000, 'JPYC'),
+    (914013, 912004, 'all_unpaid', 350.000000, 'JPYC'),
+    (914014, 912004, 'selected_items', 301.000000, 'JPYC'),
+    (914015, 912004, 'selected_items', 600.000000, 'JPYC'),
+    (914016, 912004, 'selected_items', 1200.125000, 'JPYC'),
     (914021, 912021, 'single_order', 100.125000, 'JPYC'),
     (914022, 912022, 'all_unpaid', 100.125000, 'JPYC'),
     (914023, 912023, 'all_unpaid', 100.125000, 'JPYC'),
     (914024, 912024, 'all_unpaid', 100.125000, 'JPYC'),
     (914025, 912024, 'all_unpaid', 100.125000, 'JPYC');
 
+UPDATE menu_checkouts SET status = 'paid' WHERE checkout_id = 914010;
+UPDATE menu_checkouts SET status = 'failed' WHERE checkout_id = 914011;
 UPDATE menu_checkouts SET status = 'processing' WHERE checkout_id = 914021;

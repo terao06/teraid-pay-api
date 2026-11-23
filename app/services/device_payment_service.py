@@ -45,6 +45,7 @@ from app.models.mysql.menu_checkout import CheckoutScope, CheckoutStatus, MenuCh
 from app.models.mysql.payment_request import PaymentRequest, PaymentStatus
 from app.models.mysql.visit_session import VisitSession, VisitSessionStatus
 from app.models.responses.device_face_payment_response import DeviceFacePaymentResponse
+from app.repositories.mysql.device_order_repository import DeviceOrderRepository
 from app.repositories.mysql.device_payment_repository import DevicePaymentRepository
 from app.repositories.mysql.device_repository import DeviceRepository
 from app.repositories.mysql.store_wallet_repository import StoreWalletRepository
@@ -164,7 +165,7 @@ class DevicePaymentService:
         Raises:
             UnauthorizedException: 端末が利用できない場合。
             DeviceCheckoutNotFoundException: 端末が会計を所有していない場合。
-            DeviceCheckoutConflictException: 状態が決済開始を許さないか、注文や金額が変更された場合。
+            DeviceCheckoutConflictException: 状態が決済開始を許さないか、会計明細・数量・金額が一致しない場合。
             Exception: 顔照合、ウォレット検証、DB、または送信前の処理に失敗した場合。
         """
         mysql = get_mysql_db()
@@ -263,8 +264,9 @@ class DevicePaymentService:
     def _find_payment_or_check_checkout(
         session: Session, device: Device, visit: VisitSession, checkout: MenuCheckout, key_hash: bytes
     ) -> DeviceFacePaymentResponse | None:
-        """既存の試行を返すか、新規一括決済に向けて対象注文と保存額を再照合する。"""
-        existing = DevicePaymentRepository().get_checkout_payment(
+        """既存の試行を返すか、保存済みの会計明細を現在の未払い数量と照合する。"""
+        repository = DevicePaymentRepository()
+        existing = repository.get_checkout_payment(
             session, checkout.checkout_id, key_hash, include_processing=checkout.status == CheckoutStatus.PROCESSING
         )
         if existing is not None:
@@ -272,27 +274,36 @@ class DevicePaymentService:
 
         if visit.status == VisitSessionStatus.CHECKOUT_PROCESSING:
             raise DeviceCheckoutConflictException(DEVICE_CHECKOUT_PROCESSING_ERROR)
-        if checkout.scope != CheckoutScope.ALL_UNPAID:
+        if checkout.scope not in (CheckoutScope.ALL_UNPAID, CheckoutScope.SELECTED_ITEMS):
             raise DeviceCheckoutConflictException(DEVICE_CHECKOUT_CHANGED_ERROR)
         if visit.status != VisitSessionStatus.ACTIVE or checkout.status != CheckoutStatus.PENDING_CONFIRMATION:
             raise DeviceCheckoutConflictException(DEVICE_CHECKOUT_NOT_PAYABLE_ERROR)
 
-        repository = DevicePaymentRepository()
-        snapshot = {
-            row.menu_order_id: row.order_amount
-            for row in repository.get_checkout_snapshot(session, checkout.checkout_id)
-        }
-        if not snapshot:
+        checkout_items = repository.get_checkout_items(session, checkout.checkout_id)
+        if (
+            not checkout_items
+            or checkout.total_amount <= 0
+            or sum((item.line_amount for item in checkout_items), Decimal("0")) != checkout.total_amount
+        ):
             raise DeviceCheckoutConflictException(DEVICE_CHECKOUT_CHANGED_ERROR)
 
-        orders = repository.get_unpaid_orders(session, device.store_id, visit.visit_session_id)
-        current = {order.menu_order_id: order.total_amount for order in orders}
-        if (
-            current != snapshot
-            or any(order.token_symbol != checkout.token_symbol for order in orders)
-            or sum(current.values(), Decimal("0")) != checkout.total_amount
-            or checkout.total_amount <= 0
+        paid_quantities = DeviceOrderRepository().get_paid_checkout_quantities(session, visit.visit_session_id)
+        unpaid_quantities: dict[int, int] = {}
+        order_tokens: dict[int, str] = {}
+        for item_id, ordered_quantity, token in repository.get_unpaid_order_items(
+            session, device.store_id, visit.visit_session_id
         ):
+            remaining = ordered_quantity - paid_quantities.get(item_id, 0)
+            if remaining > 0:
+                unpaid_quantities[item_id] = remaining
+                order_tokens[item_id] = token
+
+        selected_quantities = {item.menu_order_item_id: item.quantity for item in checkout_items}
+        for item_id, quantity in selected_quantities.items():
+            if not 0 < quantity <= unpaid_quantities.get(item_id, 0) or order_tokens[item_id] != checkout.token_symbol:
+                raise DeviceCheckoutConflictException(DEVICE_CHECKOUT_CHANGED_ERROR)
+
+        if checkout.scope == CheckoutScope.ALL_UNPAID and selected_quantities != unpaid_quantities:
             raise DeviceCheckoutConflictException(DEVICE_CHECKOUT_CHANGED_ERROR)
 
     @staticmethod

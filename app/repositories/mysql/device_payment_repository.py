@@ -1,4 +1,4 @@
-"""端末決済の会計と保存済みの注文金額を読み取る。"""
+"""端末決済の会計、対象明細、決済試行を参照・更新する。"""
 
 from collections.abc import Sequence
 from datetime import datetime
@@ -9,14 +9,16 @@ from sqlalchemy.orm import Session
 
 from app.core.utils.datetime import JST
 from app.models.mysql.menu_checkout import MenuCheckout
+from app.models.mysql.menu_checkout_item import MenuCheckoutItem
 from app.models.mysql.menu_checkout_order import MenuCheckoutOrder
 from app.models.mysql.menu_order import CHECKOUT_UNPAID_STATUSES, MenuOrder, OrderStatus
+from app.models.mysql.menu_order_item import MenuOrderItem
 from app.models.mysql.payment_request import PaymentRequest, PaymentStatus
 from app.models.mysql.visit_session import VisitSession
 
 
 class DevicePaymentRepository:
-    """会計の所有端末と対象注文を参照し、端末の決済試行を永続化する。
+    """会計の所有端末と決済対象を参照し、端末の決済試行を永続化する。
 
     Args:
         なし。
@@ -65,27 +67,24 @@ class DevicePaymentRepository:
             .with_for_update()
         )
 
-    def get_checkout_snapshot(self, mysql_session: Session, checkout_id: int) -> Sequence[MenuCheckoutOrder]:
-        """会計を作成した時点の注文IDと金額を取得する。
+    def get_checkout_items(self, mysql_session: Session, checkout_id: int) -> Sequence[MenuCheckoutItem]:
+        """会計作成時に保存した注文明細ID、対象数量、金額を取得する。
 
         Args:
             mysql_session: 参照用のMySQLセッション。
             checkout_id: 対象の会計ID。
 
         Returns:
-            保存済みの注文IDと注文金額の行。
+            対象会計に保存された会計明細。
         """
         return mysql_session.scalars(
-            select(MenuCheckoutOrder).where(MenuCheckoutOrder.checkout_id == checkout_id)
+            select(MenuCheckoutItem).where(MenuCheckoutItem.checkout_id == checkout_id)
         ).all()
 
-    def get_unpaid_orders(
-        self,
-        mysql_session: Session,
-        store_id: int,
-        visit_session_id: int,
-    ) -> Sequence[MenuOrder]:
-        """認証済み店舗の来店セッションから現在の未払い注文を全件取得する。
+    def get_unpaid_order_items(
+        self, mysql_session: Session, store_id: int, visit_session_id: int
+    ) -> Sequence[tuple[int, int, str]]:
+        """認証済み店舗で未払い状態の注文から明細を取得する。
 
         Args:
             mysql_session: 注文検索のMySQLセッション。
@@ -93,16 +92,20 @@ class DevicePaymentRepository:
             visit_session_id: 認証済み端末の来店セッションID。
 
         Returns:
-            条件に一致する未削除・未払いの注文。
+            未削除・未払いの注文に属する明細ID、注文時の数量、注文の通貨。
         """
-        statement = select(MenuOrder).where(
-            MenuOrder.store_id == store_id,
-            MenuOrder.visit_session_id == visit_session_id,
-            MenuOrder.deleted_at.is_(None),
-            MenuOrder.paid_at.is_(None),
-            MenuOrder.status.in_(CHECKOUT_UNPAID_STATUSES),
+        statement = (
+            select(MenuOrderItem.menu_order_item_id, MenuOrderItem.quantity, MenuOrder.token_symbol)
+            .join(MenuOrder, MenuOrder.menu_order_id == MenuOrderItem.menu_order_id)
+            .where(
+                MenuOrder.store_id == store_id,
+                MenuOrder.visit_session_id == visit_session_id,
+                MenuOrder.deleted_at.is_(None),
+                MenuOrder.paid_at.is_(None),
+                MenuOrder.status.in_(CHECKOUT_UNPAID_STATUSES),
+            )
         )
-        return mysql_session.scalars(statement).all()
+        return mysql_session.execute(statement).tuples().all()
 
     def get_checkout_payment(
         self,
