@@ -122,7 +122,7 @@ class TestVerifyDevicePayment:
     def test_with_db_persists_result_and_replays_without_rpc(
         self, http_provider, web3_class, client_with_db, mysql_engine, suffix, result, checkout_status, order_status,
     ) -> None:
-        """決済結果を一括更新し、再照会で保存済み結果を返す。
+        """既存の個別決済と新規の一括決済の結果を確定し、再照会では保存済みの結果を返す。
 
         Args:
             client_with_db: 実MySQLを使うHTTPクライアント。
@@ -138,7 +138,15 @@ class TestVerifyDevicePayment:
             なし。
         """
         checkout_id, device_id = 914000 + suffix, 911000 + suffix
-        payment_id = _start_payment(checkout_id, device_id)
+        if suffix == 21:
+            uuid = f"{device_id}00-0000-4000-8000-{device_id:012}"
+            with patch.object(DevicePaymentService, "_identify_payer") as identify_payer:
+                existing, status = DevicePaymentService().start_face_payment(uuid, checkout_id, "verify-dev", "")
+            identify_payer.assert_not_called()
+            assert (existing.payment_request_id, existing.status, status) == (916021, PaymentStatus.SUBMITTED, 200)
+            payment_id = existing.payment_request_id
+        else:
+            payment_id = _start_payment(checkout_id, device_id)
         web3 = web3_class.return_value
         if result == PaymentStatus.PAID:
             _mock_successful_receipt(web3, mysql_engine, payment_id)

@@ -9,17 +9,15 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions.custom_exception import (
     DeviceCheckoutConflictException,
-    DeviceCheckoutOrderNotFoundException,
     UnauthorizedException,
     VisitSessionNotFoundException,
 )
 from app.models.mysql.device import Device
 from app.models.mysql.menu_checkout import CheckoutScope
-from app.models.mysql.menu_order import MenuOrder, OrderStatus
+from app.models.mysql.menu_order import MenuOrder
 from app.models.mysql.menu_order_item import MenuOrderItem
 from app.models.mysql.menu_order_item_option import MenuOrderItemOption
 from app.models.mysql.visit_session import VisitSession, VisitSessionStatus
-from app.models.requests.device_checkout_create_request import AllUnpaidCheckoutRequest, SingleOrderCheckoutRequest
 from app.services.device_order_service import DeviceOrderService
 
 
@@ -85,12 +83,12 @@ class TestCreateCheckout:
         repository.create_checkout.return_value = 7
 
         response = DeviceOrderService().create_checkout(
-            session, DEVICE_UUID, VISIT_ID, AllUnpaidCheckoutRequest(scope="all_unpaid"),
+            session, DEVICE_UUID, VISIT_ID,
         )
 
         devices.get_device_by_uuid_for_update.assert_called_once_with(session, DEVICE_UUID)
         visits.get_visit_session_for_update.assert_called_once_with(session, 901001, VISIT_ID)
-        repository.get_checkout_orders.assert_called_once_with(session, 9101, VISIT_ID, None)
+        repository.get_checkout_orders.assert_called_once_with(session, 9101, VISIT_ID)
         saved_session, checkout, orders = repository.create_checkout.call_args.args
         assert saved_session is session
         assert checkout.scope == CheckoutScope.ALL_UNPAID
@@ -126,7 +124,7 @@ class TestCreateCheckout:
         )
         with pytest.raises(expected):
             DeviceOrderService().create_checkout(
-                session, DEVICE_UUID, VISIT_ID, AllUnpaidCheckoutRequest(scope="all_unpaid"),
+                session, DEVICE_UUID, VISIT_ID,
             )
         repository.get_checkout_orders.assert_not_called()
         repository.create_checkout.assert_not_called()
@@ -144,41 +142,9 @@ class TestCreateCheckout:
         devices.get_device_by_uuid_for_update.return_value = None
         with pytest.raises(UnauthorizedException):
             DeviceOrderService().create_checkout(
-                session, DEVICE_UUID, VISIT_ID, AllUnpaidCheckoutRequest(scope="all_unpaid"),
+                session, DEVICE_UUID, VISIT_ID,
             )
         visits.get_visit_session_for_update.assert_not_called()
-        repository.create_checkout.assert_not_called()
-
-    @pytest.mark.parametrize(("status", "paid_at", "expected"), [
-        (None, None, DeviceCheckoutOrderNotFoundException),
-        (OrderStatus.PAID, None, DeviceCheckoutConflictException),
-        (OrderStatus.CANCELED, None, DeviceCheckoutConflictException),
-        (OrderStatus.PAYMENT_PROCESSING, None, DeviceCheckoutConflictException),
-        (OrderStatus.PENDING_PAYMENT, datetime(2026, 11, 21), DeviceCheckoutConflictException),
-    ])
-    def test_distinguishes_missing_and_non_payable_single_order(
-        self, checkout_dependencies, status, paid_at, expected
-    ) -> None:
-        """注文が存在しない場合と、存在しても会計対象外の場合を区別する。
-
-        Args:
-            checkout_dependencies: セッションとリポジトリのモック。
-            status: 注文の状態。Noneなら対象注文なし。
-            paid_at: 記録済みの決済完了日時。
-            expected: 期待する業務例外の型。
-
-        Returns:
-            なし。
-        """
-        session, _, _, repository = checkout_dependencies
-        repository.get_checkout_orders.return_value = (
-            [] if status is None else [(MenuOrder(menu_order_id=1, status=status, paid_at=paid_at), None, None)]
-        )
-        with pytest.raises(expected):
-            DeviceOrderService().create_checkout(
-                session, DEVICE_UUID, VISIT_ID, SingleOrderCheckoutRequest(scope="single_order", menu_order_id=1),
-            )
-        repository.get_checkout_orders.assert_called_once_with(session, 9101, VISIT_ID, 1)
         repository.create_checkout.assert_not_called()
 
     @pytest.mark.parametrize("tokens", [[], ["JPYC", "OTHER"]])
@@ -199,6 +165,6 @@ class TestCreateCheckout:
         ]
         with pytest.raises(DeviceCheckoutConflictException):
             DeviceOrderService().create_checkout(
-                session, DEVICE_UUID, VISIT_ID, AllUnpaidCheckoutRequest(scope="all_unpaid"),
+                session, DEVICE_UUID, VISIT_ID,
             )
         repository.create_checkout.assert_not_called()

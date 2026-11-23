@@ -403,7 +403,7 @@ paths:
       tags: [Device]
       summary: 会計作成
       description: >-
-        認証済み端末の受付中の来店セッションについて、未払い注文の全件または指定した1件を
+        認証済み端末の受付中の来店セッションについて、未払い注文の全件を
         確認待ちの会計として登録し、保存済みの明細と合計金額を返す。
       operationId: createDeviceCheckout
       security:
@@ -424,11 +424,7 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/DeviceCheckoutCreateRequest'
-            examples:
-              allUnpaid:
-                value: {scope: all_unpaid}
-              singleOrder:
-                value: {scope: single_order, menu_order_id: 456}
+            example: {scope: all_unpaid}
       responses:
         '201':
           description: 確認待ちの会計と対象注文を登録した
@@ -451,7 +447,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: 端末自身の進行中の来店セッション、または個別会計の指定注文が見つからない
+          description: 端末自身の進行中の来店セッションが見つからない
           content:
             application/json:
               schema:
@@ -463,7 +459,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
-          description: 来店セッションID、JSON、会計範囲または注文IDの指定が不正
+          description: 来店セッションIDまたはJSONが不正
           content:
             application/json:
               schema:
@@ -479,7 +475,7 @@ paths:
     post:
       tags: [Device]
       summary: 顔認証決済開始
-      description: 顔照合で特定した支払者から、会計に保存された注文の代金を送金する。
+      description: 顔照合で特定した支払者から、来店セッションの未払い注文をまとめた会計の代金を送金する。
       operationId: startDeviceFacePayment
       security:
         - DeviceBearerAuth: []
@@ -560,7 +556,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: 会計内容が変わった、または会計と来店セッションの状態が決済開始を許可しない
+          description: 会計内容が変わった、移行前の個別会計で新規決済の開始を要求した、または会計と来店セッションの状態が決済開始を許可しない
           content:
             application/json:
               schema:
@@ -971,36 +967,14 @@ components:
           example: JPYC
 
     DeviceCheckoutCreateRequest:
-      oneOf:
-        - $ref: '#/components/schemas/AllUnpaidCheckoutRequest'
-        - $ref: '#/components/schemas/SingleOrderCheckoutRequest'
-      discriminator:
-        propertyName: scope
-        mapping:
-          all_unpaid: '#/components/schemas/AllUnpaidCheckoutRequest'
-          single_order: '#/components/schemas/SingleOrderCheckoutRequest'
-    AllUnpaidCheckoutRequest:
       type: object
       additionalProperties: false
       required: [scope]
       properties:
         scope:
           type: string
+          description: 既存端末との互換性のための固定値。
           enum: [all_unpaid]
-    SingleOrderCheckoutRequest:
-      type: object
-      additionalProperties: false
-      required: [scope, menu_order_id]
-      properties:
-        scope:
-          type: string
-          enum: [single_order]
-        menu_order_id:
-          type: integer
-          format: int64
-          minimum: 1
-          maximum: 9223372036854775807
-          example: 456
     DeviceFacePaymentRequest:
       type: object
       required: [content]

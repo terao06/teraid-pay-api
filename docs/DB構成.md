@@ -231,7 +231,7 @@
 | --- | --- | --- | --- | --- | --- |
 | checkout_id | BIGINT | NO | AUTO_INCREMENT | PK | 会計ID |
 | visit_session_id | BIGINT | NO | - | FK → visit_sessions.visit_session_id | 会計を作成した来店セッション |
-| scope | ENUM | NO | - | - | all_unpaid（一括会計）、single_order（注文ごとの会計） |
+| scope | ENUM | NO | - | - | 新規会計は all_unpaid（一括会計）。single_order は移行前の個別会計に保存された値 |
 | status | ENUM | NO | pending_confirmation | - | pending_confirmation（確認待ち）、processing（決済処理中）、paid（支払済み）、failed（決済失敗） |
 | total_amount | DECIMAL(28, 6) | NO | - | - | 会計対象注文の合計金額 |
 | token_symbol | VARCHAR(20) | NO | - | - | 会計対象注文で共通のトークンシンボル |

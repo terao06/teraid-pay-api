@@ -32,7 +32,7 @@ class TestCreateCheckout:
         """
         order = mysql_session.get(MenuOrder, 903002)
         checkout = MenuCheckout(
-            visit_session_id=902001, scope=CheckoutScope.SINGLE_ORDER,
+            visit_session_id=902001, scope=CheckoutScope.ALL_UNPAID,
             total_amount=order.total_amount, token_symbol=order.token_symbol,
         )
         checkout_id = DeviceOrderRepository().create_checkout(mysql_session, checkout, [order])

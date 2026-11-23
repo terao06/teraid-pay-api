@@ -3,13 +3,12 @@
 import pytest
 from sqlalchemy import event
 
-from app.models.mysql.menu_order import OrderStatus
 from app.repositories.mysql.device_order_repository import DeviceOrderRepository
 
 
 @pytest.mark.usefixtures("insert_device_checkout_data")
 class TestGetCheckoutOrders:
-    """一括会計と個別会計の検索条件と結合結果を確認する。
+    """一括会計の検索条件と結合結果を確認する。
 
     Args:
         なし。
@@ -36,7 +35,7 @@ class TestGetCheckoutOrders:
         connection = mysql_session.connection()
         event.listen(connection, "before_cursor_execute", _record_statement)
         try:
-            rows = DeviceOrderRepository().get_checkout_orders(mysql_session, 9101, 902001, None)
+            rows = DeviceOrderRepository().get_checkout_orders(mysql_session, 9101, 902001)
         finally:
             event.remove(connection, "before_cursor_execute", _record_statement)
 
@@ -51,29 +50,3 @@ class TestGetCheckoutOrders:
             (903001, 907001, 908002),
             (903002, 907002, None),
         ]
-
-    @pytest.mark.parametrize("order_id", [903004, 903005, 903006, 999999])
-    def test_excludes_deleted_or_out_of_scope_single_order(self, mysql_session, order_id) -> None:
-        """対象外の注文IDが指定された場合は結合行を返さない。
-
-        Args:
-            mysql_session: 初期化済みのテスト用MySQLセッション。
-            order_id: 削除済み、別店舗、別セッション、または存在しない注文ID。
-
-        Returns:
-            なし。
-        """
-        assert not DeviceOrderRepository().get_checkout_orders(mysql_session, 9101, 902001, order_id)
-
-    def test_keeps_paid_single_order_for_state_check(self, mysql_session) -> None:
-        """対象セッション内の支払済み注文は状態判定用に取得する。
-
-        Args:
-            mysql_session: 初期化済みのテスト用MySQLセッション。
-
-        Returns:
-            なし。
-        """
-        (order, _, _), = DeviceOrderRepository().get_checkout_orders(mysql_session, 9101, 902001, 903003)
-        assert order.status == OrderStatus.PAID
-        assert order.paid_at is not None
