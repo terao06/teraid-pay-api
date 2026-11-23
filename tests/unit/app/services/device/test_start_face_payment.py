@@ -7,6 +7,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from app.core.exceptions.custom_exception import DeviceCheckoutConflictException, WalletMismatchException
+from app.core.exceptions.message import DEVICE_CHECKOUT_CHANGED_ERROR
 from app.models.mysql.menu_checkout import CheckoutScope, CheckoutStatus
 from app.models.mysql.payment_request import PaymentStatus
 from app.models.mysql.visit_session import VisitSessionStatus
@@ -83,6 +84,27 @@ class TestStartFacePayment:
             identify_payer.assert_called_once()
             build_payment.assert_not_called()
             prepare_payment.assert_not_called()
+
+    def test_rejects_new_attempt_for_legacy_checkout_before_order_lookup(self) -> None:
+        """移行前の個別会計では注文再照合や決済試行の作成に進まない。
+
+        Args:
+            なし。
+
+        Returns:
+            なし。
+        """
+        visit = SimpleNamespace(status=VisitSessionStatus.ACTIVE)
+        checkout = SimpleNamespace(
+            checkout_id=3, scope=CheckoutScope.SINGLE_ORDER, status=CheckoutStatus.PENDING_CONFIRMATION,
+        )
+        with patch(f"{SERVICE}.DevicePaymentRepository") as checkouts:
+            repository = checkouts.return_value
+            repository.get_checkout_payment.return_value = None
+            with pytest.raises(DeviceCheckoutConflictException, match=DEVICE_CHECKOUT_CHANGED_ERROR):
+                DevicePaymentService._find_payment_or_check_checkout(Mock(), Mock(), visit, checkout, b"key")
+        repository.get_checkout_snapshot.assert_not_called()
+        repository.get_unpaid_orders.assert_not_called()
 
     def test_build_payment_rejects_unsupported_checkout_currency(self) -> None:
         """会計通貨がJPYC以外ならウォレットの検索や決済の登録前に拒否する。

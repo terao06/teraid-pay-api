@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions.custom_exception import (
     DeviceCheckoutConflictException,
-    DeviceCheckoutOrderNotFoundException,
     DeviceOrderConflictException,
     DeviceOrderInvalidException,
     UnauthorizedException,
@@ -22,11 +21,10 @@ from app.core.exceptions.message import (
     DEVICE_CHECKOUT_PROCESSING_ERROR,
 )
 from app.models.mysql.menu_checkout import CheckoutScope, MenuCheckout
-from app.models.mysql.menu_order import CHECKOUT_UNPAID_STATUSES, MenuOrder, OrderStatus
+from app.models.mysql.menu_order import MenuOrder, OrderStatus
 from app.models.mysql.menu_order_item import MenuOrderItem
 from app.models.mysql.menu_order_item_option import MenuOrderItemOption
 from app.models.mysql.visit_session import VisitSessionStatus
-from app.models.requests.device_checkout_create_request import DeviceCheckoutCreateRequest, SingleOrderCheckoutRequest
 from app.models.requests.device_order_create_request import DeviceOrderCreateRequest
 from app.models.responses.device_checkout_create_response import (
     DeviceCheckoutCreateResponse,
@@ -102,15 +100,13 @@ class DeviceOrderService:
         mysql_session: Session,
         device_uuid: str,
         visit_session_id: int,
-        request: DeviceCheckoutCreateRequest,
     ) -> DeviceCheckoutCreateResponse:
-        """対象の未払い注文を確定し、確認待ちの会計と保存済み明細を返す。
+        """来店セッションの未払い注文をすべて集計し、確認待ちの会計と明細を返す。
 
         Args:
             mysql_session: 参照と登録を同じトランザクションで行うMySQLセッション。
             device_uuid: 検証済み端末アクセストークンに含まれるUUID。
             visit_session_id: 会計を作成する来店セッションID。
-            request: 一括会計または注文ごとの会計の指定。
 
         Returns:
             会計ID、対象の注文と明細、合計金額、トークンシンボル。
@@ -118,8 +114,7 @@ class DeviceOrderService:
         Raises:
             UnauthorizedException: 端末が利用できない場合。
             VisitSessionNotFoundException: 端末自身の進行中のセッションが見つからない場合。
-            DeviceCheckoutOrderNotFoundException: 個別会計の指定注文が見つからない場合。
-            DeviceCheckoutConflictException: 決済処理中、対象が未払いではない、または通貨が混在する場合。
+            DeviceCheckoutConflictException: 決済処理中、未払い注文がない、または通貨が混在する場合。
             SQLAlchemyError: DB参照または登録に失敗した場合。
         """
         device = DeviceRepository().get_device_by_uuid_for_update(mysql_session, device_uuid)
@@ -135,16 +130,9 @@ class DeviceOrderService:
             raise DeviceCheckoutConflictException(DEVICE_CHECKOUT_PROCESSING_ERROR)
 
         repository = DeviceOrderRepository()
-        menu_order_id = request.menu_order_id if isinstance(request, SingleOrderCheckoutRequest) else None
-        rows = repository.get_checkout_orders(mysql_session, device.store_id, visit_session_id, menu_order_id)
+        rows = repository.get_checkout_orders(mysql_session, device.store_id, visit_session_id)
         if not rows:
-            if menu_order_id is not None:
-                raise DeviceCheckoutOrderNotFoundException()
             raise DeviceCheckoutConflictException(DEVICE_CHECKOUT_NO_UNPAID_ORDER_ERROR)
-        if menu_order_id is not None:
-            order, _, _ = rows[0]
-            if order.paid_at is not None or order.status not in CHECKOUT_UNPAID_STATUSES:
-                raise DeviceCheckoutConflictException(DEVICE_CHECKOUT_NO_UNPAID_ORDER_ERROR)
 
         details = self._group_order_details(rows)
         orders = [order for order, _ in details.values()]
@@ -157,7 +145,7 @@ class DeviceOrderService:
             mysql_session,
             MenuCheckout(
                 visit_session_id=visit_session_id,
-                scope=CheckoutScope(request.scope),
+                scope=CheckoutScope.ALL_UNPAID,
                 total_amount=total_amount,
                 token_symbol=token_symbol,
             ),

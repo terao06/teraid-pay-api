@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Header, Query, Response
+from fastapi import APIRouter, Depends, Header, Query, Response
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.controllers.device_controller import DeviceController
@@ -202,15 +202,15 @@ def get_order_history(
 def create_checkout(
     response: Response,
     path: Annotated[DeviceOrderPathRequest, Depends()],
-    request: Annotated[DeviceCheckoutCreateRequest, Body(discriminator="scope")],
+    request: DeviceCheckoutCreateRequest,
     credentials: HTTPAuthorizationCredentials | None = Depends(device_bearer_scheme),
 ) -> DeviceCheckoutCreateResponse:
-    """認証済み端末から未払い注文の会計作成を受け付ける。
+    """認証済み端末から来店セッションの一括会計作成を受け付ける。
 
     Args:
         response: 成功時のキャッシュ制御を設定するレスポンス。
         path: 来店セッションIDを含む検証済みのパス入力。
-        request: 対象範囲と、個別会計の場合は対象注文ID。
+        request: 一括会計の固定値を含むリクエスト。
         credentials: AuthorizationヘッダーのBearer認証情報。
 
     Returns:
@@ -223,7 +223,6 @@ def create_checkout(
     return DeviceController().create_checkout(
         device_uuid=device_uuid,
         visit_session_id=path.visit_session_id,
-        request=request,
     )
 
 

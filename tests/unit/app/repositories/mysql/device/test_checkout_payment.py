@@ -42,12 +42,9 @@ class TestCheckoutPayment:
         assert {row.menu_order_id: row.order_amount for row in snapshot} == {
             913001: Decimal("1200.125000"), 913002: Decimal("300.250000"),
         }
-        assert {row.menu_order_id for row in repository.get_unpaid_orders(mysql_session, 9201, 912001, None)} == {
+        assert {row.menu_order_id for row in repository.get_unpaid_orders(mysql_session, 9201, 912001)} == {
             913001, 913002,
         }
-        assert [row.menu_order_id for row in repository.get_unpaid_orders(mysql_session, 9201, 912001, {913002})] == [
-            913002,
-        ]
 
     def test_locks_checkout_until_transaction_ends(self, mysql_engine) -> None:
         """会計行を別トランザクションからのロック取得が失敗する状態にする。

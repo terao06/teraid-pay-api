@@ -73,17 +73,6 @@ class DeviceOrderConflictException(Exception):
     """
 
 
-class DeviceCheckoutOrderNotFoundException(Exception):
-    """指定した注文が認証済み端末の来店セッションに存在しないことを表す。
-
-    Args:
-        なし。
-
-    Returns:
-        対象注文が見つからない場合の例外。
-    """
-
-
 class DeviceCheckoutNotFoundException(Exception):
     """認証済み端末に紐づく会計が見つからないことを表す。
 

@@ -84,15 +84,13 @@ class DevicePaymentRepository:
         mysql_session: Session,
         store_id: int,
         visit_session_id: int,
-        order_ids: set[int] | None,
     ) -> Sequence[MenuOrder]:
-        """認証済み店舗の来店セッションから現在の未払い注文を取得する。
+        """認証済み店舗の来店セッションから現在の未払い注文を全件取得する。
 
         Args:
             mysql_session: 注文検索のMySQLセッション。
             store_id: 認証済み端末の店舗ID。
             visit_session_id: 認証済み端末の来店セッションID。
-            order_ids: 個別会計の対象注文ID。全件を照合する場合はNone。
 
         Returns:
             条件に一致する未削除・未払いの注文。
@@ -104,8 +102,6 @@ class DevicePaymentRepository:
             MenuOrder.paid_at.is_(None),
             MenuOrder.status.in_(CHECKOUT_UNPAID_STATUSES),
         )
-        if order_ids is not None:
-            statement = statement.where(MenuOrder.menu_order_id.in_(order_ids))
         return mysql_session.scalars(statement).all()
 
     def get_checkout_payment(

@@ -10,19 +10,16 @@ from sqlalchemy.orm import Session
 from app.controllers.device_controller import DeviceController
 from app.core.exceptions.custom_exception import (
     DeviceCheckoutConflictException,
-    DeviceCheckoutOrderNotFoundException,
     UnauthorizedException,
     VisitSessionNotFoundException,
 )
 from app.core.exceptions.message import DEVICE_CHECKOUT_PROCESSING_ERROR
-from app.models.requests.device_checkout_create_request import AllUnpaidCheckoutRequest
 from app.models.responses.device_checkout_create_response import DeviceCheckoutCreateResponse
 
 
 REQUEST_ARGS = {
     "device_uuid": "90100100-0000-4000-8000-000000901001",
     "visit_session_id": 902001,
-    "request": AllUnpaidCheckoutRequest(scope="all_unpaid"),
 }
 
 
@@ -61,7 +58,6 @@ class TestCreateCheckout:
     @pytest.mark.parametrize(("error", "status", "headers"), [
         (UnauthorizedException(), 401, {"WWW-Authenticate": "Bearer"}),
         (VisitSessionNotFoundException(), 404, None),
-        (DeviceCheckoutOrderNotFoundException(), 404, None),
         (DeviceCheckoutConflictException(DEVICE_CHECKOUT_PROCESSING_ERROR), 409, None),
         (RuntimeError("db failed"), 500, None),
         (None, 500, None),
