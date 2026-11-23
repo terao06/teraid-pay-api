@@ -26,7 +26,7 @@ class TestVerifyDevicePayment:
     """
 
     def test_returns_service_result(self) -> None:
-        """決済サービスの結果と来店セッション状態をそのまま返す。
+        """決済サービスの結果、来店セッション状態と未払い有無をそのまま返す。
 
         Args:
             なし。
@@ -36,6 +36,7 @@ class TestVerifyDevicePayment:
         """
         result = DevicePaymentResultResponse(
             payment_request_id=8, status=PaymentStatus.PAID, visit_session_status=VisitSessionStatus.ACTIVE,
+            has_unpaid_items=True,
         )
         with patch(_SERVICE, return_value=result) as verify:
             assert DevicePaymentController().verify_payment("device-id", 3, 8) == result

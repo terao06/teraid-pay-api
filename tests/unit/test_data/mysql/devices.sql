@@ -113,7 +113,8 @@ INSERT INTO devices (device_id, store_id, device_name, device_uuid, is_active, a
     (911021, 9201, 'Payment Result 1', '91102100-0000-4000-8000-000000911021', TRUE, NOW()),
     (911022, 9201, 'Payment Result 2', '91102200-0000-4000-8000-000000911022', TRUE, NOW()),
     (911023, 9201, 'Payment Result 3', '91102300-0000-4000-8000-000000911023', TRUE, NOW()),
-    (911024, 9201, 'Payment Result 4', '91102400-0000-4000-8000-000000911024', TRUE, NOW());
+    (911024, 9201, 'Payment Result 4', '91102400-0000-4000-8000-000000911024', TRUE, NOW()),
+    (911026, 9201, 'Split Payment Result', '91102600-0000-4000-8000-000000911026', TRUE, NOW());
 
 -- fixture: complete_visit_session
 INSERT INTO devices (device_id, store_id, device_name, device_uuid, is_active, activated_at) VALUES

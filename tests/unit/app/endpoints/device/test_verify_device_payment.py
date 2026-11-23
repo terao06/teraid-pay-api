@@ -159,7 +159,10 @@ class TestVerifyDevicePayment:
 
         response = client_with_db.post(_PATH.format(checkout_id, payment_id), headers=_headers(device_id))
         replay = client_with_db.post(_PATH.format(checkout_id, payment_id), headers=_headers(device_id))
-        expected = {"payment_request_id": payment_id, "status": result.value, "visit_session_status": "active"}
+        expected = {
+            "payment_request_id": payment_id, "status": result.value, "visit_session_status": "active",
+            "has_unpaid_items": True,
+        }
         assert (response.status_code, response.json()) == (200, expected)
         assert response.headers["Cache-Control"] == "no-store"
         assert (replay.status_code, replay.json()) == (200, expected)
@@ -206,7 +209,10 @@ class TestVerifyDevicePayment:
         assert get_receipt.call_count == 2
         assert http_provider.call_count == 2
         assert (response.status_code, response.json()) == (
-            200, {"payment_request_id": payment_id, "status": "confirming", "visit_session_status": "checkout_processing"},
+            200, {
+                "payment_request_id": payment_id, "status": "confirming", "visit_session_status": "checkout_processing",
+                "has_unpaid_items": True,
+            },
         )
         with Session(mysql_engine) as session:
             assert session.get(PaymentRequest, payment_id).status == PaymentStatus.SUBMITTED
@@ -251,3 +257,52 @@ class TestVerifyDevicePayment:
             assert session.get(VisitSession, 912024).status == VisitSessionStatus.CHECKOUT_PROCESSING
             assert session.get(MenuOrder, 913024).status == OrderStatus.PENDING_PAYMENT
             assert session.get(MenuOrder, 913024).paid_at is None
+
+    @pytest.mark.usefixtures("insert_face_checkout_payment_data")
+    @patch("app.services.device_payment_service.Web3")
+    @patch("app.services.device_payment_service.HTTPProvider")
+    def test_with_db_marks_order_paid_after_all_quantities_are_paid(
+        self, http_provider, web3_class, client_with_db, mysql_engine,
+    ) -> None:
+        """同じ明細の分割と残りの明細を支払い、最後の確定時だけ注文を支払済みにする。
+
+        Args:
+            http_provider: 実ネットワークに接続しないHTTPProviderのモック。
+            web3_class: チェーンRPC応答を設定するWeb3のモック。
+            client_with_db: 実MySQLを使うHTTPクライアント。
+            mysql_engine: コミット後の状態を確認するMySQL Engine。
+
+        Returns:
+            なし。
+        """
+        device_id = 911026
+        headers = _headers(device_id)
+        web3 = web3_class.return_value
+        paths = []
+        for checkout_id, has_unpaid_items in [(914026, True), (914027, True), (914028, False)]:
+            payment_id = _start_payment(checkout_id, device_id)
+            path = _PATH.format(checkout_id, payment_id)
+            paths.append(path)
+            _mock_successful_receipt(web3, mysql_engine, payment_id)
+            response = client_with_db.post(path, headers=headers)
+
+            assert (response.status_code, response.json()) == (
+                200, {
+                    "payment_request_id": payment_id, "status": "paid", "visit_session_status": "active",
+                    "has_unpaid_items": has_unpaid_items,
+                },
+            )
+            with Session(mysql_engine) as session:
+                assert session.get(PaymentRequest, payment_id).status == PaymentStatus.PAID
+                assert session.get(MenuCheckout, checkout_id).status == CheckoutStatus.PAID
+                order = session.get(MenuOrder, 913026)
+                expected_status = OrderStatus.PENDING_PAYMENT if has_unpaid_items else OrderStatus.PAID
+                assert order.status == expected_status
+                assert (order.paid_at is None) is has_unpaid_items
+
+        replay = client_with_db.post(paths[0], headers=headers)
+        assert replay.status_code == 200
+        assert replay.json()["status"] == "paid"
+        assert replay.json()["has_unpaid_items"] is False
+        assert http_provider.call_count == 3
+        assert web3.eth.get_transaction_receipt.call_count == 3

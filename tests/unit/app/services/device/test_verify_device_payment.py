@@ -1,10 +1,15 @@
 """決済結果確認サービスのセッション境界と確定競合を検証する。"""
 
+from decimal import Decimal
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
+from app.models.mysql.menu_checkout import CheckoutStatus, MenuCheckout
+from app.models.mysql.menu_checkout_item import MenuCheckoutItem
+from app.models.mysql.menu_order import MenuOrder, OrderStatus
+from app.models.mysql.menu_order_item import MenuOrderItem
 from app.models.mysql.payment_request import PaymentRequest, PaymentStatus
 from app.models.mysql.visit_session import VisitSessionStatus
 from app.services.device_payment_result_service import DevicePaymentResultService
@@ -49,6 +54,7 @@ class TestVerifyDevicePayment:
             patch(f"{_SERVICE}.get_mysql_db") as mysql,
             patch(f"{_SERVICE}.DeviceRepository") as devices,
             patch(f"{_SERVICE}.DevicePaymentRepository") as payments,
+            patch(f"{_SERVICE}.DeviceOrderRepository") as orders,
             patch(f"{_SERVICE}.verify_checkout_payment_on_chain") as rpc,
         ):
             session_context = mysql.return_value.get_session.return_value
@@ -61,10 +67,14 @@ class TestVerifyDevicePayment:
 
             devices.return_value.get_device_by_uuid.return_value = device
             payments.return_value.get_payment_for_result.return_value = (payment, visit)
+            payments.return_value.get_unpaid_order_items.return_value = [(12, 2, "JPYC")]
+            paid_quantity = 2 if stored_status == PaymentStatus.PAID else 1
+            orders.return_value.get_paid_checkout_quantities.return_value = {12: paid_quantity}
             rpc.side_effect = chain_check
             result = DevicePaymentResultService().verify_payment("uuid", 3, 8)
 
         assert (result.status, result.visit_session_status) == (expected, visit_status)
+        assert result.has_unpaid_items is (stored_status != PaymentStatus.PAID)
         payments.return_value.get_payment_for_result.assert_called_once_with(
             session_context.__enter__.return_value, 1, 2, 3, 8,
         )
@@ -95,6 +105,7 @@ class TestVerifyDevicePayment:
             patch(f"{_SERVICE}.DeviceRepository") as devices,
             patch(f"{_SERVICE}.VisitSessionRepository") as visits,
             patch(f"{_SERVICE}.DevicePaymentRepository") as payments,
+            patch(f"{_SERVICE}.DeviceOrderRepository") as orders,
             patch(f"{_SERVICE}.verify_checkout_payment_on_chain", return_value=PaymentStatus.TX_FAILED),
         ):
             devices.return_value.get_device_by_uuid.return_value = device
@@ -103,9 +114,44 @@ class TestVerifyDevicePayment:
             payments.return_value.get_payment_for_result.return_value = (observed, visit)
             payments.return_value.get_checkout_for_update.return_value = checkout
             payments.return_value.get_payment_for_update.return_value = terminal
+            payments.return_value.get_unpaid_order_items.side_effect = [[(12, 1, "JPYC")], []]
+            orders.return_value.get_paid_checkout_quantities.side_effect = [{}, {12: 1}]
 
             result = DevicePaymentResultService().verify_payment("uuid", 3, 8)
 
         assert (result.status, result.visit_session_status) == (PaymentStatus.PAID, VisitSessionStatus.CLOSED)
         payments.return_value.update_payment_request.assert_not_called()
         payments.return_value.mark_checkout_orders_paid.assert_not_called()
+        assert result.has_unpaid_items is False
+
+    @pytest.mark.parametrize("checkout_quantity", [0, 2])
+    def test_rejects_invalid_checkout_quantity(self, checkout_quantity: int) -> None:
+        """会計数量がゼロ、または累計で注文時の数量を超える場合は確定に失敗する。
+
+        Args:
+            checkout_quantity: 対象会計の不正な支払数量。
+
+        Returns:
+            なし。
+        """
+        session, repository = Mock(), Mock()
+        checkout = MenuCheckout(
+            checkout_id=3, visit_session_id=7, total_amount=Decimal("100"), token_symbol="JPYC",
+            status=CheckoutStatus.PROCESSING,
+        )
+        repository.get_checkout_items.return_value = [
+            MenuCheckoutItem(menu_order_item_id=12, quantity=checkout_quantity, line_amount=checkout.total_amount)
+        ]
+        repository.get_checkout_orders_for_update.return_value = [
+            MenuOrder(menu_order_id=9, store_id=2, visit_session_id=7, status=OrderStatus.PENDING_PAYMENT, token_symbol="JPYC")
+        ]
+        repository.get_order_items.return_value = [
+            MenuOrderItem(menu_order_item_id=12, menu_order_id=9, quantity=2)
+        ]
+        with (
+            patch(f"{_SERVICE}.DeviceOrderRepository") as orders,
+            pytest.raises(RuntimeError),
+        ):
+            orders.return_value.get_paid_checkout_quantities.return_value = {12: 3}
+            DevicePaymentResultService()._apply_paid_checkout(session, repository, checkout, 2)
+        repository.mark_checkout_orders_paid.assert_not_called()

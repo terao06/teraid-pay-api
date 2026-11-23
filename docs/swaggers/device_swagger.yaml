@@ -614,7 +614,7 @@ paths:
             maximum: 9223372036854775807
       responses:
         '200':
-          description: 決済状態と現在の来店セッション状態
+          description: 決済状態、現在の来店セッション状態と未払い明細の有無
           headers:
             Cache-Control:
               $ref: '#/components/headers/VisitSessionCacheControl'
@@ -1049,7 +1049,7 @@ components:
           example: submitted
     DevicePaymentResultResponse:
       type: object
-      required: [payment_request_id, status, visit_session_status]
+      required: [payment_request_id, status, visit_session_status, has_unpaid_items]
       properties:
         payment_request_id:
           type: integer
@@ -1064,6 +1064,10 @@ components:
           type: string
           enum: [active, checkout_processing, closed]
           example: active
+        has_unpaid_items:
+          type: boolean
+          description: 来店セッションに未払い数量が残る明細がある場合はtrue。
+          example: true
     DeviceCheckoutCreateResponse:
       type: object
       required: [checkout_id, orders, total_amount, token_symbol]

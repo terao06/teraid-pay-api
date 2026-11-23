@@ -2,7 +2,6 @@
 
 from collections.abc import Sequence
 from datetime import datetime
-from decimal import Decimal
 
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
@@ -10,7 +9,6 @@ from sqlalchemy.orm import Session
 from app.core.utils.datetime import JST
 from app.models.mysql.menu_checkout import MenuCheckout
 from app.models.mysql.menu_checkout_item import MenuCheckoutItem
-from app.models.mysql.menu_checkout_order import MenuCheckoutOrder
 from app.models.mysql.menu_order import CHECKOUT_UNPAID_STATUSES, MenuOrder, OrderStatus
 from app.models.mysql.menu_order_item import MenuOrderItem
 from app.models.mysql.payment_request import PaymentRequest, PaymentStatus
@@ -218,30 +216,43 @@ class DevicePaymentRepository:
 
     def get_checkout_orders_for_update(
         self, mysql_session: Session, checkout_id: int
-    ) -> Sequence[tuple[MenuOrder, Decimal]]:
-        """会計の対象注文と保存済み金額を結合して取得し、行をロックする。
+    ) -> Sequence[MenuOrder]:
+        """会計明細に紐づく注文の行を排他ロックして取得する。
 
         Args:
             mysql_session: 決済結果を確定するMySQLセッション。
             checkout_id: ロック済みの会計ID。
 
         Returns:
-            対象注文と会計時点の注文金額の組。
+            会計の対象明細を含む注文。各注文を一度だけ返す。
         """
-        statement = (
-            select(MenuOrder, MenuCheckoutOrder.order_amount)
-            .join(MenuCheckoutOrder, MenuCheckoutOrder.menu_order_id == MenuOrder.menu_order_id)
-            .where(MenuCheckoutOrder.checkout_id == checkout_id)
-            .with_for_update()
+        order_ids = (
+            select(MenuOrderItem.menu_order_id)
+            .join(MenuCheckoutItem, MenuCheckoutItem.menu_order_item_id == MenuOrderItem.menu_order_item_id)
+            .where(MenuCheckoutItem.checkout_id == checkout_id)
         )
-        return mysql_session.execute(statement).tuples().all()
+        statement = select(MenuOrder).where(MenuOrder.menu_order_id.in_(order_ids)).with_for_update()
+        return mysql_session.scalars(statement).all()
 
-    def mark_checkout_orders_paid(self, mysql_session: Session, order_ids: Sequence[int]) -> int:
-        """検証済みの全対象注文を支払済みに更新する。
+    def get_order_items(self, mysql_session: Session, order_ids: Sequence[int]) -> Sequence[MenuOrderItem]:
+        """対象注文の全明細と注文時の数量を取得する。
 
         Args:
             mysql_session: 対象注文をロック済みのMySQLセッション。
-            order_ids: 会計に紐づく検証済みの注文ID。
+            order_ids: 会計明細に紐づく注文ID。
+
+        Returns:
+            指定した注文の全明細。
+        """
+        statement = select(MenuOrderItem).where(MenuOrderItem.menu_order_id.in_(order_ids))
+        return mysql_session.scalars(statement).all()
+
+    def mark_checkout_orders_paid(self, mysql_session: Session, order_ids: Sequence[int]) -> int:
+        """全明細の支払いが完了した注文を支払済みに更新する。
+
+        Args:
+            mysql_session: 対象注文をロック済みのMySQLセッション。
+            order_ids: 全明細が支払済みになった注文ID。
 
         Returns:
             支払済みにした注文件数。

@@ -278,7 +278,7 @@ def verify_device_payment(
         credentials: AuthorizationヘッダーのBearer認証情報。
 
     Returns:
-        決済試行ID、決済状態、来店セッション状態。
+        決済試行ID、決済状態、来店セッション状態と未払い明細の有無。
 
     Raises:
         HTTPException: 端末認証、対象の照会または決済結果の確定に失敗した場合。

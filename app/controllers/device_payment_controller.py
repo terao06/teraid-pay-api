@@ -113,7 +113,7 @@ class DevicePaymentController:
             payment_request_id: 照会する決済試行ID。
 
         Returns:
-            決済状態と来店セッション状態。
+            決済状態、来店セッション状態と未払い明細の有無。
 
         Raises:
             HTTPException: 端末認証、照会対象の取得、または決済確認に失敗した場合。

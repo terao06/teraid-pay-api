@@ -76,7 +76,8 @@ INSERT INTO menu_orders (
     (913022, 'payment-result-2', 912022, 9201, 100.125000, 1, NULL),
     (913023, 'payment-result-3', 912023, 9201, 100.125000, 1, NULL),
     (913024, 'payment-result-4', 912024, 9201, 100.125000, 1, NULL),
-    (913025, 'payment-result-1-unselected', 912021, 9201, 50.250000, 1, NULL);
+    (913025, 'payment-result-1-unselected', 912021, 9201, 50.250000, 1, NULL),
+    (913026, 'split-payment-result', 912026, 9201, 300.375000, 1, NULL);
 
 -- fixture: complete_visit_session
 INSERT INTO menu_orders (
