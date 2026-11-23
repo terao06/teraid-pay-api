@@ -1,4 +1,4 @@
-"""顔認証決済開始が使う会計、対象注文と試行のDBクエリを検証する。"""
+"""顔認証決済開始が使う会計、対象明細と試行のDBクエリを検証する。"""
 
 from datetime import datetime
 from decimal import Decimal
@@ -16,7 +16,7 @@ from app.repositories.mysql.device_payment_repository import DevicePaymentReposi
 
 @pytest.mark.usefixtures("insert_face_checkout_payment_data")
 class TestCheckoutPayment:
-    """会計の端末境界と排他ロック、試行の一意性を確認する。
+    """会計・明細の参照条件、排他ロック、試行の一意性を確認する。
 
     Args:
         なし。
@@ -25,8 +25,8 @@ class TestCheckoutPayment:
         なし。
     """
 
-    def test_filters_owned_checkout_and_unpaid_orders(self, mysql_session) -> None:
-        """他端末・別店舗・削除済み・取り消し済みの行を除外する。
+    def test_filters_owned_checkout_and_unpaid_order_items(self, mysql_session: Session) -> None:
+        """他端末の会計、別店舗・別セッション・削除済み・取り消し済みの注文を除外する。
 
         Args:
             mysql_session: 実MySQLセッション。
@@ -38,13 +38,17 @@ class TestCheckoutPayment:
         assert repository.get_owned_checkout(mysql_session, 914001, 911004) is None
         checkout, visit = repository.get_owned_checkout(mysql_session, 914001, 911001)
         assert (checkout.checkout_id, visit.visit_session_id) == (914001, 912001)
-        snapshot = repository.get_checkout_snapshot(mysql_session, checkout.checkout_id)
-        assert {row.menu_order_id: row.order_amount for row in snapshot} == {
-            913001: Decimal("1200.125000"), 913002: Decimal("300.250000"),
+        snapshot = repository.get_checkout_items(mysql_session, checkout.checkout_id)
+        assert {(row.menu_order_item_id, row.quantity, row.line_amount) for row in snapshot} == {
+            (915001, 1, Decimal("1200.125000")),
+            (915002, 1, Decimal("300.250000")),
         }
-        assert {row.menu_order_id for row in repository.get_unpaid_orders(mysql_session, 9201, 912001)} == {
-            913001, 913002,
+        assert repository.get_checkout_items(mysql_session, 914013) == []
+        assert set(repository.get_unpaid_order_items(mysql_session, 9201, 912001)) == {
+            (915001, 1, "JPYC"), (915002, 1, "JPYC"),
         }
+        assert set(repository.get_unpaid_order_items(mysql_session, 102, 912001)) == {(915007, 1, "JPYC")}
+        assert set(repository.get_unpaid_order_items(mysql_session, 9201, 912006)) == {(915011, 1, "JPYC")}
 
     def test_locks_checkout_until_transaction_ends(self, mysql_engine) -> None:
         """会計行を別トランザクションからのロック取得が失敗する状態にする。

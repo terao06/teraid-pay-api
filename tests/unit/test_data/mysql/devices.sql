@@ -109,6 +109,7 @@ INSERT INTO devices (device_id, store_id, device_name, device_uuid, is_active, a
     (911004, 9201, 'Face Checkout Changed', '91100400-0000-4000-8000-000000911004', TRUE, NOW()),
     (911005, 9201, 'Face Checkout Disabled', '91100500-0000-4000-8000-000000911005', FALSE, NOW()),
     (911006, 9201, 'Face Checkout Update Failure', '91100600-0000-4000-8000-000000911006', TRUE, NOW()),
+    (911009, 9201, 'Face Checkout Selected Items', '91100900-0000-4000-8000-000000911009', TRUE, NOW()),
     (911021, 9201, 'Payment Result 1', '91102100-0000-4000-8000-000000911021', TRUE, NOW()),
     (911022, 9201, 'Payment Result 2', '91102200-0000-4000-8000-000000911022', TRUE, NOW()),
     (911023, 9201, 'Payment Result 3', '91102300-0000-4000-8000-000000911023', TRUE, NOW()),

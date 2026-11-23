@@ -311,7 +311,7 @@ def insert_order_list_data(engine: Engine) -> tuple[str, ...]:
 
 
 def insert_face_checkout_payment_data(engine: Engine) -> tuple[str, ...]:
-    """顔認証決済の開始・結果確認用の店舗、会計、対象注文と既存の試行を投入する。
+    """顔認証決済の開始・結果確認用の店舗、会計、対象明細と既存の試行を投入する。
 
     Args:
         engine: 共通のウォレットと店舗を投入済みのMySQL Engine。
@@ -320,8 +320,9 @@ def insert_face_checkout_payment_data(engine: Engine) -> tuple[str, ...]:
         データを投入したテーブル単位のSQLファイル名。
     """
     sql_files = (
-        "stores.sql", "store_wallets.sql", "devices.sql", "visit_sessions.sql",
-        "menu_orders.sql", "menu_checkouts.sql", "menu_checkout_orders.sql", "payment_requests.sql",
+        "stores.sql", "store_wallets.sql", "devices.sql", "visit_sessions.sql", "menu_items.sql",
+        "menu_orders.sql", "menu_order_items.sql", "menu_checkouts.sql",
+        "menu_checkout_orders.sql", "menu_checkout_items.sql", "payment_requests.sql",
     )
     return tuple(_execute_sql_file(engine, sql_file, "face_checkout_payment") for sql_file in sql_files)
 

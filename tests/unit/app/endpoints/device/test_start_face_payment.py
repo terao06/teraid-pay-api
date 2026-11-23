@@ -115,6 +115,7 @@ class TestStartFacePayment:
         (2, Decimal("720.125000"), 202, PaymentStatus.REQUESTED),
         (3, Decimal("900.125000"), 400, PaymentStatus.ERROR),
         (6, Decimal("600.175000"), 202, PaymentStatus.REQUESTED),
+        (9, Decimal("200.000000"), 201, PaymentStatus.SUBMITTED),
     ])
     @patch("app.services.device_payment_service.Web3")
     @patch("app.services.device_payment_service.HTTPProvider")
@@ -209,7 +210,7 @@ class TestStartFacePayment:
                     "0x1111111111111111111111111111111111111111",
                     int(amount * 10**18),
                 )
-            order = session.get(MenuOrder, {1: 913001, 2: 913003, 3: 913004, 6: 913011}[suffix])
+            order = session.get(MenuOrder, {1: 913001, 2: 913003, 3: 913004, 6: 913011, 9: 913012}[suffix])
             assert order.status == OrderStatus.PENDING_PAYMENT
             assert order.paid_at is None
 
@@ -270,11 +271,15 @@ class TestStartFacePayment:
         (911001, 999999, 404),
         (911004, 914004, 409),
         (911004, 914008, 409),
+        (911004, 914013, 409),
+        (911004, 914014, 409),
+        (911004, 914015, 409),
+        (911004, 914016, 409),
     ])
     def test_with_db_rejects_unavailable_or_stale_checkout(
         self, client_with_db, device_id, checkout_id, status
     ) -> None:
-        """停止端末、対象外の会計、古い明細、移行前の未処理の個別会計を顔照合前に拒否する。
+        """端末・会計の権限、明細の所属・数量・合計額、移行前の会計を顔照合前に検証する。
 
         Args:
             client_with_db: 実DB用クライアント。
