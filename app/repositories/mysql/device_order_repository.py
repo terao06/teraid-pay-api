@@ -186,19 +186,17 @@ class DeviceOrderRepository:
         return mysql_session.scalar(statement) is not None
 
     def get_checkout_orders(
-        self, mysql_session: Session, store_id: int, visit_session_id: int, menu_order_id: int | None
+        self, mysql_session: Session, store_id: int, visit_session_id: int
     ) -> Sequence[_OrderRow]:
-        """会計候補の注文と保存済み明細を1回のSELECTで取得する。
+        """来店セッションの未払い注文と保存済み明細を1回のSELECTで取得する。
 
         Args:
             mysql_session: 対象の端末行とセッション行をロックしたMySQLセッション。
             store_id: 認証済み端末の所属店舗ID。
             visit_session_id: 会計を作成する来店セッションID。
-            menu_order_id: 個別会計の注文ID。一括会計の場合はNone。
 
         Returns:
-            一括会計なら未払い注文、個別会計なら指定注文を含む結合行。
-            対象注文が存在しない場合は空。
+            未払い注文と明細の結合行。未払い注文がなければ空。
 
         Raises:
             SQLAlchemyError: DB参照に失敗した場合。
@@ -210,6 +208,8 @@ class DeviceOrderRepository:
                 MenuOrder.store_id == store_id,
                 MenuOrder.visit_session_id == visit_session_id,
                 MenuOrder.deleted_at.is_(None),
+                MenuOrder.paid_at.is_(None),
+                MenuOrder.status.in_(CHECKOUT_UNPAID_STATUSES),
             )
             .order_by(
                 MenuOrder.created_at.desc(),
@@ -220,12 +220,6 @@ class DeviceOrderRepository:
                 MenuOrderItemOption.menu_order_item_option_id,
             )
         )
-        if menu_order_id is None:
-            statement = statement.where(
-                MenuOrder.paid_at.is_(None), MenuOrder.status.in_(CHECKOUT_UNPAID_STATUSES)
-            )
-        else:
-            statement = statement.where(MenuOrder.menu_order_id == menu_order_id)
         statement = _join_order_details(statement, store_id, visit_session_id)
         return mysql_session.execute(statement).tuples().all()
 

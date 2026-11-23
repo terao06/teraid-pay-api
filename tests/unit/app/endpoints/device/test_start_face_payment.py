@@ -112,7 +112,7 @@ class TestStartFacePayment:
     )
     @pytest.mark.parametrize("suffix, amount, first_status, payment_status", [
         (1, Decimal("1500.375000"), 201, PaymentStatus.SUBMITTED),
-        (2, Decimal("700.125000"), 202, PaymentStatus.REQUESTED),
+        (2, Decimal("720.125000"), 202, PaymentStatus.REQUESTED),
         (3, Decimal("900.125000"), 400, PaymentStatus.ERROR),
         (6, Decimal("600.175000"), 202, PaymentStatus.REQUESTED),
     ])
@@ -269,11 +269,12 @@ class TestStartFacePayment:
         (911004, 914001, 404),
         (911001, 999999, 404),
         (911004, 914004, 409),
+        (911004, 914008, 409),
     ])
     def test_with_db_rejects_unavailable_or_stale_checkout(
         self, client_with_db, device_id, checkout_id, status
     ) -> None:
-        """停止端末、対象外の会計、追加注文で古くなった明細を顔照合前に拒否する。
+        """停止端末、対象外の会計、古い明細、移行前の未処理の個別会計を顔照合前に拒否する。
 
         Args:
             client_with_db: 実DB用クライアント。
@@ -288,7 +289,7 @@ class TestStartFacePayment:
             response = client_with_db.post(
                 PATH.format(checkout_id=checkout_id),
                 json={"content": build_base64_image()},
-                headers=_headers(device_id),
+                headers=_headers(device_id, key="unavailable-checkout"),
             )
         assert response.status_code == status
         identify_payer.assert_not_called()

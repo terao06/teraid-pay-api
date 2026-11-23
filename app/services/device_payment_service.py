@@ -263,7 +263,7 @@ class DevicePaymentService:
     def _find_payment_or_check_checkout(
         session: Session, device: Device, visit: VisitSession, checkout: MenuCheckout, key_hash: bytes
     ) -> DeviceFacePaymentResponse | None:
-        """既存の試行を優先し、新規試行では会計の対象注文と保存額を再照合する。"""
+        """既存の試行を返すか、新規一括決済に向けて対象注文と保存額を再照合する。"""
         existing = DevicePaymentRepository().get_checkout_payment(
             session, checkout.checkout_id, key_hash, include_processing=checkout.status == CheckoutStatus.PROCESSING
         )
@@ -272,6 +272,8 @@ class DevicePaymentService:
 
         if visit.status == VisitSessionStatus.CHECKOUT_PROCESSING:
             raise DeviceCheckoutConflictException(DEVICE_CHECKOUT_PROCESSING_ERROR)
+        if checkout.scope != CheckoutScope.ALL_UNPAID:
+            raise DeviceCheckoutConflictException(DEVICE_CHECKOUT_CHANGED_ERROR)
         if visit.status != VisitSessionStatus.ACTIVE or checkout.status != CheckoutStatus.PENDING_CONFIRMATION:
             raise DeviceCheckoutConflictException(DEVICE_CHECKOUT_NOT_PAYABLE_ERROR)
 
@@ -280,11 +282,10 @@ class DevicePaymentService:
             row.menu_order_id: row.order_amount
             for row in repository.get_checkout_snapshot(session, checkout.checkout_id)
         }
-        order_ids = set(snapshot) if checkout.scope == CheckoutScope.SINGLE_ORDER else None
-        if not snapshot or (order_ids is not None and len(order_ids) != 1):
+        if not snapshot:
             raise DeviceCheckoutConflictException(DEVICE_CHECKOUT_CHANGED_ERROR)
 
-        orders = repository.get_unpaid_orders(session, device.store_id, visit.visit_session_id, order_ids)
+        orders = repository.get_unpaid_orders(session, device.store_id, visit.visit_session_id)
         current = {order.menu_order_id: order.total_amount for order in orders}
         if (
             current != snapshot

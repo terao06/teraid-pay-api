@@ -8,10 +8,10 @@ from .base_model import Base
 
 
 class CheckoutScope(str, Enum):
-    """会計で選択する注文の範囲を定義する。
+    """一括会計と移行前の会計で保存された対象範囲を定義する。
 
     Args:
-        value: 一括会計または注文ごとの会計を表す値。
+        value: 一括会計または移行前の個別会計を表す値。
 
     Returns:
         指定値に対応する会計範囲。

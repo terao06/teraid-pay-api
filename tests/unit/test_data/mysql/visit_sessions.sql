@@ -41,7 +41,7 @@ INSERT INTO visit_sessions (visit_session_id, device_id, start_request_id, statu
     (912003, 911003, 'face-checkout-insufficient', 'active', NOW()),
     (912004, 911004, 'face-checkout-changed', 'active', NOW()),
     (912006, 911006, 'face-checkout-update-failure', 'active', NOW()),
-    (912021, 911021, 'payment-result-1', 'active', NOW()),
+    (912021, 911021, 'payment-result-1', 'checkout_processing', NOW()),
     (912022, 911022, 'payment-result-2', 'active', NOW()),
     (912023, 911023, 'payment-result-3', 'active', NOW()),
     (912024, 911024, 'payment-result-4', 'active', NOW());
