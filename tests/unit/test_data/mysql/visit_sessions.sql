@@ -32,7 +32,8 @@ INSERT INTO visit_sessions (visit_session_id, device_id, start_request_id, statu
     (902002, 901001, 'checkout-closed', 'closed', '2026-11-21 01:00:00', '2026-11-21 01:30:00'),
     (902003, 901002, 'checkout-processing', 'checkout_processing', '2026-11-21 02:00:00', NULL),
     (902004, 901003, 'checkout-empty', 'active', '2026-11-21 02:00:00', NULL),
-    (902005, 901004, 'checkout-mixed', 'active', '2026-11-21 02:00:00', NULL);
+    (902005, 901004, 'checkout-mixed', 'active', '2026-11-21 02:00:00', NULL),
+    (902006, 901001, 'checkout-partial', 'active', '2026-11-21 04:00:00', NULL);
 
 -- fixture: face_checkout_payment
 INSERT INTO visit_sessions (visit_session_id, device_id, start_request_id, status, started_at) VALUES

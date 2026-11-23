@@ -24,6 +24,7 @@ DEVICE_CHECKOUT_CHANGED_ERROR = "会計内容が変更されました。会計�
 DEVICE_CHECKOUT_NOT_PAYABLE_ERROR = "現在の会計または来店セッションでは決済を開始できません。"
 DEVICE_CHECKOUT_PROCESSING_ERROR = "来店セッションは決済処理中です。"
 DEVICE_CHECKOUT_NO_UNPAID_ORDER_ERROR = "会計対象の未払い注文がありません。"
+DEVICE_CHECKOUT_ITEM_UNAVAILABLE_ERROR = "指定した明細または数量が現在の未払い分と一致しません。"
 DEVICE_CHECKOUT_MIXED_TOKEN_ERROR = "会計対象の注文で通貨が一致しません。"
 DEVICE_ACTIVATION_STATE_INVALID_ERROR = "未有効化のデバイスは有効にできません。"
 DEVICE_ALREADY_ACTIVATED_ERROR = "デバイスは既に有効化されています。"

@@ -8,10 +8,10 @@ from .base_model import Base
 
 
 class CheckoutScope(str, Enum):
-    """一括会計と移行前の会計で保存された対象範囲を定義する。
+    """まとめ払い、別会計、移行前の個別会計の対象範囲を定義する。
 
     Args:
-        value: 一括会計または移行前の個別会計を表す値。
+        value: まとめ払い、別会計、または移行前の個別会計を表す値。
 
     Returns:
         指定値に対応する会計範囲。
@@ -19,6 +19,7 @@ class CheckoutScope(str, Enum):
 
     ALL_UNPAID = "all_unpaid"
     SINGLE_ORDER = "single_order"
+    SELECTED_ITEMS = "selected_items"
 
 
 class CheckoutStatus(str, Enum):

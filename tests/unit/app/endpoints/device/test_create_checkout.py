@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 
 from app.core.config.device_auth import DeviceAuthConfig
 from app.core.exceptions.message import (
+    DEVICE_CHECKOUT_ITEM_UNAVAILABLE_ERROR,
     DEVICE_CHECKOUT_MIXED_TOKEN_ERROR,
     DEVICE_CHECKOUT_NO_UNPAID_ORDER_ERROR,
     DEVICE_CHECKOUT_PROCESSING_ERROR,
@@ -15,6 +16,7 @@ from app.core.exceptions.message import (
 )
 from app.core.utils.device_auth import DeviceAuthUtil
 from app.models.mysql.menu_checkout import CheckoutScope, CheckoutStatus, MenuCheckout
+from app.models.mysql.menu_checkout_item import MenuCheckoutItem
 from app.models.mysql.menu_checkout_order import MenuCheckoutOrder
 from app.models.mysql.menu_order import MenuOrder, OrderStatus
 from app.models.mysql.visit_session import VisitSession, VisitSessionStatus
@@ -51,6 +53,19 @@ class TestCreateCheckout:
         (902001, {"scope": "all_unpaid", "menu_order_id": 903001}),
         (902001, {"scope": "single_order"}),
         (902001, {"scope": "single_order", "menu_order_id": 903001}),
+        (902001, {"scope": "all_unpaid", "items": None}),
+        (902001, {"scope": "all_unpaid", "items": []}),
+        (902001, {"scope": "selected_items"}),
+        (902001, {"scope": "selected_items", "items": []}),
+        (902001, {"scope": "selected_items", "items": [{"menu_order_item_id": 907001, "quantity": 0}]}),
+        (902001, {"scope": "selected_items", "items": [{"menu_order_item_id": 907001, "quantity": "1"}]}),
+        (902001, {"scope": "selected_items", "items": [{"menu_order_item_id": 907001, "quantity": True}]}),
+        (902001, {"scope": "selected_items", "items": [{"menu_order_item_id": 907001, "quantity": 4294967296}]}),
+        (902001, {"scope": "selected_items", "items": [{"menu_order_item_id": 9223372036854775808, "quantity": 1}]}),
+        (902001, {"scope": "selected_items", "items": [{"menu_order_item_id": 907001, "quantity": 1, "price": 1}]}),
+        (902001, {"scope": "selected_items", "items": [
+            {"menu_order_item_id": 907001, "quantity": 1}, {"menu_order_item_id": 907001, "quantity": 2},
+        ]}),
     ])
     def test_rejects_invalid_input_before_mysql(self, client, visit_id, body) -> None:
         """パスやJSONが不正ならDB接続前に422を返すことを確認する。
@@ -111,6 +126,8 @@ class TestCreateCheckout:
         assert data["token_symbol"] == "JPYC"
         assert [order["menu_order_id"] for order in data["orders"]] == [903001, 903002]
         item, = data["orders"][0]["items"]
+        assert item["menu_order_item_id"] == 907001
+        assert item["quantity"] == 2
         assert item["menu_item_name"] == "注文時のカレー"
         assert item["line_amount"] == "1400.000000"
         assert [option["option_name"] for option in item["options"]] == ["注文時のチーズ", "注文時のソース"]
@@ -128,8 +145,101 @@ class TestCreateCheckout:
         assert {link.menu_order_id: link.order_amount for link in links} == {
             order["menu_order_id"]: Decimal(order["total_amount"]) for order in data["orders"]
         }
+        saved_items = mysql_session.scalars(
+            select(MenuCheckoutItem).where(MenuCheckoutItem.checkout_id == checkout.checkout_id)
+        ).all()
+        assert {row.menu_order_item_id: (row.quantity, row.line_amount) for row in saved_items} == {
+            907001: (2, Decimal("1400")),
+            907002: (1, Decimal("300")),
+        }
         assert mysql_session.get(VisitSession, 902001).status == VisitSessionStatus.ACTIVE
         assert mysql_session.get(MenuOrder, 903001).status == OrderStatus.PENDING_PAYMENT
+
+    @pytest.mark.usefixtures("insert_device_checkout_data")
+    @pytest.mark.parametrize(("body", "scope", "quantity", "amount"), [
+        (ALL_UNPAID, CheckoutScope.ALL_UNPAID, 2, "1300.000000"),
+        (
+            {"scope": "selected_items", "items": [{"menu_order_item_id": 907005, "quantity": 1}]},
+            CheckoutScope.SELECTED_ITEMS, 1, "650.000000",
+        ),
+    ])
+    def test_with_db_creates_one_checkout_for_the_requested_scope(
+        self, client_with_db, mysql_session, body, scope, quantity, amount
+    ) -> None:
+        """残りの未払い全件か指定分で会計を1件だけ作り、対象数量と金額を保存する。
+
+        Args:
+            client_with_db: MySQLに接続するHTTPクライアント。
+            mysql_session: APIとは別の確認用MySQLセッション。
+            body: 支払方法と対象範囲を指定するリクエスト本体。
+            scope: 保存される会計範囲。
+            quantity: 保存される未払い明細のうち今回支払う数量。
+            amount: 保存される明細・注文・会計の金額。
+
+        Returns:
+            なし。
+        """
+        lookup = select(MenuCheckout.checkout_id).where(MenuCheckout.visit_session_id == 902006)
+        before = set(mysql_session.scalars(lookup))
+        mysql_session.rollback()
+
+        response = client_with_db.post(PATH.format(visit_id=902006), json=body, headers=_headers())
+
+        assert response.status_code == 201
+        data = response.json()
+        order, = data["orders"]
+        item, = order["items"]
+        assert item["menu_order_item_id"] == 907005
+        assert item["quantity"] == quantity
+        assert item["line_amount"] == order["total_amount"] == data["total_amount"] == amount
+        assert order["menu_order_id"] == 903011
+        checkout_id = data["checkout_id"]
+        assert set(mysql_session.scalars(lookup)) - before == {checkout_id}
+        checkout = mysql_session.get(MenuCheckout, checkout_id)
+        assert checkout.scope == scope
+        assert checkout.status == CheckoutStatus.PENDING_CONFIRMATION
+        assert checkout.total_amount == Decimal(amount)
+        saved_item, = mysql_session.scalars(
+            select(MenuCheckoutItem).where(MenuCheckoutItem.checkout_id == checkout_id)
+        ).all()
+        assert (saved_item.menu_order_item_id, saved_item.quantity, saved_item.line_amount) == (
+            907005, quantity, Decimal(amount),
+        )
+
+    @pytest.mark.usefixtures("insert_device_checkout_data")
+    @pytest.mark.parametrize(("visit_id", "item_id", "quantity"), [
+        (902006, 907005, 3),
+        (902006, 907006, 1),
+        (902001, 907003, 1),
+        (902001, 907007, 1),
+        (902001, 907008, 1),
+        (902001, 907009, 1),
+    ])
+    def test_with_db_rejects_items_outside_the_current_unpaid_scope(
+        self, client_with_db, mysql_session, visit_id, item_id, quantity
+    ) -> None:
+        """支払済み、削除済み、対象外の明細や未払い数量を超える指定を拒否する。
+
+        Args:
+            client_with_db: MySQLに接続するHTTPクライアント。
+            mysql_session: APIとは別の確認用MySQLセッション。
+            visit_id: 対象の来店セッションID。
+            item_id: 拒否される注文明細ID。
+            quantity: 指定する支払い数量。
+
+        Returns:
+            なし。
+        """
+        lookup = select(func.count()).select_from(MenuCheckout).where(MenuCheckout.visit_session_id == visit_id)
+        before = mysql_session.scalar(lookup)
+        mysql_session.rollback()
+        selected = {"scope": "selected_items", "items": [{"menu_order_item_id": item_id, "quantity": quantity}]}
+
+        response = client_with_db.post(PATH.format(visit_id=visit_id), json=selected, headers=_headers())
+
+        assert response.status_code == 409
+        assert response.json()["detail"]["message"] == DEVICE_CHECKOUT_ITEM_UNAVAILABLE_ERROR
+        assert mysql_session.scalar(lookup) == before
 
     @pytest.mark.usefixtures("insert_device_checkout_data")
     @pytest.mark.parametrize(("device_id", "visit_id", "status", "message"), [
@@ -171,7 +281,7 @@ class TestCreateCheckout:
 
     @pytest.mark.usefixtures("insert_device_checkout_data")
     def test_with_db_rolls_back_checkout_and_links_together(self, client_with_db, mysql_session) -> None:
-        """会計と対象注文の登録後に失敗した場合は両方をロールバックする。
+        """会計と明細、既存決済用の注文金額の登録後に失敗するとすべてロールバックする。
 
         Args:
             client_with_db: MySQLに接続するHTTPクライアント。
@@ -184,7 +294,7 @@ class TestCreateCheckout:
         checkout_ids = []
 
         def _write_then_fail(repository, *args, **kwargs):
-            """会計と対象注文をDBに書き込んだ後で例外を発生させる。"""
+            """会計とその明細をDBに書き込んだ後で例外を発生させる。"""
             checkout_ids.append(create_checkout(repository, *args, **kwargs))
             raise RuntimeError("checkout failed after flush")
 
@@ -195,3 +305,4 @@ class TestCreateCheckout:
         checkout_id, = checkout_ids
         assert mysql_session.get(MenuCheckout, checkout_id) is None
         assert mysql_session.get(MenuCheckoutOrder, (checkout_id, 903001)) is None
+        assert mysql_session.get(MenuCheckoutItem, (checkout_id, 907001)) is None

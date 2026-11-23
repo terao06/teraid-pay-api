@@ -16,18 +16,25 @@ from app.core.exceptions.custom_exception import (
     VisitSessionNotFoundException,
 )
 from app.core.exceptions.message import (
+    DEVICE_CHECKOUT_ITEM_UNAVAILABLE_ERROR,
     DEVICE_CHECKOUT_MIXED_TOKEN_ERROR,
     DEVICE_CHECKOUT_NO_UNPAID_ORDER_ERROR,
     DEVICE_CHECKOUT_PROCESSING_ERROR,
 )
 from app.models.mysql.menu_checkout import CheckoutScope, MenuCheckout
+from app.models.mysql.menu_checkout_item import MenuCheckoutItem
 from app.models.mysql.menu_order import MenuOrder, OrderStatus
 from app.models.mysql.menu_order_item import MenuOrderItem
 from app.models.mysql.menu_order_item_option import MenuOrderItemOption
 from app.models.mysql.visit_session import VisitSessionStatus
+from app.models.requests.device_checkout_create_request import (
+    DeviceCheckoutCreateRequest,
+    DeviceSelectedItemsCheckoutRequest,
+)
 from app.models.requests.device_order_create_request import DeviceOrderCreateRequest
 from app.models.responses.device_checkout_create_response import (
     DeviceCheckoutCreateResponse,
+    DeviceCheckoutItemResponse,
     DeviceCheckoutOrderResponse,
 )
 from app.models.responses.device_order_create_response import DeviceOrderCreateResponse
@@ -100,21 +107,24 @@ class DeviceOrderService:
         mysql_session: Session,
         device_uuid: str,
         visit_session_id: int,
+        request: DeviceCheckoutCreateRequest,
     ) -> DeviceCheckoutCreateResponse:
-        """来店セッションの未払い注文をすべて集計し、確認待ちの会計と明細を返す。
+        """未払い全件または指定明細で確認待ちの会計を作成する。
 
         Args:
             mysql_session: 参照と登録を同じトランザクションで行うMySQLセッション。
             device_uuid: 検証済み端末アクセストークンに含まれるUUID。
             visit_session_id: 会計を作成する来店セッションID。
+            request: 検証済みの会計対象範囲と、別会計の場合は指定明細と数量。
 
         Returns:
-            会計ID、対象の注文と明細、合計金額、トークンシンボル。
+            会計ID、対象明細と数量、金額、トークンシンボル。
 
         Raises:
             UnauthorizedException: 端末が利用できない場合。
             VisitSessionNotFoundException: 端末自身の進行中のセッションが見つからない場合。
-            DeviceCheckoutConflictException: 決済処理中、未払い注文がない、または通貨が混在する場合。
+            DeviceCheckoutConflictException: 決済処理中、未払い分がない、指定明細・数量が
+                現在の未払い分と合わない、または対象の通貨が混在する場合。
             SQLAlchemyError: DB参照または登録に失敗した場合。
         """
         device = DeviceRepository().get_device_by_uuid_for_update(mysql_session, device_uuid)
@@ -131,39 +141,109 @@ class DeviceOrderService:
 
         repository = DeviceOrderRepository()
         rows = repository.get_checkout_orders(mysql_session, device.store_id, visit_session_id)
-        if not rows:
-            raise DeviceCheckoutConflictException(DEVICE_CHECKOUT_NO_UNPAID_ORDER_ERROR)
+        details = self._group_checkout_order_details(rows)
+        paid_quantities = repository.get_paid_checkout_quantities(mysql_session, visit_session_id)
+        requested = (
+            {item.menu_order_item_id: item.quantity for item in request.items}
+            if isinstance(request, DeviceSelectedItemsCheckoutRequest)
+            else None
+        )
 
-        details = self._group_order_details(rows)
-        orders = [order for order, _ in details.values()]
-        token_symbol = orders[0].token_symbol
-        if any(order.token_symbol != token_symbol for order in orders):
+        checkout_items: list[MenuCheckoutItem] = []
+        order_amounts: dict[int, Decimal] = {}
+        response_orders: list[DeviceCheckoutOrderResponse] = []
+        tokens: set[str] = set()
+        for order, lines in details.values():
+            order_items: list[DeviceCheckoutItemResponse] = []
+            order_amount = Decimal("0")
+            for item, options in lines.values():
+                item_id = item.menu_order_item_id
+                unpaid = item.quantity - paid_quantities.get(item_id, 0)
+                quantity = unpaid if requested is None else requested.pop(item_id, 0)
+                if quantity <= 0:
+                    continue
+                if quantity > unpaid:
+                    raise DeviceCheckoutConflictException(DEVICE_CHECKOUT_ITEM_UNAVAILABLE_ERROR)
+
+                option_amount = sum(option.additional_price * option.option_quantity for option in options)
+                line_amount = (item.unit_price + option_amount) * quantity
+                order_amount += line_amount
+                checkout_items.append(
+                    MenuCheckoutItem(menu_order_item_id=item_id, quantity=quantity, line_amount=line_amount)
+                )
+                order_items.append(
+                    DeviceCheckoutItemResponse(
+                        menu_order_item_id=item_id,
+                        menu_item_name=item.menu_item_name,
+                        unit_price=f"{item.unit_price:.6f}",
+                        quantity=quantity,
+                        line_amount=f"{line_amount:.6f}",
+                        options=self._to_checkout_option_responses(options),
+                    )
+                )
+            if order_items:
+                tokens.add(order.token_symbol)
+                order_amounts[order.menu_order_id] = order_amount
+                response_orders.append(
+                    DeviceCheckoutOrderResponse(
+                        menu_order_id=order.menu_order_id, total_amount=f"{order_amount:.6f}", items=order_items,
+                    )
+                )
+
+        if requested:
+            raise DeviceCheckoutConflictException(DEVICE_CHECKOUT_ITEM_UNAVAILABLE_ERROR)
+        if not response_orders:
+            raise DeviceCheckoutConflictException(DEVICE_CHECKOUT_NO_UNPAID_ORDER_ERROR)
+        if len(tokens) != 1:
             raise DeviceCheckoutConflictException(DEVICE_CHECKOUT_MIXED_TOKEN_ERROR)
 
-        total_amount = sum((order.total_amount for order in orders), Decimal("0"))
+        token_symbol = tokens.pop()
+        total_amount = sum(order_amounts.values(), Decimal("0"))
         checkout_id = repository.create_checkout(
             mysql_session,
             MenuCheckout(
                 visit_session_id=visit_session_id,
-                scope=CheckoutScope.ALL_UNPAID,
+                scope=CheckoutScope(request.scope),
                 total_amount=total_amount,
                 token_symbol=token_symbol,
             ),
-            orders,
+            checkout_items,
+            order_amounts,
         )
         return DeviceCheckoutCreateResponse(
             checkout_id=checkout_id,
-            orders=[
-                DeviceCheckoutOrderResponse(
-                    menu_order_id=order.menu_order_id,
-                    total_amount=f"{order.total_amount:.6f}",
-                    items=items,
-                )
-                for order, items in details.values()
-            ],
+            orders=response_orders,
             total_amount=f"{total_amount:.6f}",
             token_symbol=token_symbol,
         )
+
+    @staticmethod
+    def _group_checkout_order_details(
+        rows: Iterable[tuple[MenuOrder, MenuOrderItem | None, MenuOrderItemOption | None]],
+    ) -> dict[int, tuple[MenuOrder, dict[int, _OrderLine]]]:
+        """会計候補の結合行を注文IDと注文明細IDでまとめ、オプションを集約する。"""
+        orders: dict[int, tuple[MenuOrder, dict[int, _OrderLine]]] = {}
+        for order, item, option in rows:
+            if item is None:
+                continue
+            _, lines = orders.setdefault(order.menu_order_id, (order, {}))
+            _, options = lines.setdefault(item.menu_order_item_id, (item, []))
+            if option is not None:
+                options.append(option)
+        return orders
+
+    @staticmethod
+    def _to_checkout_option_responses(options: list[MenuOrderItemOption]) -> list[DeviceOrderHistoryOptionResponse]:
+        """明細に保存したオプション名・単価・商品1個当たりの数量をレスポンスに変換する。"""
+        return [
+            DeviceOrderHistoryOptionResponse(
+                option_group_name=option.option_group_name,
+                option_name=option.option_name,
+                additional_price=f"{option.additional_price:.6f}",
+                option_quantity=option.option_quantity,
+            )
+            for option in options
+        ]
 
     def create_order(
         self,

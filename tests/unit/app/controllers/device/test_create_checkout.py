@@ -14,12 +14,16 @@ from app.core.exceptions.custom_exception import (
     VisitSessionNotFoundException,
 )
 from app.core.exceptions.message import DEVICE_CHECKOUT_PROCESSING_ERROR
+from app.models.requests.device_checkout_create_request import DeviceSelectedItemsCheckoutRequest
 from app.models.responses.device_checkout_create_response import DeviceCheckoutCreateResponse
 
 
 REQUEST_ARGS = {
     "device_uuid": "90100100-0000-4000-8000-000000901001",
     "visit_session_id": 902001,
+    "request": DeviceSelectedItemsCheckoutRequest(
+        scope="selected_items", items=[{"menu_order_item_id": 907001, "quantity": 1}],
+    ),
 }
 
 

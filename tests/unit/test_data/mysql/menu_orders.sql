@@ -52,7 +52,8 @@ INSERT INTO menu_orders (
     (903007, 'checkout-mixed-other', 902005, 9101, 300.000000, 'OTHER', 1, NULL, '2026-11-21 02:30:00', NULL),
     (903008, 'checkout-canceled', 902001, 9101, 300.000000, 'JPYC', 5, NULL, '2026-11-21 02:30:00', NULL),
     (903009, 'checkout-order-processing', 902001, 9101, 300.000000, 'JPYC', 2, NULL, '2026-11-21 02:30:00', NULL),
-    (903010, 'checkout-paid-at', 902001, 9101, 300.000000, 'JPYC', 1, NOW(), '2026-11-21 02:30:00', NULL);
+    (903010, 'checkout-paid-at', 902001, 9101, 300.000000, 'JPYC', 1, NOW(), '2026-11-21 02:30:00', NULL),
+    (903011, 'checkout-partial-order', 902006, 9101, 2900.000000, 'JPYC', 1, NULL, '2026-11-21 04:00:00', NULL);
 
 -- fixture: face_checkout_payment
 INSERT INTO menu_orders (
