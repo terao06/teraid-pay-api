@@ -269,7 +269,7 @@ def insert_device_order_history_data(engine: Engine) -> tuple[str, ...]:
 
 
 def insert_device_checkout_data(engine: Engine) -> tuple[str, ...]:
-    """会計作成の専用店舗・注文・保存済み明細を依存順に投入する。
+    """会計作成の専用店舗、注文、会計とそれぞれの明細を依存順に投入する。
 
     Args:
         engine: 初期化済みのテスト用MySQL Engine。
@@ -287,6 +287,8 @@ def insert_device_checkout_data(engine: Engine) -> tuple[str, ...]:
         "menu_orders.sql",
         "menu_order_items.sql",
         "menu_order_item_options.sql",
+        "menu_checkouts.sql",
+        "menu_checkout_items.sql",
     )
     return tuple(_execute_sql_file(engine, sql_file, "device_checkout") for sql_file in sql_files)
 

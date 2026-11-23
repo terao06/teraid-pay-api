@@ -1,4 +1,11 @@
--- 顔認証決済開始の会計スナップショット。
+-- 会計作成と顔認証決済で使う会計の保存データ。
+
+-- fixture: device_checkout
+INSERT INTO menu_checkouts (checkout_id, visit_session_id, scope, status, total_amount, token_symbol) VALUES
+    (909001, 902006, 'selected_items', 'paid', 950.000000, 'JPYC'),
+    (909002, 902006, 'selected_items', 'paid', 650.000000, 'JPYC'),
+    (909003, 902006, 'selected_items', 'pending_confirmation', 650.000000, 'JPYC'),
+    (909004, 902006, 'selected_items', 'failed', 650.000000, 'JPYC');
 
 -- fixture: face_checkout_payment
 INSERT INTO menu_checkouts (checkout_id, visit_session_id, scope, total_amount, token_symbol) VALUES

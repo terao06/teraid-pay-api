@@ -403,8 +403,8 @@ paths:
       tags: [Device]
       summary: 会計作成
       description: >-
-        認証済み端末の受付中の来店セッションについて、未払い注文の全件を
-        確認待ちの会計として登録し、保存済みの明細と合計金額を返す。
+        支払い方法と対象範囲を確定した端末が、受付中の来店セッションの会計を作成する。
+        まとめ払いは未払い全件、別会計は指定明細と数量を対象とし、対象明細と合計金額を返す。
       operationId: createDeviceCheckout
       security:
         - DeviceBearerAuth: []
@@ -424,10 +424,19 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/DeviceCheckoutCreateRequest'
-            example: {scope: all_unpaid}
+            examples:
+              allUnpaid:
+                summary: 未払い全件
+                value: {scope: all_unpaid}
+              selectedItems:
+                summary: 別会計
+                value:
+                  scope: selected_items
+                  items:
+                    - {menu_order_item_id: 457, quantity: 1}
       responses:
         '201':
-          description: 確認待ちの会計と対象注文を登録した
+          description: 確認待ちの会計と対象明細・数量・金額を登録した
           headers:
             Cache-Control:
               $ref: '#/components/headers/VisitSessionCacheControl'
@@ -453,13 +462,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: セッションは決済処理中、対象の未払い注文がない、または対象注文の通貨が一致しない
+          description: >-
+            セッションは決済処理中、対象の未払い明細がない、
+            指定明細や数量が現在の未払い分と合わない、または対象明細の通貨が一致しない
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
-          description: 来店セッションIDまたはJSONが不正
+          description: 来店セッションID、JSONの項目・型・範囲、または明細IDの重複が不正
           content:
             application/json:
               schema:
@@ -967,14 +978,52 @@ components:
           example: JPYC
 
     DeviceCheckoutCreateRequest:
+      oneOf:
+        - $ref: '#/components/schemas/DeviceAllUnpaidCheckoutRequest'
+        - $ref: '#/components/schemas/DeviceSelectedItemsCheckoutRequest'
+      discriminator:
+        propertyName: scope
+        mapping:
+          all_unpaid: '#/components/schemas/DeviceAllUnpaidCheckoutRequest'
+          selected_items: '#/components/schemas/DeviceSelectedItemsCheckoutRequest'
+    DeviceAllUnpaidCheckoutRequest:
       type: object
       additionalProperties: false
       required: [scope]
       properties:
         scope:
           type: string
-          description: 既存端末との互換性のための固定値。
           enum: [all_unpaid]
+    DeviceSelectedItemsCheckoutRequest:
+      type: object
+      additionalProperties: false
+      required: [scope, items]
+      properties:
+        scope:
+          type: string
+          enum: [selected_items]
+        items:
+          type: array
+          minItems: 1
+          description: 対象明細の一覧。同じ注文明細IDは一度だけ指定できる。
+          items:
+            $ref: '#/components/schemas/DeviceCheckoutItemRequest'
+    DeviceCheckoutItemRequest:
+      type: object
+      additionalProperties: false
+      required: [menu_order_item_id, quantity]
+      properties:
+        menu_order_item_id:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9223372036854775807
+        quantity:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 4294967295
+          description: この会計で支払う数量。
     DeviceFacePaymentRequest:
       type: object
       required: [content]
@@ -1045,12 +1094,28 @@ components:
           example: 456
         total_amount:
           type: string
-          description: 小数点以下6桁の保存済み注文合計金額。
+          description: この注文の会計対象額を表す小数点以下6桁の文字列。
           example: '1400.000000'
         items:
           type: array
           items:
-            $ref: '#/components/schemas/DeviceOrderHistoryItemResponse'
+            $ref: '#/components/schemas/DeviceCheckoutItemResponse'
+    DeviceCheckoutItemResponse:
+      allOf:
+        - $ref: '#/components/schemas/DeviceOrderHistoryItemResponse'
+        - type: object
+          required: [menu_order_item_id]
+          properties:
+            menu_order_item_id:
+              type: integer
+              format: int64
+              example: 457
+            quantity:
+              type: integer
+              description: この会計で支払う数量。
+            line_amount:
+              type: string
+              description: オプション料金を含む対象数量分の金額。小数点以下6桁の文字列。
 
     DeviceOrderHistoryResponse:
       type: object
