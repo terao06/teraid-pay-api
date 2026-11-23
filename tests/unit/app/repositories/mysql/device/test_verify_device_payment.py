@@ -88,8 +88,8 @@ class TestVerifyDevicePayment:
                 assert competing.scalar(competing_query) == payment_id
                 competing.rollback()
 
-    def test_gets_and_locks_snapshot_orders_and_can_update_them_together(self, mysql_engine) -> None:
-        """対象注文の保存額を読み取り、排他ロック下で一括更新する。
+    def test_gets_and_locks_checkout_orders_and_can_update_them_together(self, mysql_engine) -> None:
+        """会計明細から対象注文を取得し、排他ロック下で一括更新する。
 
         Args:
             mysql_engine: 独立したトランザクションを開くMySQL Engine。
@@ -104,17 +104,15 @@ class TestVerifyDevicePayment:
             .with_for_update(nowait=True)
         )
         with Session(mysql_engine) as locking, Session(mysql_engine) as competing:
-            rows = repository.get_checkout_orders_for_update(locking, 914001)
-            assert {order.menu_order_id: amount for order, amount in rows} == {
-                913001: Decimal("1200.125000"),
-                913002: Decimal("300.250000"),
-            }
+            orders = repository.get_checkout_orders_for_update(locking, 914001)
+            assert {order.menu_order_id for order in orders} == {913001, 913002}
+            assert repository.get_checkout_orders_for_update(locking, 914005) == []
             with pytest.raises(OperationalError) as locked:
                 competing.scalar(competing_query)
             assert locked.value.orig.args[0] == 3572
             competing.rollback()
 
-            order_ids = [order.menu_order_id for order, _ in rows]
+            order_ids = [order.menu_order_id for order in orders]
             assert repository.mark_checkout_orders_paid(locking, order_ids) == 2
             locking.expire_all()
             for order_id in order_ids:
@@ -126,3 +124,18 @@ class TestVerifyDevicePayment:
             assert competing.scalar(competing_query) == 913001
             for order_id in order_ids:
                 assert competing.get(MenuOrder, order_id).paid_at is None
+
+    def test_reads_all_items_of_checkout_orders(self, mysql_session: Session) -> None:
+        """会計に未選択の兄弟明細も含めて注文時の数量を取得する。
+
+        Args:
+            mysql_session: 実MySQLのテスト用セッション。
+
+        Returns:
+            なし。
+        """
+        repository = DevicePaymentRepository()
+        orders = repository.get_checkout_orders_for_update(mysql_session, 914026)
+        assert [order.menu_order_id for order in orders] == [913026]
+        items = repository.get_order_items(mysql_session, [913026])
+        assert {item.menu_order_item_id: item.quantity for item in items} == {915026: 2, 915027: 1}

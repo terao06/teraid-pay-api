@@ -28,7 +28,10 @@ INSERT INTO menu_checkouts (checkout_id, visit_session_id, scope, total_amount, 
     (914022, 912022, 'all_unpaid', 100.125000, 'JPYC'),
     (914023, 912023, 'all_unpaid', 100.125000, 'JPYC'),
     (914024, 912024, 'all_unpaid', 100.125000, 'JPYC'),
-    (914025, 912024, 'all_unpaid', 100.125000, 'JPYC');
+    (914025, 912024, 'all_unpaid', 100.125000, 'JPYC'),
+    (914026, 912026, 'selected_items', 100.125000, 'JPYC'),
+    (914027, 912026, 'selected_items', 100.125000, 'JPYC'),
+    (914028, 912026, 'selected_items', 100.125000, 'JPYC');
 
 UPDATE menu_checkouts SET status = 'paid' WHERE checkout_id = 914010;
 UPDATE menu_checkouts SET status = 'failed' WHERE checkout_id = 914011;
